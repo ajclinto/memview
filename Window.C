@@ -1,10 +1,9 @@
 #include "Window.h"
 #include "MemoryState.h"
 
-static const QSize	theImageSize(400, 400);
+static const QSize	theDefaultSize(800, 600);
 
 Window::Window()
-    : myImage(theImageSize, QImage::Format_ARGB32_Premultiplied)
 {
     myQuit = new QAction(tr("&Quit"), this);
 
@@ -14,25 +13,16 @@ Window::Window()
     myFileMenu->addSeparator();
     myFileMenu->addAction(myQuit);
 
-    myTimer = new QTimer;
-    connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
+    myMemView = new MemViewWidget;
+    setCentralWidget(myMemView);
 
-    myLabel = new QLabel(tr("Image"));
-    myLabel->setPixmap(QPixmap::fromImage(myImage));
+    setWindowTitle("Memview");
 
-    setCentralWidget(myLabel);
-
-    setWindowTitle("Bitmap");
-
-    myState = new MemoryState;
-    myState->openPipe("/home/andrew/projects/sorts/shell/shell");
-
-    myTimer->start(100);
+    resize(theDefaultSize);
 }
 
 Window::~Window()
 {
-    delete myState;
 }
 
 void
@@ -47,13 +37,51 @@ Window::quit()
 	qApp->quit();
 }
 
-void
-Window::tick()
+//
+// MemViewWidget
+//
+
+MemViewWidget::MemViewWidget()
+    : myImage(theDefaultSize, QImage::Format_ARGB32_Premultiplied)
 {
+    myTimer = new QTimer;
+    connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
+
+    myState = new MemoryState;
+    myState->openPipe("/home/andrew/projects/sorts/shell/shell");
+
+    myTimer->start(100);
+}
+
+MemViewWidget::~MemViewWidget()
+{
+    delete myState;
+}
+
+void
+MemViewWidget::paintEvent(QPaintEvent *)
+{
+    QPainter	painter(this);
     if (myState->loadFromPipe(10000))
     {
 	myState->fillImage(myImage);
-	myLabel->setPixmap(QPixmap::fromImage(myImage));
+	painter.drawPixmap(QPoint(), QPixmap::fromImage(myImage));
     }
+}
+
+void
+MemViewWidget::resizeEvent(QResizeEvent *)
+{
+    if (size() != myImage.size())
+    {
+	myImage = QImage(size(), QImage::Format_ARGB32_Premultiplied);
+	update();
+    }
+}
+
+void
+MemViewWidget::tick()
+{
+    update();
 }
 

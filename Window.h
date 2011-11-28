@@ -3,6 +3,7 @@
 #include <QtGui>
 
 class MemoryState;
+class MemViewWidget;
 
 class Window : public QMainWindow {
     Q_OBJECT
@@ -13,13 +14,30 @@ public:
 
 private slots:
     void    quit();
+
+private:
+    QAction		*myQuit;
+    QMenu		*myFileMenu;
+    MemViewWidget	*myMemView;
+};
+
+// A widget to render the memory visualization.
+class MemViewWidget : public QWidget {
+    Q_OBJECT
+
+public:
+	     MemViewWidget();
+    virtual ~MemViewWidget();
+
+protected:
+    void	paintEvent(QPaintEvent *event);
+    void	resizeEvent(QResizeEvent *event);
+
+private slots:
     void    tick();
 
 private:
     QImage	 myImage;
-    QLabel	*myLabel;
-    QAction	*myQuit;
-    QMenu	*myFileMenu;
     QTimer	*myTimer;
 
     MemoryState	*myState;

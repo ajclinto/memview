@@ -72,9 +72,11 @@ private:
 		    return clr | (clr<<8) | (clr<<16) | 0xff000000;
 		}
 
+    // Raw memory state
     State	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
 
+    // Child process
     pid_t	 myChild;
     FILE	*myPipe;
 };

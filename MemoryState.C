@@ -145,34 +145,18 @@ putNextPixel(QRgb *&data, int &r, int &c, QImage &image, uint32 val)
     return true;
 }
 
-static inline bool
-putPrevPixel(QRgb *&data, int &r, int &c, QImage &image, uint32 val)
-{
-    data[c--] = val;
-    if (c < 0)
-    {
-	r--;
-	if (r < 0)
-	    return false;
-	data = (QRgb *)image.scanLine(r);
-	c = image.width();
-    }
-    return true;
-}
-
 void
 MemoryState::fillImage(QImage &image) const
 {
     int		 r = 0;
     int		 c = 0;
-    const int	 theStackBoundary = theTopSize/2;
+    int		 empty_count = 0;
     QRgb	*data = (QRgb *)image.scanLine(r);
-    bool	 lastvalid = false;
 
-    image.fill(theWhite);
+    image.fill(theBlack);
 
     // Assume that the stack occupies the top half of memory
-    for (int i = 0; i < theStackBoundary; i++)
+    for (int i = 0; i < theTopSize; i++)
     {
 	if (myTable[i])
 	{
@@ -180,44 +164,26 @@ MemoryState::fillImage(QImage &image) const
 	    {
 		if (myTable[i][j])
 		{
+		    if (empty_count >= image.width())
+		    {
+			// Put a blank line
+			r++;
+			c = 0;
+			if (r >= image.height())
+			    return;
+		    }
+		    empty_count = 0;
 		    if (!putNextPixel(data, r, c, image,
 				mapColor(myTable[i][j])))
 			return;
 		}
-	    }
-	    lastvalid = true;
-	}
-	else if (lastvalid)
-	{
-	    if (!putNextPixel(data, r, c, image, theBlack))
-		return;
-	    lastvalid = false;
-	}
-    }
-
-    lastvalid = false;
-    r = image.height()-1;
-    c = image.width()-1;
-    for (int i = theTopSize-1; i >= theStackBoundary; i--)
-    {
-	if (myTable[i])
-	{
-	    for (int j = theBottomSize-1; j >= 0; j--)
-	    {
-		if (myTable[i][j])
+		else if (empty_count < image.width())
 		{
-		    if (!putPrevPixel(data, r, c, image,
-				mapColor(myTable[i][j])))
+		    if (!putNextPixel(data, r, c, image, theBlack))
 			return;
+		    empty_count++;
 		}
 	    }
-	    lastvalid = true;
-	}
-	else if (lastvalid)
-	{
-	    if (!putPrevPixel(data, r, c, image, theBlack))
-		return;
-	    lastvalid = false;
 	}
     }
 }
