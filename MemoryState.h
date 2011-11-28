@@ -68,13 +68,15 @@ private:
 		    else
 			clr += ~(diff >> (28-bits)) & 7;
 
-		    // Greyscale
-		    return clr | (clr<<8) | (clr<<16) | 0xff000000;
+		    return myLut[clr];
 		}
 
     // Raw memory state
     State	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
+
+    // Display LUT
+    uint32	 myLut[256];
 
     // Child process
     pid_t	 myChild;

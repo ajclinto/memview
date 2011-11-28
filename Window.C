@@ -50,7 +50,7 @@ MemViewWidget::MemViewWidget()
     myState = new MemoryState;
     myState->openPipe("/home/andrew/projects/sorts/shell/shell");
 
-    myTimer->start(100);
+    myTimer->start(30);
 }
 
 MemViewWidget::~MemViewWidget()
@@ -62,11 +62,15 @@ void
 MemViewWidget::paintEvent(QPaintEvent *)
 {
     QPainter	painter(this);
-    if (myState->loadFromPipe(10000))
-    {
-	myState->fillImage(myImage);
-	painter.drawPixmap(QPoint(), QPixmap::fromImage(myImage));
-    }
+
+    // If we failed to load from the pipe, the proces has terminated - so
+    // there's no need to continue providing real time updates.
+    if (!myState->loadFromPipe(10000))
+	myTimer->stop();
+
+    myState->fillImage(myImage);
+
+    painter.drawPixmap(QPoint(), QPixmap::fromImage(myImage));
 }
 
 void

@@ -6,6 +6,20 @@ MemoryState::MemoryState()
     , myPipe(0)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
+
+#if 0
+    // Greyscale
+    for (uint32 i = 0; i < 256; i++)
+	myLut[i] = i | (i<<8) | (i<<16) | 0xFF000000;
+#else
+    // Green to blue
+    for (uint32 i = 0; i < 256; i++)
+    {
+	myLut[i] = (255-i) | ((i>>2)<<16) | 0xFF000000;
+	if (i >= 128)
+	    myLut[i] |= (i-128)<<9;
+    }
+#endif
 }
 
 MemoryState::~MemoryState()
