@@ -11,13 +11,17 @@ inline uint32 SYSmax(uint32 a, uint32 b)
 {
     return a > b ? a : b;
 }
+inline uint32 SYSmin(uint32 a, uint32 b)
+{
+    return a < b ? a : b;
+}
 
 class MemoryState {
 public:
      MemoryState();
     ~MemoryState();
 
-    bool	openPipe(const char *command);
+    bool	openPipe(int argc, char *argv[]);
     bool	loadFromPipe(int max_read);
     void	fillImage(QImage &image) const;
 
@@ -59,9 +63,14 @@ private:
 
     uint32	mapColor(State val) const
 		{
-		    int	diff = myTime - val + 1;
-		    int bits = __builtin_clz(diff);
-		    int	clr = bits*8;
+		    uint32	diff;
+		    if (myTime >= val)
+			diff = myTime - val + 1;
+		    else
+			diff = val - myTime + 1;
+
+		    uint32	bits = __builtin_clz(diff);
+		    uint32	clr = bits*8;
 
 		    if (bits > 28)
 			clr += ~(diff << (bits-28)) & 7;

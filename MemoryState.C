@@ -16,8 +16,8 @@ MemoryState::MemoryState()
     for (uint32 i = 0; i < 256; i++)
     {
 	myLut[i] = (255-i) | ((i>>2)<<16) | 0xFF000000;
-	if (i >= 128)
-	    myLut[i] |= (i-128)<<9;
+	if (i >= 100)
+	    myLut[i] |= SYSmin(i-100, 127)<<9;
     }
 #endif
 }
@@ -38,7 +38,7 @@ MemoryState::~MemoryState()
 }
 
 bool
-MemoryState::openPipe(const char *command)
+MemoryState::openPipe(int argc, char *argv[])
 {
     int		 fd[2];
 
@@ -63,9 +63,21 @@ MemoryState::openPipe(const char *command)
 	// Copy stderr to the output of the pipe
 	dup2(fd[1], 2);
 
-	execlp("valgrind", "valgrind",
-		"--tool=lackey", "--trace-mem=yes",
-		command, "10000", "100", NULL);
+	static const int	 theMaxArgs = 256;
+	const char		*args[theMaxArgs];
+
+	args[0] = "valgrind";
+	args[1] = "--tool=lackey";
+	args[2] = "--trace-mem=yes";
+	for (int i = 0; i < argc; i++)
+	    args[i+3] = argv[i];
+	args[argc+3] = NULL;
+
+	if (execvp("valgrind", (char * const *)args) == -1)
+	{
+	    perror("exec failed");
+	    return false;
+	}
 	// Unreachable
     }
 
@@ -133,6 +145,10 @@ MemoryState::loadFromPipe(int max_read)
 	for (int i = 0; i < size; i++)
 	    setEntry((uint32)addr+i, myTime);
 	myTime++;
+
+	// The time wrapped
+	if (myTime == 0)
+	    myTime = 1;
     }
 
     if (buf)

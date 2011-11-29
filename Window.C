@@ -3,7 +3,7 @@
 
 static const QSize	theDefaultSize(800, 600);
 
-Window::Window()
+Window::Window(int argc, char *argv[])
 {
     myQuit = new QAction(tr("&Quit"), this);
 
@@ -13,7 +13,7 @@ Window::Window()
     myFileMenu->addSeparator();
     myFileMenu->addAction(myQuit);
 
-    myMemView = new MemViewWidget;
+    myMemView = new MemViewWidget(argc, argv);
     setCentralWidget(myMemView);
 
     setWindowTitle("Memview");
@@ -41,14 +41,14 @@ Window::quit()
 // MemViewWidget
 //
 
-MemViewWidget::MemViewWidget()
+MemViewWidget::MemViewWidget(int argc, char *argv[])
     : myImage(theDefaultSize, QImage::Format_ARGB32_Premultiplied)
 {
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
 
     myState = new MemoryState;
-    myState->openPipe("/home/andrew/projects/sorts/shell/shell");
+    myState->openPipe(argc, argv);
 
     myTimer->start(30);
 }

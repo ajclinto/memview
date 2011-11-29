@@ -9,7 +9,7 @@ class Window : public QMainWindow {
     Q_OBJECT
 
 public:
-	     Window();
+	     Window(int argc, char *argv[]);
     virtual ~Window();
 
 private slots:
@@ -26,7 +26,7 @@ class MemViewWidget : public QWidget {
     Q_OBJECT
 
 public:
-	     MemViewWidget();
+	     MemViewWidget(int argc, char *argv[]);
     virtual ~MemViewWidget();
 
 protected:
