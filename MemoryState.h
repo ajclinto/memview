@@ -33,6 +33,9 @@ public:
     void	fillImage(QImage &image) const;
 
 private:
+    void	fillLinear(QImage &image) const;
+    void	fillRecursiveBlock(QImage &image) const;
+
     typedef uint32	State;
 
     static const int	theTopBytes = 16;
@@ -43,8 +46,16 @@ private:
     static const uint32	theBottomSize = 1 << theBottomBytes;
     static const uint32	theBottomMask = theBottomSize-1;
 
-    void	fillLinear(QImage &image) const;
-    void	fillRecursiveBlock(QImage &image) const;
+    struct StateArray {
+	StateArray()
+	{
+	    memset(myState, 0, theBottomSize*sizeof(State));
+	    memset(myType, 0, theBottomSize*sizeof(char));
+	}
+
+	State	myState[theBottomSize];
+	char	myType[theBottomSize];
+    };
 
     int		topIndex(uint32 addr) const
 		{ return (addr >> (32-theTopBytes)) & theTopMask; }
@@ -53,23 +64,25 @@ private:
 
     State	getEntry(uint32 addr) const
 		{
-		    State	*row = myTable[topIndex(addr)];
-		    return row ? row[bottomIndex(addr)] : 0;
+		    StateArray	*row = myTable[topIndex(addr)];
+		    return row ? row->myState[bottomIndex(addr)] : 0;
 		}
-    void	setEntry(uint32 addr, State val)
+    void	setEntry(uint32 addr, State val, char type)
 		{
-		    State	*&row = myTable[topIndex(addr)];
+		    StateArray	*&row = myTable[topIndex(addr)];
+		    int		  idx = bottomIndex(addr);
 		    if (!row)
-		    {
-			row = new State[theBottomSize];
-			memset(row, 0, theBottomSize*sizeof(State));
-		    }
-		    row[bottomIndex(addr)] = val;
+			row = new StateArray;
+		    row->myState[idx] = val;
+		    row->myType[idx] = type;
 		}
 
-    uint32	mapColor(State val) const
+    uint32	mapColor(StateArray *row, int j) const
 		{
+		    State	val = row->myState[j];
+		    char	type = row->myType[j];
 		    uint32	diff;
+
 		    if (myTime >= val)
 			diff = myTime - val + 1;
 		    else
@@ -83,16 +96,19 @@ private:
 		    else
 			clr += ~(diff >> (28-bits)) & 7;
 
-		    return myLut[clr];
+		    return type == 'I' ? myILut[clr] :
+			(type == 'L' ? myRLut[clr] : myWLut[clr]);
 		}
 
 private:
     // Raw memory state
-    State	*myTable[theTopSize];
+    StateArray	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
 
     // Display LUT
-    uint32	 myLut[256];
+    uint32	 myILut[256];
+    uint32	 myRLut[256];
+    uint32	 myWLut[256];
 
     // Child process
     pid_t	 myChild;

@@ -14,7 +14,7 @@ Window::Window(int argc, char *argv[])
     myFileMenu->addAction(myQuit);
 
     myLinear = new QAction(tr("&Linear"), this);
-    myRecursiveBlock = new QAction(tr("&RecursiveBlock"), this);
+    myRecursiveBlock = new QAction(tr("&Recursive Block"), this);
 
     myVisualizationMenu = menuBar()->addMenu(tr("&Visualization"));
     myVisualizationMenu->addAction(myLinear);
@@ -72,12 +72,14 @@ void
 MemViewWidget::linear()
 {
     myState->setVisualization(MemoryState::LINEAR);
+    update();
 }
 
 void
 MemViewWidget::block()
 {
     myState->setVisualization(MemoryState::BLOCK);
+    update();
 }
 
 void

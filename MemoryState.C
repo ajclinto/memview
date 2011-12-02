@@ -2,6 +2,29 @@
 #include "StopWatch.h"
 #include <assert.h>
 
+static void
+fillLut(uint32 *lut, int flip)
+{
+    for (uint32 i = 0; i < 256; i++)
+    {
+	uint32	rgb[3];
+
+	// Green to blue with flip=0
+	rgb[0] = (255-i);
+	rgb[1] = i >= 100 ? SYSmin(i-100, 127)<<1 : 0;
+	rgb[2] = i>>2;
+
+	if (flip & 1) std::swap(rgb[0], rgb[1]);
+	if (flip & 2) std::swap(rgb[1], rgb[2]);
+	if (flip & 4) std::swap(rgb[0], rgb[2]);
+
+	lut[i] = 0xFF000000 | rgb[0] | (rgb[1]<<8) | (rgb[2]<<16);
+
+	// Greyscale
+	//lut[i] = i | (i<<8) | (i<<16) | 0xFF000000;
+    }
+}
+
 MemoryState::MemoryState()
     : myTime(1)
     , myChild(-1)
@@ -11,19 +34,9 @@ MemoryState::MemoryState()
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 
-#if 0
-    // Greyscale
-    for (uint32 i = 0; i < 256; i++)
-	myLut[i] = i | (i<<8) | (i<<16) | 0xFF000000;
-#else
-    // Green to blue
-    for (uint32 i = 0; i < 256; i++)
-    {
-	myLut[i] = (255-i) | ((i>>2)<<16) | 0xFF000000;
-	if (i >= 100)
-	    myLut[i] |= SYSmin(i-100, 127)<<9;
-    }
-#endif
+    fillLut(myILut, 4);
+    fillLut(myRLut, 0);
+    fillLut(myWLut, 7);
 }
 
 MemoryState::~MemoryState()
@@ -159,7 +172,7 @@ MemoryState::loadFromPipe(int max_read)
 	size >>= myIgnoreBits;
 	size = SYSmax(size, 1);
 	for (int i = 0; i < size; i++)
-	    setEntry((uint32)addr+i, myTime);
+	    setEntry((uint32)addr+i, myTime, type);
 	myTime++;
 
 	// The time wrapped
@@ -213,7 +226,7 @@ MemoryState::fillLinear(QImage &image) const
 	{
 	    for (uint32 j = 0; j < theBottomSize; j++)
 	    {
-		if (myTable[i][j])
+		if (myTable[i]->myState[j])
 		{
 		    if (empty_count >= image.width())
 		    {
@@ -236,7 +249,7 @@ MemoryState::fillLinear(QImage &image) const
 
 		    empty_count = 0;
 		    if (!putNextPixel(r, c, image,
-				mapColor(myTable[i][j])))
+				mapColor(myTable[i], j)))
 			return;
 		}
 		else
@@ -358,7 +371,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 	{
 	    for (uint32 j = 0; j < theBottomSize; j++)
 	    {
-		if (myTable[i][j])
+		if (myTable[i]->myState[j])
 		{
 		    if (empty_count >= image.width())
 		    {
@@ -376,7 +389,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 		    }
 
 		    empty_count = 0;
-		    pending.push_back(mapColor(myTable[i][j]));
+		    pending.push_back(mapColor(myTable[i], j));
 		}
 		else
 		{
