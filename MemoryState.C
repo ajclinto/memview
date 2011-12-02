@@ -1,11 +1,13 @@
 #include "MemoryState.h"
 #include "StopWatch.h"
+#include <assert.h>
 
 MemoryState::MemoryState()
     : myTime(1)
     , myChild(-1)
     , myPipe(0)
     , myIgnoreBits(2)
+    , myVisualization(BLOCK)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 
@@ -174,34 +176,38 @@ MemoryState::loadFromPipe(int max_read)
 static const uint32	theWhite = 0xFFFFFFFF;
 static const uint32	theBlack = 0xFF000000;
 
-static inline bool
-putNextPixel(QRgb *&data, int &r, int &c, QImage &image, uint32 val)
+static inline void
+putPixel(int r, int c, QImage &image, uint32 val)
 {
-    data[c++] = val;
+    QRgb	*data = (QRgb *)image.scanLine(r);
+    data[c] = val;
+}
+
+static inline bool
+putNextPixel(int &r, int &c, QImage &image, uint32 val)
+{
+    putPixel(r, c, image, val);
+    c++;
     if (c >= image.width())
     {
 	r++;
 	if (r >= image.height())
 	    return false;
-	data = (QRgb *)image.scanLine(r);
 	c = 0;
     }
     return true;
 }
 
 void
-MemoryState::fillImage(QImage &image) const
+MemoryState::fillLinear(QImage &image) const
 {
     //StopWatch	 timer;
     int		 r = 0;
     int		 c = 0;
     int		 empty_count = 0;
-    QRgb	*data = (QRgb *)image.scanLine(r);
-
-    image.fill(theBlack);
 
     // Assume that the stack occupies the top half of memory
-    for (int i = 0; i < theTopSize; i++)
+    for (int i = 0; i < (int)theTopSize; i++)
     {
 	if (myTable[i])
 	{
@@ -212,24 +218,191 @@ MemoryState::fillImage(QImage &image) const
 		    if (empty_count >= image.width())
 		    {
 			// Put a blank line
-			r++;
+			r += 2;
 			c = 0;
-			if (r >= image.height())
-			    return;
 		    }
+		    else
+		    {
+			// Skip the empty pixels
+			c += empty_count;
+			if (c >= image.width())
+			{
+			    c -= image.width();
+			    r++;
+			}
+		    }
+		    if (r >= image.height())
+			return;
+
 		    empty_count = 0;
-		    if (!putNextPixel(data, r, c, image,
+		    if (!putNextPixel(r, c, image,
 				mapColor(myTable[i][j])))
 			return;
 		}
-		else if (empty_count < image.width())
+		else
 		{
-		    if (!putNextPixel(data, r, c, image, theBlack))
-			return;
 		    empty_count++;
 		}
 	    }
 	}
+    }
+}
+
+static void
+getBlockSize(int &w, int &h, int size)
+{
+    int	bits = 0;
+    int	tmp = size >> 2;
+
+    while (tmp)
+    {
+	bits++;
+	tmp >>= 2;
+    }
+
+    if (size >= (3 << (bits*2)))
+    {
+	w = (2 << bits);
+	h = (2 << bits);
+    }
+    else if (size >= (2 << (bits*2)))
+    {
+	getBlockSize(w, h, size-(2 << (bits*2)));
+	w = (2 << bits);
+	h += (1 << bits);
+    }
+    else if (size >= (1 << (bits*2)))
+    {
+	getBlockSize(w, h, size-(1 << (bits*2)));
+	w += (1 << bits);
+	h = (1 << bits);
+    }
+    else
+    {
+	w = h = 0;
+    }
+}
+
+static void
+getBlockCoord(int &r, int &c, int idx)
+{
+    int	bit = 0;
+
+    r = c = 0;
+    while (idx)
+    {
+	int	tmp = idx & 0x3;
+	if (tmp & 1)
+	    c += (1 << bit);
+	if (tmp & 2)
+	    r += (1 << bit);
+	idx >>= 2;
+	bit++;
+    }
+}
+
+static bool
+plotBlock(int &roff, int &coff, int &maxheight,
+	QImage &image, const std::vector<uint32> &data)
+{
+    // Determine the width and height of the result block
+    int	bwidth, bheight;
+
+    getBlockSize(bwidth, bheight, data.size());
+
+    // Does the block fit horizontally?
+    if (coff + bwidth > image.width())
+    {
+	roff += maxheight + 1;
+	coff = 0;
+	maxheight = bheight;
+    }
+    else
+    {
+	maxheight = SYSmax(maxheight, bheight);
+    }
+
+    if (roff > image.height())
+	return false;
+
+    // Display the block
+    for (int i = 0; i < (int)data.size(); i++)
+    {
+	int	r, c;
+	getBlockCoord(r, c, i);
+	r += roff;
+	c += coff;
+	if (r < image.height() && c < image.width())
+	    putPixel(r, c, image, data[i]);
+    }
+
+    coff += bwidth + 1;
+
+    return true;
+}
+
+void
+MemoryState::fillRecursiveBlock(QImage &image) const
+{
+    //StopWatch	 timer;
+    int		 r = 0;
+    int		 c = 0;
+    int		 maxheight = 0;
+    int		 empty_count = 0;
+    std::vector<uint32>	pending;
+
+    // Assume that the stack occupies the top half of memory
+    for (int i = 0; i < (int)theTopSize; i++)
+    {
+	if (myTable[i])
+	{
+	    for (uint32 j = 0; j < theBottomSize; j++)
+	    {
+		if (myTable[i][j])
+		{
+		    if (empty_count >= image.width())
+		    {
+			// Plot the pending block
+			if (!plotBlock(r, c, maxheight, image, pending))
+			    return;
+
+			// Reset
+			pending.resize(0);
+		    }
+		    else
+		    {
+			for (int k = 0; k < empty_count; k++)
+			    pending.push_back(theBlack);
+		    }
+
+		    empty_count = 0;
+		    pending.push_back(mapColor(myTable[i][j]));
+		}
+		else
+		{
+		    empty_count++;
+		}
+	    }
+	}
+    }
+
+    if (pending.size())
+	plotBlock(r, c, maxheight, image, pending);
+}
+
+void
+MemoryState::fillImage(QImage &image) const
+{
+    image.fill(theBlack);
+
+    switch (myVisualization)
+    {
+	case LINEAR:
+	    fillLinear(image);
+	    break;
+	case BLOCK:
+	    fillRecursiveBlock(image);
+	    break;
     }
 }
 

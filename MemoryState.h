@@ -23,6 +23,13 @@ public:
 
     bool	openPipe(int argc, char *argv[]);
     bool	loadFromPipe(int max_read);
+
+    enum Visualization {
+	LINEAR,
+	BLOCK
+    };
+    void	setVisualization(Visualization vis)
+		{ myVisualization = vis; }
     void	fillImage(QImage &image) const;
 
 private:
@@ -35,6 +42,9 @@ private:
     static const int	theBottomBytes = 32-theTopBytes;
     static const uint32	theBottomSize = 1 << theBottomBytes;
     static const uint32	theBottomMask = theBottomSize-1;
+
+    void	fillLinear(QImage &image) const;
+    void	fillRecursiveBlock(QImage &image) const;
 
     int		topIndex(uint32 addr) const
 		{ return (addr >> (32-theTopBytes)) & theTopMask; }
@@ -76,6 +86,7 @@ private:
 		    return myLut[clr];
 		}
 
+private:
     // Raw memory state
     State	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
@@ -90,6 +101,8 @@ private:
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
     int		 myIgnoreBits;
+
+    Visualization	myVisualization;
 };
 
 #endif

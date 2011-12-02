@@ -16,8 +16,13 @@ private slots:
     void    quit();
 
 private:
-    QAction		*myQuit;
     QMenu		*myFileMenu;
+    QAction		*myQuit;
+
+    QMenu		*myVisualizationMenu;
+    QAction		*myLinear;
+    QAction		*myRecursiveBlock;
+
     MemViewWidget	*myMemView;
 };
 
@@ -34,6 +39,8 @@ protected:
     void	resizeEvent(QResizeEvent *event);
 
 private slots:
+    void    linear();
+    void    block();
     void    tick();
 
 private:
