@@ -28,10 +28,6 @@ public:
 private:
     typedef uint32	State;
 
-    // The number of low-order bits to ignore.  This value determines the
-    // resolution and memory use for the profile.
-    static const int	theIgnoreBits = 2;
-
     static const int	theTopBytes = 16;
     static const uint32	theTopSize = 1 << theTopBytes;
     static const uint32	theTopMask = theTopSize-1;
@@ -90,6 +86,10 @@ private:
     // Child process
     pid_t	 myChild;
     FILE	*myPipe;
+
+    // The number of low-order bits to ignore.  This value determines the
+    // resolution and memory use for the profile.
+    int		 myIgnoreBits;
 };
 
 #endif

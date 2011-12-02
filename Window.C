@@ -63,11 +63,6 @@ MemViewWidget::paintEvent(QPaintEvent *)
 {
     QPainter	painter(this);
 
-    // If we failed to load from the pipe, the proces has terminated - so
-    // there's no need to continue providing real time updates.
-    if (!myState->loadFromPipe(10000))
-	myTimer->stop();
-
     myState->fillImage(myImage);
 
     painter.drawPixmap(QPoint(), QPixmap::fromImage(myImage));
@@ -86,6 +81,11 @@ MemViewWidget::resizeEvent(QResizeEvent *)
 void
 MemViewWidget::tick()
 {
+    // If we failed to load from the pipe, the proces has terminated - so
+    // there's no need to continue providing real time updates.
+    if (!myState->loadFromPipe(10000))
+	myTimer->stop();
+
     update();
 }
 

@@ -6,11 +6,11 @@ int main(int argc, char *argv[])
 
     if (argc <= 1)
     {
-	fprintf(stderr, "Usage: memview [your-program] [your-program-options]\n");
+	fprintf(stderr, "Usage: memview [--ignore-bits=n] [your-program] [your-program-options]\n");
 	return 1;
     }
 
-    // Skip over program name
+    // Skip the program name
     Window	window(argc-1, argv+1);
 
     window.show();

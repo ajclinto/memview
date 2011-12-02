@@ -1,9 +1,11 @@
 #include "MemoryState.h"
+#include "StopWatch.h"
 
 MemoryState::MemoryState()
     : myTime(1)
     , myChild(-1)
     , myPipe(0)
+    , myIgnoreBits(2)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 
@@ -40,7 +42,19 @@ MemoryState::~MemoryState()
 bool
 MemoryState::openPipe(int argc, char *argv[])
 {
-    int		 fd[2];
+    static const char	*theIgnoreOption = "--ignore-bits=";
+    int			 fd[2];
+
+    for (int i = 0; i < argc; i++)
+    {
+	if (!strncmp(argv[i], theIgnoreOption, strlen(theIgnoreOption)))
+	{
+	    argv[i] += strlen(theIgnoreOption);
+	    myIgnoreBits = atoi(argv[i]);
+	    argc--; argv++;
+	    break;
+	}
+    }
 
     if (pipe(fd) < 0)
     {
@@ -138,9 +152,9 @@ MemoryState::loadFromPipe(int max_read)
 	if (strtok_r(0, delim, &saveptr))
 	    continue;
 
-	addr >>= theIgnoreBits;
+	addr >>= myIgnoreBits;
 	addr &= 0xFFFFFFFF;
-	size >>= theIgnoreBits;
+	size >>= myIgnoreBits;
 	size = SYSmax(size, 1);
 	for (int i = 0; i < size; i++)
 	    setEntry((uint32)addr+i, myTime);
@@ -178,6 +192,7 @@ putNextPixel(QRgb *&data, int &r, int &c, QImage &image, uint32 val)
 void
 MemoryState::fillImage(QImage &image) const
 {
+    //StopWatch	 timer;
     int		 r = 0;
     int		 c = 0;
     int		 empty_count = 0;
