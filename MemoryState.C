@@ -325,6 +325,10 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
+static const int	theBlockSpacing = 0;
+static const int	theMinBlockWidth = 16;
+static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
+
 static bool
 plotBlock(int &roff, int &coff, int &maxheight,
 	QImage &image, const std::vector<uint32> &data)
@@ -335,14 +339,13 @@ plotBlock(int &roff, int &coff, int &maxheight,
     getBlockSize(bwidth, bheight, data.size());
 
     // Force a minimum size
-    static const int	theMinBlockSize = 16;
-    bwidth = SYSmax(bwidth, theMinBlockSize);
-    bheight = SYSmax(bheight, theMinBlockSize);
+    bwidth = SYSmax(bwidth, theMinBlockWidth);
+    bheight = SYSmax(bheight, theMinBlockWidth);
 
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
     {
-	roff += maxheight + 1;
+	roff += maxheight + theBlockSpacing;
 	coff = 0;
 	maxheight = bheight;
     }
@@ -365,7 +368,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
 	    putPixel(r, c, image, data[i]);
     }
 
-    coff += bwidth + 1;
+    coff += bwidth + theBlockSpacing;
 
     return true;
 }
@@ -389,7 +392,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 	    {
 		if (myTable[i]->myState[j])
 		{
-		    if (empty_count >= image.width())
+		    if (empty_count >= theMinBlockSize)
 		    {
 			// Plot the pending block
 			if (!plotBlock(r, c, maxheight, image, pending))
