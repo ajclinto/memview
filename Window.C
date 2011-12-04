@@ -13,18 +13,26 @@ Window::Window(int argc, char *argv[])
     myFileMenu->addSeparator();
     myFileMenu->addAction(myQuit);
 
-    myLinear = new QAction(tr("&Linear"), this);
-    myRecursiveBlock = new QAction(tr("&Recursive Block"), this);
+    static const char	*theVisNames[theVisCount] = {
+	"&Linear",
+	"&Recursive Block"
+    };
 
-    myVisualizationMenu = menuBar()->addMenu(tr("&Visualization"));
-    myVisualizationMenu->addAction(myLinear);
-    myVisualizationMenu->addAction(myRecursiveBlock);
+    myVisGroup = new QActionGroup(this);
+    myVisMenu = menuBar()->addMenu(tr("&Visualization"));
+    for (int i = 0; i < theVisCount; i++)
+    {
+	myVis[i] = new QAction(tr(theVisNames[i]), myVisGroup);
+	myVis[i]->setCheckable(true);
+	myVisMenu->addAction(myVis[i]);
+    }
+    myVis[1]->setChecked(true);
 
     myMemView = new MemViewWidget(argc, argv);
     setCentralWidget(myMemView);
 
-    connect(myLinear, SIGNAL(triggered()), myMemView, SLOT(linear()));
-    connect(myRecursiveBlock, SIGNAL(triggered()), myMemView, SLOT(block()));
+    connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
+    connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
 
     setWindowTitle("Memview");
 

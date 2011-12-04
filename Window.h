@@ -16,9 +16,11 @@ private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
 
-    QMenu		*myVisualizationMenu;
-    QAction		*myLinear;
-    QAction		*myRecursiveBlock;
+    static const int	 theVisCount = 2;
+
+    QMenu		*myVisMenu;
+    QActionGroup	*myVisGroup;
+    QAction		*myVis[theVisCount];
 
     MemViewWidget	*myMemView;
 };
