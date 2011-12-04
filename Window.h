@@ -12,9 +12,6 @@ public:
 	     Window(int argc, char *argv[]);
     virtual ~Window();
 
-private slots:
-    void    quit();
-
 private:
     QMenu		*myFileMenu;
     QAction		*myQuit;

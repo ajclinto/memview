@@ -334,6 +334,11 @@ plotBlock(int &roff, int &coff, int &maxheight,
 
     getBlockSize(bwidth, bheight, data.size());
 
+    // Force a minimum size
+    static const int	theMinBlockSize = 16;
+    bwidth = SYSmax(bwidth, theMinBlockSize);
+    bheight = SYSmax(bheight, theMinBlockSize);
+
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
     {

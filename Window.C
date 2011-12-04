@@ -35,18 +35,6 @@ Window::~Window()
 {
 }
 
-void
-Window::quit()
-{
-    QMessageBox	message;
-    message.setWindowTitle(tr("Window"));
-    message.setText(tr("Do you really want to quit?"));
-    message.setStandardButtons(QMessageBox::Yes | QMessageBox::No);
-    message.setDefaultButton(QMessageBox::No);
-    if (message.exec() == QMessageBox::Yes)
-	qApp->quit();
-}
-
 //
 // MemViewWidget
 //
