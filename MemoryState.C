@@ -1,27 +1,30 @@
 #include "MemoryState.h"
 #include "StopWatch.h"
+#include "Color.h"
 #include <assert.h>
 
 static void
-fillLut(uint32 *lut, int flip)
+fillLut(uint32 *lut, const Color &hi, const Color &lo)
 {
+    const uint32	lcutoff = 100;
+    const uint32	hcutoff = 140;
+    Color		vals[4];
+
+    vals[0] = Color(0,0,0);
+    vals[1] = lo * (0.2 / lo.luminance());
+    vals[2] = hi * (0.5 / hi.luminance());
+    vals[3] = hi * (2.0 / hi.luminance());
+
     for (uint32 i = 0; i < 256; i++)
     {
-	uint32	rgb[3];
-
-	// Green to blue with flip=0
-	rgb[0] = (255-i);
-	rgb[1] = i >= 100 ? SYSmin(i-100, 127)<<1 : 0;
-	rgb[2] = i>>2;
-
-	if (flip & 1) std::swap(rgb[0], rgb[1]);
-	if (flip & 2) std::swap(rgb[1], rgb[2]);
-	if (flip & 4) std::swap(rgb[0], rgb[2]);
-
-	lut[i] = 0xFF000000 | rgb[0] | (rgb[1]<<8) | (rgb[2]<<16);
-
-	// Greyscale
-	//lut[i] = i | (i<<8) | (i<<16) | 0xFF000000;
+	Color	val;
+	if (i >= hcutoff)
+	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(255-hcutoff));
+	else if (i >= lcutoff)
+	    val = vals[1].lerp(vals[2], (i-lcutoff)/(float)(hcutoff-lcutoff));
+	else
+	    val = vals[0].lerp(vals[1], i/(float)lcutoff);
+	lut[i] = val.toInt32();
     }
 }
 
@@ -34,9 +37,17 @@ MemoryState::MemoryState()
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 
-    fillLut(myILut, 4);
-    fillLut(myRLut, 0);
-    fillLut(myWLut, 7);
+    Color	rhi(0.2, 1.0, 0.2);
+    Color	whi(0.2, 0.5, 1.0);
+    Color	ihi(0.5, 1.0, 0.2);
+
+    Color	rlo(0.1, 0.1, 0.5);
+    Color	wlo(0.3, 0.1, 0.1);
+    Color	ilo(0.3, 0.1, 0.4);
+
+    fillLut(myILut, ihi, ilo);
+    fillLut(myWLut, whi, wlo);
+    fillLut(myRLut, rhi, rlo);
 }
 
 MemoryState::~MemoryState()
