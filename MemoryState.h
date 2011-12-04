@@ -46,13 +46,17 @@ private:
 
     typedef uint32	State;
 
-    static const int	theTopBytes = 16;
-    static const uint32	theTopSize = 1 << theTopBytes;
-    static const uint32	theTopMask = theTopSize-1;
+    static const int	theAllBits = 36;
+    static const uint64	theAllSize = 1L << theAllBits;
+    static const uint64	theAllMask = theAllSize-1;
 
-    static const int	theBottomBytes = 32-theTopBytes;
-    static const uint32	theBottomSize = 1 << theBottomBytes;
-    static const uint32	theBottomMask = theBottomSize-1;
+    static const int	theTopBits = 18;
+    static const uint64	theTopSize = 1L << theTopBits;
+    static const uint64	theTopMask = theTopSize-1;
+
+    static const int	theBottomBits = theAllBits-theTopBits;
+    static const uint64	theBottomSize = 1L << theBottomBits;
+    static const uint64	theBottomMask = theBottomSize-1;
 
     struct StateArray {
 	StateArray()
@@ -65,17 +69,17 @@ private:
 	char	myType[theBottomSize];
     };
 
-    int		topIndex(uint32 addr) const
-		{ return (addr >> (32-theTopBytes)) & theTopMask; }
-    int		bottomIndex(uint32 addr) const
+    int		topIndex(uint64 addr) const
+		{ return (addr >> (32-theTopBits)) & theTopMask; }
+    int		bottomIndex(uint64 addr) const
 		{ return addr & theBottomMask; }
 
-    State	getEntry(uint32 addr) const
+    State	getEntry(uint64 addr) const
 		{
 		    StateArray	*row = myTable[topIndex(addr)];
 		    return row ? row->myState[bottomIndex(addr)] : 0;
 		}
-    void	setEntry(uint32 addr, State val, char type)
+    void	setEntry(uint64 addr, State val, char type)
 		{
 		    StateArray	*&row = myTable[topIndex(addr)];
 		    int		  idx = bottomIndex(addr);
@@ -135,7 +139,7 @@ private:
 
 	State	state() const	{ return table(myTop)->myState[myBottom]; }
 	char	type() const	{ return table(myTop)->myType[myBottom]; }
-	uint32	nempty() const	{ return myEmptyCount; }
+	uint64	nempty() const	{ return myEmptyCount; }
 
     private:
 	const StateArray	*table(int top)	const
@@ -163,9 +167,9 @@ private:
 
     private:
 	const MemoryState	*myState;
-	uint32			 myTop;
-	uint32			 myBottom;
-	uint32			 myEmptyCount;
+	uint64			 myTop;
+	uint64			 myBottom;
+	uint64			 myEmptyCount;
     };
 
 private:

@@ -60,7 +60,7 @@ MemoryState::~MemoryState()
     if (myPipe)
 	fclose(myPipe);
 
-    for (uint32 i = 0; i < theTopSize; i++)
+    for (uint64 i = 0; i < theTopSize; i++)
 	if (myTable[i])
 	    delete [] myTable[i];
 }
@@ -179,11 +179,13 @@ MemoryState::loadFromPipe(int max_read)
 	    continue;
 
 	addr >>= myIgnoreBits;
-	addr &= 0xFFFFFFFF;
+	if (addr & ~theAllMask)
+	    fprintf(stderr, "clipping address %llx\n", addr);
+	addr &= theAllMask;
 	size >>= myIgnoreBits;
 	size = SYSmax(size, 1);
 	for (int i = 0; i < size; i++)
-	    setEntry((uint32)addr+i, myTime, type);
+	    setEntry(addr+i, myTime, type);
 	myTime++;
 
 	// The time wrapped
@@ -235,7 +237,7 @@ MemoryState::fillLinear(QImage &image) const
     StateIterator	it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (it.nempty() >= (uint32)image.width())
+	if (it.nempty() >= (uint64)image.width())
 	{
 	    // Put a blank line
 	    r += theBlockSpacing+1;
@@ -372,7 +374,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
     StateIterator	it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (it.nempty() >= (uint32)theMinBlockSize)
+	if (it.nempty() >= (uint64)theMinBlockSize)
 	{
 	    // Plot the pending block
 	    if (!plotBlock(r, c, maxheight, image, pending))
