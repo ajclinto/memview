@@ -85,10 +85,8 @@ private:
 		    row->myType[idx] = type;
 		}
 
-    uint32	mapColor(StateArray *row, int j) const
+    uint32	mapColor(State val, char type) const
 		{
-		    State	val = row->myState[j];
-		    char	type = row->myType[j];
 		    uint32	diff;
 
 		    if (myTime >= val)
@@ -107,6 +105,68 @@ private:
 		    return type == 'I' ? myILut[clr] :
 			(type == 'L' ? myRLut[clr] : myWLut[clr]);
 		}
+
+    // A class to iterate over only non-zero state values
+    class StateIterator {
+    public:
+	StateIterator(const MemoryState *state)
+	    : myState(state)
+	    , myTop(0)
+	    , myBottom(0)
+	    , myEmptyCount(0)
+	{
+	}
+
+	void	rewind()
+		{
+		    myTop = 0;
+		    myBottom = 0;
+		    skipEmpty();
+		}
+	bool	atEnd() const
+		{
+		    return myTop >= theTopSize;
+		}
+	void	advance()
+		{
+		    myBottom++;
+		    skipEmpty();
+		}
+
+	State	state() const	{ return table(myTop)->myState[myBottom]; }
+	char	type() const	{ return table(myTop)->myType[myBottom]; }
+	uint32	nempty() const	{ return myEmptyCount; }
+
+    private:
+	const StateArray	*table(int top)	const
+				 { return myState->myTable[top]; }
+
+	void	skipEmpty()
+		{
+		    myEmptyCount = 0;
+		    for (; myTop < theTopSize; myTop++)
+		    {
+			if (table(myTop))
+			{
+			    for (; myBottom < theBottomSize; myBottom++)
+			    {
+				if (table(myTop)->myState[myBottom])
+				    return;
+				myEmptyCount++;
+			    }
+			}
+			else
+			    myEmptyCount += theBottomSize;
+			myBottom = 0;
+		    }
+		}
+
+    private:
+	const MemoryState	*myState;
+	uint32			 myTop;
+	uint32			 myBottom;
+	uint32			 myEmptyCount;
+    };
 
 private:
     // Raw memory state

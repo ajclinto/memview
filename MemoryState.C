@@ -222,53 +222,40 @@ putNextPixel(int &r, int &c, QImage &image, uint32 val)
     return true;
 }
 
+static const int	theBlockSpacing = 0;
+
 void
 MemoryState::fillLinear(QImage &image) const
 {
     //StopWatch	 timer;
     int		 r = 0;
     int		 c = 0;
-    int		 empty_count = 0;
 
     // Assume that the stack occupies the top half of memory
-    for (int i = 0; i < (int)theTopSize; i++)
+    StateIterator	it(this);
+    for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (myTable[i])
+	if (it.nempty() >= (uint32)image.width())
 	{
-	    for (uint32 j = 0; j < theBottomSize; j++)
+	    // Put a blank line
+	    r += theBlockSpacing+1;
+	    c = 0;
+	}
+	else
+	{
+	    // Skip the empty pixels
+	    c += it.nempty();
+	    if (c >= image.width())
 	    {
-		if (myTable[i]->myState[j])
-		{
-		    if (empty_count >= image.width())
-		    {
-			// Put a blank line
-			r += 2;
-			c = 0;
-		    }
-		    else
-		    {
-			// Skip the empty pixels
-			c += empty_count;
-			if (c >= image.width())
-			{
-			    c -= image.width();
-			    r++;
-			}
-		    }
-		    if (r >= image.height())
-			return;
-
-		    empty_count = 0;
-		    if (!putNextPixel(r, c, image,
-				mapColor(myTable[i], j)))
-			return;
-		}
-		else
-		{
-		    empty_count++;
-		}
+		c -= image.width();
+		r++;
 	    }
 	}
+	if (r >= image.height())
+	    return;
+
+	if (!putNextPixel(r, c, image, mapColor(it.state(), it.type())))
+	    return;
     }
 }
 
@@ -325,7 +312,6 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
-static const int	theBlockSpacing = 0;
 static const int	theMinBlockWidth = 16;
 static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
 
@@ -380,42 +366,27 @@ MemoryState::fillRecursiveBlock(QImage &image) const
     int		 r = 0;
     int		 c = 0;
     int		 maxheight = 0;
-    int		 empty_count = 0;
     std::vector<uint32>	pending;
 
     // Assume that the stack occupies the top half of memory
-    for (int i = 0; i < (int)theTopSize; i++)
+    StateIterator	it(this);
+    for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (myTable[i])
+	if (it.nempty() >= (uint32)theMinBlockSize)
 	{
-	    for (uint32 j = 0; j < theBottomSize; j++)
-	    {
-		if (myTable[i]->myState[j])
-		{
-		    if (empty_count >= theMinBlockSize)
-		    {
-			// Plot the pending block
-			if (!plotBlock(r, c, maxheight, image, pending))
-			    return;
+	    // Plot the pending block
+	    if (!plotBlock(r, c, maxheight, image, pending))
+		return;
 
-			// Reset
-			pending.resize(0);
-		    }
-		    else
-		    {
-			for (int k = 0; k < empty_count; k++)
-			    pending.push_back(theBlack);
-		    }
-
-		    empty_count = 0;
-		    pending.push_back(mapColor(myTable[i], j));
-		}
-		else
-		{
-		    empty_count++;
-		}
-	    }
+	    // Reset
+	    pending.resize(0);
 	}
+	else
+	{
+	    pending.insert(pending.end(), it.nempty(), theBlack);
+	}
+
+	pending.push_back(mapColor(it.state(), it.type()));
     }
 
     if (pending.size())
