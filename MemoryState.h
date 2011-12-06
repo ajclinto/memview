@@ -57,7 +57,7 @@ private:
     };
 
     int		topIndex(uint64 addr) const
-		{ return (addr >> (32-theTopBits)) & theTopMask; }
+		{ return (addr >> theBottomBits) & theTopMask; }
     int		bottomIndex(uint64 addr) const
 		{ return addr & theBottomMask; }
 

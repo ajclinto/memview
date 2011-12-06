@@ -153,7 +153,7 @@ putNextPixel(int &r, int &c, QImage &image, uint32 val)
     return true;
 }
 
-static const int	theBlockSpacing = 0;
+static const int	theBlockSpacing = 1;
 
 void
 MemoryState::fillLinear(QImage &image) const
@@ -299,7 +299,6 @@ MemoryState::fillRecursiveBlock(QImage &image) const
     int		 maxheight = 0;
     std::vector<uint32>	pending;
 
-    // Assume that the stack occupies the top half of memory
     StateIterator	it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
