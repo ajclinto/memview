@@ -1,6 +1,7 @@
 #include "MemoryState.h"
 #include "StopWatch.h"
 #include "Color.h"
+#include "Loader.h"
 #include <assert.h>
 
 static void
@@ -30,9 +31,7 @@ fillLut(uint32 *lut, const Color &hi, const Color &lo)
 
 MemoryState::MemoryState()
     : myTime(1)
-    , myBinary(false)
-    , myChild(-1)
-    , myPipe(0)
+    , myLoader(0)
     , myIgnoreBits(2)
     , myVisualization(BLOCK)
 {
@@ -53,13 +52,7 @@ MemoryState::MemoryState()
 
 MemoryState::~MemoryState()
 {
-    // Lackey doesn't seem to have a SIGINT signal handler, so send it the
-    // kill signal.
-    if (myChild > 0)
-	kill(myChild, SIGKILL);
-
-    if (myPipe)
-	fclose(myPipe);
+    delete myLoader;
 
     for (uint64 i = 0; i < theTopSize; i++)
 	if (myTable[i])
@@ -67,11 +60,9 @@ MemoryState::~MemoryState()
 }
 
 bool
-MemoryState::openPipe(int argc, char *argv[], bool binary)
+MemoryState::openPipe(int argc, char *argv[])
 {
     static const char	*theIgnoreOption = "--ignore-bits=";
-    int			 fd[2];
-
     for (int i = 0; i < argc; i++)
     {
 	if (!strncmp(argv[i], theIgnoreOption, strlen(theIgnoreOption)))
@@ -83,161 +74,16 @@ MemoryState::openPipe(int argc, char *argv[], bool binary)
 	}
     }
 
-    myBinary = binary;
+    myLoader = new Loader(this);
 
-    if (pipe(fd) < 0)
+    if (myLoader->openPipe(argc, argv))
     {
-	perror("pipe failed");
-	return false;
+	// Start loading data in a new thread
+	myLoader->start();
+	return true;
     }
 
-    myChild = fork();
-    if (myChild == -1)
-    {
-	perror("fork failed");
-	return false;
-    }
-
-    if (myChild == 0)
-    {
-	// Close input for child
-	close(fd[0]);
-
-	// Copy stderr to the output of the pipe
-	dup2(fd[1], 2);
-
-	static const int	 theMaxArgs = 256;
-	const char		*args[theMaxArgs];
-
-	args[0] = "valgrind";
-	if (binary)
-	    args[1] = "--tool=memview";
-	else
-	    args[1] = "--tool=lackey";
-	args[2] = "--trace-mem=yes";
-	for (int i = 0; i < argc; i++)
-	    args[i+3] = argv[i];
-	args[argc+3] = NULL;
-
-	if (execvp("valgrind", (char * const *)args) == -1)
-	{
-	    perror("exec failed");
-	    return false;
-	}
-	// Unreachable
-    }
-
-    // Close output for parent
-    close(fd[1]);
-
-    // Open the pipe for reading
-    myPipe = fdopen(fd[0], "r");
-
-    // Load the initial 5 lines ("==")
-    // TODO: Fragile
-    loadFromLackey(5);
-
-    return true;
-}
-
-bool
-MemoryState::loadFromPipe(int max_read)
-{
-    if (myBinary)
-	return loadFromTrace(max_read);
-    return loadFromLackey(max_read);
-}
-
-bool
-MemoryState::loadFromLackey(int max_read)
-{
-    int		 i;
-
-    if (!myPipe)
-	return false;
-
-    char	*buf = 0;
-    size_t	 n = 0;
-
-    for (i = 0; i < max_read; i++)
-    {
-	if (getline(&buf, &n, myPipe) <= 0)
-	{
-	    pclose(myPipe);
-	    myPipe = 0;
-	    return false;
-	}
-
-	uint64		addr;
-	int		size;
-	char		type;
-
-	char		*saveptr = 0;
-	char		*type_str;
-	char		*addr_str;
-	char		*size_str;
-	const char	*delim = " ,\n";
-
-	type_str = strtok_r(buf, delim, &saveptr);
-	if (!type_str)
-	    continue;
-	type = type_str[0];
-
-	addr_str = strtok_r(0, delim, &saveptr);
-	if (!addr_str)
-	    continue;
-	addr = strtoull(addr_str, 0, 16); // Hex value
-
-	size_str = strtok_r(0, delim, &saveptr);
-	if (!size_str)
-	    continue;
-	size = atoi(size_str);
-
-	if (strtok_r(0, delim, &saveptr))
-	    continue;
-
-	updateAddress(addr, size, type);
-    }
-
-    if (buf)
-	free(buf);
-
-    return i > 0;
-}
-
-static const int	theBlockSize = 1024*16;
-
-typedef struct {
-    uint64	myAddr[theBlockSize];
-    char        myType[theBlockSize];
-    char        mySize[theBlockSize];
-    int         myEntries;
-} TraceBlock;
-
-bool
-MemoryState::loadFromTrace(int max_read)
-{
-    if (!myPipe)
-	return false;
-
-    TraceBlock	block;
-    int		i;
-
-    for (i = 0; i < max_read; )
-    {
-	if (fread(&block, sizeof(TraceBlock), 1, myPipe))
-	{
-	    for (int j = 0; j < block.myEntries; j++)
-	    {
-		updateAddress(block.myAddr[j], block.mySize[j], block.myType[j]);
-	    }
-	    i += block.myEntries;
-	}
-	else
-	    break;
-    }
-
-    return i > 0;
+    return false;
 }
 
 void

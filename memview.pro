@@ -8,5 +8,5 @@ DEPENDPATH += .
 INCLUDEPATH += .
 
 # Input
-HEADERS += Window.h MemoryState.h
-SOURCES += main.C window.C MemoryState.C
+HEADERS += Window.h MemoryState.h Loader.h
+SOURCES += main.C window.C MemoryState.C Loader.C

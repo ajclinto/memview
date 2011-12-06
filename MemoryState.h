@@ -1,36 +1,17 @@
 #ifndef MemoryState_H
+#define MemoryState_H
 
-#include <sys/types.h>
-#include <signal.h>
 #include <QtGui>
+#include "Math.h"
 
-typedef unsigned		uint32;
-typedef unsigned long long	uint64;
-
-inline uint32 SYSmax(uint32 a, uint32 b)
-{
-    return a > b ? a : b;
-}
-inline uint32 SYSmin(uint32 a, uint32 b)
-{
-    return a < b ? a : b;
-}
-inline uint32 SYSclamp(uint32 v, uint32 a, uint32 b)
-{
-    return v < a ? a : (v > b ? b : v);
-}
-inline float SYSlerp(float v1, float v2, float bias)
-{
-    return v1 + bias*(v2-v1);
-}
+class Loader;
 
 class MemoryState {
 public:
      MemoryState();
     ~MemoryState();
 
-    bool	openPipe(int argc, char *argv[], bool binary = true);
-    bool	loadFromPipe(int max_read);
+    bool	openPipe(int argc, char *argv[]);
 
     enum Visualization {
 	LINEAR,
@@ -40,14 +21,11 @@ public:
 		{ myVisualization = vis; }
     void	fillImage(QImage &image) const;
 
-private:
-    bool	loadFromLackey(int max_read);
-    bool	loadFromTrace(int max_read);
+    void	updateAddress(uint64 addr, int size, char type);
 
+private:
     void	fillLinear(QImage &image) const;
     void	fillRecursiveBlock(QImage &image) const;
-
-    void	updateAddress(uint64 addr, int size, char type);
 
     typedef uint32	State;
 
@@ -182,15 +160,13 @@ private:
     StateArray	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
 
+    // Loader
+    Loader	*myLoader;
+
     // Display LUT
     uint32	 myILut[256];
     uint32	 myRLut[256];
     uint32	 myWLut[256];
-
-    // Child process
-    bool	 myBinary;
-    pid_t	 myChild;
-    FILE	*myPipe;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.

@@ -1,4 +1,5 @@
 #ifndef StopWatch_H
+#define StopWatch_H
 
 class StopWatch {
 public:

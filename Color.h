@@ -1,4 +1,5 @@
-#ifndef COLOR_H
+#ifndef Color_H
+#define Color_H
 
 class Color {
 public:
