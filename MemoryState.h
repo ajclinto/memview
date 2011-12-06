@@ -88,7 +88,7 @@ private:
 			    diff = val - myTime + 1;
 		    }
 		    else
-			diff = theStale;
+			diff = theHalfLife;
 
 		    diff <<= 8*(sizeof(uint32)-sizeof(State));
 
