@@ -31,6 +31,7 @@ fillLut(uint32 *lut, const Color &hi, const Color &lo)
 
 MemoryState::MemoryState()
     : myTime(1)
+    , myHRTime(1)
     , myLoader(0)
     , myIgnoreBits(2)
     , myVisualization(BLOCK)
@@ -97,7 +98,17 @@ MemoryState::updateAddress(uint64 addr, int size, char type)
     size = SYSmax(size, 1);
     for (int i = 0; i < size; i++)
 	setEntry(addr+i, myTime, type);
-    myTime++;
+
+    if (sizeof(State) == sizeof(uint32))
+    {
+	myTime++;
+    }
+    else
+    {
+	myHRTime++;
+	if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
+	    myTime++;
+    }
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)
@@ -105,13 +116,15 @@ MemoryState::updateAddress(uint64 addr, int size, char type)
 	StateIterator	it(this);
 	for (it.rewind(); !it.atEnd(); it.advance())
 	{
-	    if ((myTime == 0 && it.state() < theHalfLife) ||
+	    if ((myTime == theFullLife && it.state() < theHalfLife) ||
 		(myTime == theHalfLife && it.state() >= theHalfLife &&
 		 it.state() <= theFullLife))
 		it.setState(theStale);
 	}
 	if (myTime == theFullLife)
 	    myTime = 1;
+	else
+	    myTime++;
     }
 }
 

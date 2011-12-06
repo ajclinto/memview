@@ -30,7 +30,7 @@ private:
     typedef uint32	State;
 
     static const State	theStale    = ~(State)0;
-    static const State	theHalfLife = (1 << (sizeof(State)-1));
+    static const State	theHalfLife = theStale>>1;
     static const State	theFullLife = theStale-1;
 
     static const int	theAllBits = 36;
@@ -78,7 +78,7 @@ private:
 
     uint32	mapColor(State val, char type) const
 		{
-		    State	diff;
+		    uint32	diff;
 
 		    if (val != theStale)
 		    {
@@ -90,11 +90,9 @@ private:
 		    else
 			diff = theStale;
 
+		    diff <<= 8*(sizeof(uint32)-sizeof(State));
+
 		    uint32	bits = __builtin_clz(diff);
-
-		    // Allows 16-bit state
-		    bits = 32-((32-bits)*sizeof(uint32)/sizeof(State));
-
 		    uint32	clr = bits*8;
 
 		    if (bits > 28)
@@ -175,6 +173,7 @@ private:
     // Raw memory state
     StateArray	*myTable[theTopSize];
     State	 myTime;	// Rolling counter
+    uint64	 myHRTime;
 
     // Loader
     Loader	*myLoader;
