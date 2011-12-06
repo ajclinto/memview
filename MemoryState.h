@@ -29,7 +29,7 @@ public:
      MemoryState();
     ~MemoryState();
 
-    bool	openPipe(int argc, char *argv[]);
+    bool	openPipe(int argc, char *argv[], bool binary = true);
     bool	loadFromPipe(int max_read);
 
     enum Visualization {
@@ -41,8 +41,13 @@ public:
     void	fillImage(QImage &image) const;
 
 private:
+    bool	loadFromLackey(int max_read);
+    bool	loadFromTrace(int max_read);
+
     void	fillLinear(QImage &image) const;
     void	fillRecursiveBlock(QImage &image) const;
+
+    void	updateAddress(uint64 addr, int size, char type);
 
     typedef uint32	State;
 
@@ -183,6 +188,7 @@ private:
     uint32	 myWLut[256];
 
     // Child process
+    bool	 myBinary;
     pid_t	 myChild;
     FILE	*myPipe;
 

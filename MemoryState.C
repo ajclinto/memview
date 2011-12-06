@@ -30,6 +30,7 @@ fillLut(uint32 *lut, const Color &hi, const Color &lo)
 
 MemoryState::MemoryState()
     : myTime(1)
+    , myBinary(false)
     , myChild(-1)
     , myPipe(0)
     , myIgnoreBits(2)
@@ -66,7 +67,7 @@ MemoryState::~MemoryState()
 }
 
 bool
-MemoryState::openPipe(int argc, char *argv[])
+MemoryState::openPipe(int argc, char *argv[], bool binary)
 {
     static const char	*theIgnoreOption = "--ignore-bits=";
     int			 fd[2];
@@ -81,6 +82,8 @@ MemoryState::openPipe(int argc, char *argv[])
 	    break;
 	}
     }
+
+    myBinary = binary;
 
     if (pipe(fd) < 0)
     {
@@ -107,7 +110,10 @@ MemoryState::openPipe(int argc, char *argv[])
 	const char		*args[theMaxArgs];
 
 	args[0] = "valgrind";
-	args[1] = "--tool=lackey";
+	if (binary)
+	    args[1] = "--tool=memview";
+	else
+	    args[1] = "--tool=lackey";
 	args[2] = "--trace-mem=yes";
 	for (int i = 0; i < argc; i++)
 	    args[i+3] = argv[i];
@@ -127,11 +133,23 @@ MemoryState::openPipe(int argc, char *argv[])
     // Open the pipe for reading
     myPipe = fdopen(fd[0], "r");
 
+    // Load the initial 5 lines ("==")
+    // TODO: Fragile
+    loadFromLackey(5);
+
     return true;
 }
 
 bool
 MemoryState::loadFromPipe(int max_read)
+{
+    if (myBinary)
+	return loadFromTrace(max_read);
+    return loadFromLackey(max_read);
+}
+
+bool
+MemoryState::loadFromLackey(int max_read)
 {
     int		 i;
 
@@ -178,25 +196,66 @@ MemoryState::loadFromPipe(int max_read)
 	if (strtok_r(0, delim, &saveptr))
 	    continue;
 
-	addr >>= myIgnoreBits;
-	if (addr & ~theAllMask)
-	    fprintf(stderr, "clipping address %llx\n", addr);
-	addr &= theAllMask;
-	size >>= myIgnoreBits;
-	size = SYSmax(size, 1);
-	for (int i = 0; i < size; i++)
-	    setEntry(addr+i, myTime, type);
-	myTime++;
-
-	// The time wrapped
-	if (myTime == 0)
-	    myTime = 1;
+	updateAddress(addr, size, type);
     }
 
     if (buf)
 	free(buf);
 
     return i > 0;
+}
+
+static const int	theBlockSize = 1024*16;
+
+typedef struct {
+    uint64	myAddr[theBlockSize];
+    char        myType[theBlockSize];
+    char        mySize[theBlockSize];
+    int         myEntries;
+} TraceBlock;
+
+bool
+MemoryState::loadFromTrace(int max_read)
+{
+    if (!myPipe)
+	return false;
+
+    TraceBlock	block;
+    int		i;
+
+    for (i = 0; i < max_read; )
+    {
+	if (fread(&block, sizeof(TraceBlock), 1, myPipe))
+	{
+	    for (int j = 0; j < block.myEntries; j++)
+	    {
+		updateAddress(block.myAddr[j], block.mySize[j], block.myType[j]);
+	    }
+	    i += block.myEntries;
+	}
+	else
+	    break;
+    }
+
+    return i > 0;
+}
+
+void
+MemoryState::updateAddress(uint64 addr, int size, char type)
+{
+    addr >>= myIgnoreBits;
+    if (addr & ~theAllMask)
+	fprintf(stderr, "clipping address %llx\n", addr);
+    addr &= theAllMask;
+    size >>= myIgnoreBits;
+    size = SYSmax(size, 1);
+    for (int i = 0; i < size; i++)
+	setEntry(addr+i, myTime, type);
+    myTime++;
+
+    // The time wrapped
+    if (myTime == 0)
+	myTime = 1;
 }
 
 static const uint32	theWhite = 0xFFFFFFFF;
