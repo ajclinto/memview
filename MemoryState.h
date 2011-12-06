@@ -29,6 +29,10 @@ private:
 
     typedef uint32	State;
 
+    static const State	theStale    = ~(State)0;
+    static const State	theHalfLife = (1 << (sizeof(State)-1));
+    static const State	theFullLife = theStale-1;
+
     static const int	theAllBits = 36;
     static const uint64	theAllSize = 1L << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
@@ -74,14 +78,23 @@ private:
 
     uint32	mapColor(State val, char type) const
 		{
-		    uint32	diff;
+		    State	diff;
 
-		    if (myTime >= val)
-			diff = myTime - val + 1;
+		    if (val != theStale)
+		    {
+			if (myTime >= val)
+			    diff = myTime - val + 1;
+			else
+			    diff = val - myTime + 1;
+		    }
 		    else
-			diff = val - myTime + 1;
+			diff = theStale;
 
 		    uint32	bits = __builtin_clz(diff);
+
+		    // Allows 16-bit state
+		    bits = 32-((32-bits)*sizeof(uint32)/sizeof(State));
+
 		    uint32	clr = bits*8;
 
 		    if (bits > 28)
@@ -123,6 +136,9 @@ private:
 	State	state() const	{ return table(myTop)->myState[myBottom]; }
 	char	type() const	{ return table(myTop)->myType[myBottom]; }
 	uint64	nempty() const	{ return myEmptyCount; }
+
+	void	setState(State val)
+		{ myState->myTable[myTop]->myState[myBottom] = val; }
 
     private:
 	const StateArray	*table(int top)	const

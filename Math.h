@@ -1,6 +1,7 @@
 #ifndef Math_H
 #define Math_H
 
+typedef unsigned short		uint16;
 typedef unsigned		uint32;
 typedef unsigned long long	uint64;
 

@@ -11,7 +11,7 @@ fillLut(uint32 *lut, const Color &hi, const Color &lo)
     const uint32	hcutoff = 140;
     Color		vals[4];
 
-    vals[0] = Color(0,0,0);
+    vals[0] = lo * (0.04/ lo.luminance());
     vals[1] = lo * (0.2 / lo.luminance());
     vals[2] = hi * (0.5 / hi.luminance());
     vals[3] = hi * (2.0 / hi.luminance());
@@ -100,8 +100,19 @@ MemoryState::updateAddress(uint64 addr, int size, char type)
     myTime++;
 
     // The time wrapped
-    if (myTime == 0)
-	myTime = 1;
+    if (myTime == theFullLife || myTime == theHalfLife)
+    {
+	StateIterator	it(this);
+	for (it.rewind(); !it.atEnd(); it.advance())
+	{
+	    if ((myTime == 0 && it.state() < theHalfLife) ||
+		(myTime == theHalfLife && it.state() >= theHalfLife &&
+		 it.state() <= theFullLife))
+		it.setState(theStale);
+	}
+	if (myTime == theFullLife)
+	    myTime = 1;
+    }
 }
 
 static const uint32	theWhite = 0xFFFFFFFF;
