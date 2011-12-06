@@ -170,7 +170,7 @@ static void
 getBlockSize(int &w, int &h, int size)
 {
     int	bits = 0;
-    int	tmp = size >> 2;
+    int	tmp = (size-1) >> 2;
 
     while (tmp)
     {
@@ -178,18 +178,18 @@ getBlockSize(int &w, int &h, int size)
 	tmp >>= 2;
     }
 
-    if (size >= (3 << (bits*2)))
+    if (size > (3 << (bits*2)))
     {
 	w = (2 << bits);
 	h = (2 << bits);
     }
-    else if (size >= (2 << (bits*2)))
+    else if (size > (2 << (bits*2)))
     {
 	getBlockSize(w, h, size-(2 << (bits*2)));
 	w = (2 << bits);
 	h += (1 << bits);
     }
-    else if (size >= (1 << (bits*2)))
+    else if (size > (1 << (bits*2)))
     {
 	getBlockSize(w, h, size-(1 << (bits*2)));
 	w += (1 << bits);
@@ -197,7 +197,7 @@ getBlockSize(int &w, int &h, int size)
     }
     else
     {
-	w = h = 0;
+	w = h = 1;
     }
 }
 
@@ -219,7 +219,7 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
-static const int	theMinBlockWidth = 16;
+static const int	theMinBlockWidth = 32;
 static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
 
 static bool
@@ -286,7 +286,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 		return;
 
 	    // Reset
-	    pending.resize(0);
+	    pending.clear();
 	}
 	else
 	{
