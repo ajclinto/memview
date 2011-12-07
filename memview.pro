@@ -7,6 +7,9 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 
+QMAKE_CFLAGS_RELEASE = -O3
+QMAKE_CXXFLAGS_RELEASE = -O3
+
 # Input
 HEADERS += Window.h MemoryState.h Loader.h
 SOURCES += main.C window.C MemoryState.C Loader.C

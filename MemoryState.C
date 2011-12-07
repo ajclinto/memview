@@ -233,15 +233,40 @@ getBlockCoord(int &r, int &c, int idx)
     r = c = 0;
     while (idx)
     {
-	int	tmp = idx & 0x3;
-	if (tmp & 1)
-	    c += (1 << bit);
-	if (tmp & 2)
-	    r += (1 << bit);
+	c |= (idx & 1) ? (1 << bit) : 0;
+	r |= (idx & 2) ? (1 << bit) : 0;
 	idx >>= 2;
 	bit++;
     }
 }
+
+class BlockLUT {
+public:
+    BlockLUT()
+    {
+	for (int i = 0; i < 256; i++)
+	{
+	    int	r, c;
+	    getBlockCoord(r, c, i);
+	    myRowCol[i] = r | (c<<16);
+	}
+    }
+
+    void	lookup(int &r, int &c, int idx)
+    {
+	r = (myRowCol[idx & 0xFF] |
+	     (myRowCol[(idx>>8) & 0xFF] << 4)) |
+	    ((myRowCol[(idx>>16) & 0xFF] << 8) |
+	     (myRowCol[idx>>24] << 12));
+	c = (r>>16) & 0xFFFF;
+	r &= 0xFFFF;
+    }
+
+private:
+    int		myRowCol[256];
+};
+
+static BlockLUT		theBlockLUT;
 
 static const int	theMinBlockWidth = 32;
 static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
@@ -278,7 +303,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
     for (int i = 0; i < (int)data.size(); i++)
     {
 	int	r, c;
-	getBlockCoord(r, c, i);
+	theBlockLUT.lookup(r, c, i);
 	r += roff;
 	c += coff;
 	if (r < image.height() && c < image.width())
