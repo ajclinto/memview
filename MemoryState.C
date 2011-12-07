@@ -193,6 +193,12 @@ MemoryState::fillLinear(QImage &image) const
 static void
 getBlockSize(int &w, int &h, int size)
 {
+    if (size == 0)
+    {
+	w = h = 0;
+	return;
+    }
+
     int	bits = 0;
     int	tmp = (size-1) >> 2;
 
@@ -329,12 +335,15 @@ MemoryState::fillRecursiveBlock(QImage &image) const
     {
 	if (it.nempty() >= (uint64)theMinBlockSize)
 	{
-	    // Plot the pending block
-	    if (!plotBlock(r, c, maxheight, image, pending))
-		return;
+	    if (pending.size())
+	    {
+		// Plot the pending block
+		if (!plotBlock(r, c, maxheight, image, pending))
+		    return;
 
-	    // Reset
-	    pending.clear();
+		// Reset
+		pending.clear();
+	    }
 	}
 	else
 	{
