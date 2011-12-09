@@ -1,12 +1,19 @@
 #include "Loader.h"
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
 #include "MemoryState.h"
+
+#define	SHARED_NAME "/memview"
 
 Loader::Loader(MemoryState *state)
     : QThread(0)
     , myState(state)
     , myChild(-1)
     , myPipe(0)
-    , myBinary(true)
+    , mySharedData(0)
+    , myIdx(0)
+    , mySource(MEMVIEW_SHM)
     , myAbort(false)
 {
 }
@@ -23,13 +30,47 @@ Loader::~Loader()
 
     if (myPipe)
 	fclose(myPipe);
+
+    if (mySharedData)
+	shm_unlink(SHARED_NAME);
 }
 
 bool
 Loader::openPipe(int argc, char *argv[])
 {
-    int		 fd[2];
+    if (mySource == MEMVIEW_SHM)
+    {
+	int		shm_fd;
 
+	// Set of shared memory before fork
+	shm_fd = shm_open(SHARED_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	if (shm_fd == -1)
+	{
+	    fprintf(stderr, "could not get shared memory\n");
+	    return false;
+	}
+
+
+	if (ftruncate(shm_fd, sizeof(SharedData)) == -1)
+	{
+	    fprintf(stderr, "ftruncate failed\n");
+	    return false;
+	}
+
+	mySharedData = (SharedData *)mmap(NULL, sizeof(SharedData),
+		PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+	if (mySharedData == MAP_FAILED)
+	{
+	    fprintf(stderr, "mmap failed\n");
+	    return false;
+	}
+
+	memset(mySharedData, 0, sizeof(SharedData));
+	for (int i = 0; i < theBlockCount; i++)
+	    mySharedData->myBlocks[i].myWSem = 1;
+    }
+
+    int		fd[2];
     if (pipe(fd) < 0)
     {
 	perror("pipe failed");
@@ -53,16 +94,21 @@ Loader::openPipe(int argc, char *argv[])
 
 	static const int	 theMaxArgs = 256;
 	const char		*args[theMaxArgs];
+	int			 vg_args = 0;
 
-	args[0] = "valgrind";
-	if (myBinary)
-	    args[1] = "--tool=memview";
+	args[vg_args++] = "valgrind";
+	if (mySource != LACKEY)
+	{
+	    args[vg_args++] = "--tool=memview";
+	    if (mySource == MEMVIEW_SHM)
+		args[vg_args++] = "--shared-mem=/dev/shm"SHARED_NAME;
+	}
 	else
-	    args[1] = "--tool=lackey";
-	args[2] = "--trace-mem=yes";
+	    args[vg_args++] = "--tool=lackey";
+	args[vg_args++] = "--trace-mem=yes";
 	for (int i = 0; i < argc; i++)
-	    args[i+3] = argv[i];
-	args[argc+3] = NULL;
+	    args[i+vg_args] = argv[i];
+	args[argc+vg_args] = NULL;
 
 	if (execvp("valgrind", (char * const *)args) == -1)
 	{
@@ -80,7 +126,8 @@ Loader::openPipe(int argc, char *argv[])
 
     // Load the initial 5 lines ("==")
     // TODO: Fragile
-    loadFromLackey(5);
+    if (mySource == MEMVIEW_PIPE)
+	loadFromLackey(5);
 
     return true;
 }
@@ -90,16 +137,21 @@ Loader::run()
 {
     while (!myAbort)
     {
-	if (myBinary)
+	bool	rval = false;
+	switch (mySource)
 	{
-	    if (!loadFromTrace())
-		myAbort = true;
+	    case LACKEY:
+		rval = loadFromLackey(10000);
+		break;
+	    case MEMVIEW_PIPE:
+		rval = loadFromPipe();
+		break;
+	    case MEMVIEW_SHM:
+		rval = loadFromSharedMemory();
+		break;
 	}
-	else
-	{
-	    if (!loadFromLackey(10000))
-		myAbort = true;
-	}
+	if (!rval)
+	    myAbort = true;
     }
 }
 
@@ -160,17 +212,8 @@ Loader::loadFromLackey(int max_read)
     return i > 0;
 }
 
-static const int	theBlockSize = 1024*16;
-
-typedef struct {
-    uint64	myAddr[theBlockSize];
-    char        myType[theBlockSize];
-    char        mySize[theBlockSize];
-    int         myEntries;
-} TraceBlock;
-
 bool
-Loader::loadFromTrace()
+Loader::loadFromPipe()
 {
     if (!myPipe)
 	return false;
@@ -197,6 +240,39 @@ Loader::loadFromTrace()
     }
 
     return false;
+}
+
+bool
+Loader::loadFromSharedMemory()
+{
+    if (!mySharedData)
+	return false;
+
+    TraceBlock	&block = mySharedData->myBlocks[myIdx];
+    while (!block.myRSem)
+	;
+    block.myRSem = 0;
+
+    // Basic semantic checking to ensure we received valid data
+    char	type = block.myType[0];
+    if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+    {
+	fprintf(stderr, "received invalid block\n");
+	return false;
+    }
+
+    for (int i = 0; i < block.myEntries; i++)
+    {
+	myState->updateAddress(
+		block.myAddr[i], block.mySize[i], block.myType[i]);
+    }
+
+    block.myWSem = 1;
+    myIdx++;
+    if (myIdx == theBlockCount)
+	myIdx = 0;
+
+    return true;
 }
 
 
