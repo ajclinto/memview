@@ -44,7 +44,9 @@ Loader::openPipe(int argc, char *argv[])
 	int		shm_fd;
 
 	// Set of shared memory before fork
-	shm_fd = shm_open(SHARED_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
+	shm_fd = shm_open(SHARED_NAME,
+		O_CREAT | O_CLOEXEC | O_RDWR,
+		S_IRUSR | S_IWUSR);
 	if (shm_fd == -1)
 	{
 	    fprintf(stderr, "could not get shared memory\n");
@@ -103,13 +105,15 @@ Loader::openPipe(int argc, char *argv[])
 	    args[vg_args++] = "--tool=memview";
 	    if (mySource == MEMVIEW_SHM)
 		args[vg_args++] = "--shared-mem=/dev/shm"SHARED_NAME;
+	    else
+		args[vg_args++] = "--pipe=yes";
 	}
 	else
 	{
 	    args[vg_args++] = "--tool=lackey";
 	    args[vg_args++] = "--basic-counts=no";
+	    args[vg_args++] = "--trace-mem=yes";
 	}
-	args[vg_args++] = "--trace-mem=yes";
 	for (int i = 0; i < argc; i++)
 	    args[i+vg_args] = argv[i];
 	args[argc+vg_args] = NULL;

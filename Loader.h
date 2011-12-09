@@ -27,10 +27,12 @@ private:
     static const int	theBlockSize = 1024*16;
     static const int	theBlockCount = 4;
 
+    typedef unsigned char AccessSize;
+
     typedef struct {
 	uint64		myAddr[theBlockSize];
 	char		myType[theBlockSize];
-	char		mySize[theBlockSize];
+	AccessSize	mySize[theBlockSize];
 	int		myEntries;
 	volatile int	myWSem;
 	volatile int	myRSem;
