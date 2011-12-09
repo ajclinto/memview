@@ -44,6 +44,7 @@ private:
 
     // Child process
     pid_t	 myChild;
+    int		 myPipeFD;
     FILE	*myPipe;
 
     // Shared memory

@@ -10,10 +10,11 @@ Loader::Loader(MemoryState *state)
     : QThread(0)
     , myState(state)
     , myChild(-1)
+    , myPipeFD(0)
     , myPipe(0)
     , mySharedData(0)
     , myIdx(0)
-    , mySource(MEMVIEW_SHM)
+    , mySource(MEMVIEW_PIPE)
     , myAbort(false)
 {
 }
@@ -104,7 +105,10 @@ Loader::openPipe(int argc, char *argv[])
 		args[vg_args++] = "--shared-mem=/dev/shm"SHARED_NAME;
 	}
 	else
+	{
 	    args[vg_args++] = "--tool=lackey";
+	    args[vg_args++] = "--basic-counts=no";
+	}
 	args[vg_args++] = "--trace-mem=yes";
 	for (int i = 0; i < argc; i++)
 	    args[i+vg_args] = argv[i];
@@ -122,7 +126,8 @@ Loader::openPipe(int argc, char *argv[])
     close(fd[1]);
 
     // Open the pipe for reading
-    myPipe = fdopen(fd[0], "r");
+    myPipeFD = fd[0];
+    myPipe = fdopen(myPipeFD, "r");
 
     // Load the initial 5 lines ("==")
     // TODO: Fragile
@@ -220,23 +225,27 @@ Loader::loadFromPipe()
 
     TraceBlock	block;
 
-    if (fread(&block, sizeof(TraceBlock), 1, myPipe))
+    if (read(myPipeFD, &block, sizeof(TraceBlock)))
     {
 	// Basic semantic checking to ensure we received valid data
-	char	type = block.myType[0];
-	if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	if (block.myEntries)
 	{
-	    fprintf(stderr, "received invalid block\n");
-	    return false;
+	    char	type = block.myType[0];
+	    if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	    {
+		fprintf(stderr, "received invalid block (size %d)\n",
+			block.myEntries);
+		return false;
+	    }
+
+	    for (int j = 0; j < block.myEntries; j++)
+	    {
+		myState->updateAddress(
+			block.myAddr[j], block.mySize[j], block.myType[j]);
+	    }
 	}
 
-	for (int j = 0; j < block.myEntries; j++)
-	{
-	    myState->updateAddress(
-		    block.myAddr[j], block.mySize[j], block.myType[j]);
-	}
-
-	return true;
+	return block.myEntries == theBlockSize;
     }
 
     return false;
@@ -253,18 +262,22 @@ Loader::loadFromSharedMemory()
 	;
     block.myRSem = 0;
 
-    // Basic semantic checking to ensure we received valid data
-    char	type = block.myType[0];
-    if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+    int		count = block.myEntries;
+    if (count)
     {
-	fprintf(stderr, "received invalid block\n");
-	return false;
-    }
+	// Basic semantic checking to ensure we received valid data
+	char	type = block.myType[0];
+	if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	{
+	    fprintf(stderr, "received invalid block\n");
+	    return false;
+	}
 
-    for (int i = 0; i < block.myEntries; i++)
-    {
-	myState->updateAddress(
-		block.myAddr[i], block.mySize[i], block.myType[i]);
+	for (int i = 0; i < count; i++)
+	{
+	    myState->updateAddress(
+		    block.myAddr[i], block.mySize[i], block.myType[i]);
+	}
     }
 
     block.myWSem = 1;
@@ -272,7 +285,8 @@ Loader::loadFromSharedMemory()
     if (myIdx == theBlockCount)
 	myIdx = 0;
 
-    return true;
+    // If it wasn't a full block, we're at the end of the stream.
+    return count == theBlockSize;
 }
 
 
