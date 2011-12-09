@@ -179,6 +179,14 @@ Loader::loadFromTrace()
 
     if (fread(&block, sizeof(TraceBlock), 1, myPipe))
     {
+	// Basic semantic checking to ensure we received valid data
+	char	type = block.myType[0];
+	if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	{
+	    fprintf(stderr, "received invalid block\n");
+	    return false;
+	}
+
 	for (int j = 0; j < block.myEntries; j++)
 	{
 	    myState->updateAddress(
