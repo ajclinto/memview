@@ -50,8 +50,6 @@ Window::~Window()
 
 MemViewWidget::MemViewWidget(int argc, char *argv[])
 {
-    myImage.resize(theDefaultSize.width(), theDefaultSize.height());
-
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
 
