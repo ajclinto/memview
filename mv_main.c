@@ -66,7 +66,7 @@ static int		 theIdx = 0;
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
-static inline void flush_data(void)
+static void flush_data(void)
 {
     if (clo_shared_mem)
     {
@@ -154,10 +154,17 @@ typedef struct {
 
 static Event events[N_EVENTS];
 static Int   events_used = 0;
+static Int   canCreateModify = 0;
 
 static VG_REGPARM(2) void trace_instr(Addr addr, SizeT size)
 {
     put_data(addr, 'I', (AccessSize)size);
+}
+
+static VG_REGPARM(3) void trace_2instr(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'I', (AccessSize)size);
+    put_data(addr2, 'I', (AccessSize)size);
 }
 
 static VG_REGPARM(2) void trace_load(Addr addr, SizeT size)
@@ -165,14 +172,44 @@ static VG_REGPARM(2) void trace_load(Addr addr, SizeT size)
     put_data(addr, 'L', (AccessSize)size);
 }
 
+static VG_REGPARM(3) void trace_2load(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'L', (AccessSize)size);
+    put_data(addr2, 'L', (AccessSize)size);
+}
+
 static VG_REGPARM(2) void trace_store(Addr addr, SizeT size)
 {
     put_data(addr, 'S', (AccessSize)size);
 }
 
+static VG_REGPARM(3) void trace_2store(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'S', (AccessSize)size);
+    put_data(addr2, 'S', (AccessSize)size);
+}
+
 static VG_REGPARM(2) void trace_modify(Addr addr, SizeT size)
 {
     put_data(addr, 'M', (AccessSize)size);
+}
+
+static VG_REGPARM(3) void trace_2modify(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'M', (AccessSize)size);
+    put_data(addr2, 'M', (AccessSize)size);
+}
+
+static VG_REGPARM(3) void trace_loadstore(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'L', (AccessSize)size);
+    put_data(addr2, 'S', (AccessSize)size);
+}
+
+static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
+{
+    put_data(addr, 'S', (AccessSize)size);
+    put_data(addr2, 'L', (AccessSize)size);
 }
 
 static void flushEvents(IRSB* sb)
@@ -183,47 +220,105 @@ static void flushEvents(IRSB* sb)
     IRExpr**   argv;
     IRDirty*   di;
     Event*     ev;
+    Event*     ev2;
+    Int        regparms;
 
     for (i = 0; i < events_used; i++) {
 
 	ev = &events[i];
+	ev2 = i < events_used-1 ? &events[i+1] : NULL;
 
-	// Decide on helper fn to call and args to pass it.
-	switch (ev->ekind) {
-	    case Event_Ir: helperName = "trace_instr";
-			   helperAddr =  trace_instr;  break;
+	if (ev2 &&
+		ev->ekind == ev2->ekind &&
+		ev->size == ev2->size)
+	{
+	    // Decide on helper fn to call and args to pass it.
+	    switch (ev->ekind) {
+		case Event_Ir: helperName = "trace_2instr";
+			       helperAddr =  trace_2instr;  break;
 
-	    case Event_Dr: helperName = "trace_load";
-			   helperAddr =  trace_load;   break;
+		case Event_Dr: helperName = "trace_2load";
+			       helperAddr =  trace_2load;   break;
 
-	    case Event_Dw: helperName = "trace_store";
-			   helperAddr =  trace_store;  break;
+		case Event_Dw: helperName = "trace_2store";
+			       helperAddr =  trace_2store;  break;
 
-	    case Event_Dm: helperName = "trace_modify";
-			   helperAddr =  trace_modify; break;
-	    default:
-			   tl_assert(0);
+		case Event_Dm: helperName = "trace_2modify";
+			       helperAddr =  trace_2modify; break;
+		default:
+			       tl_assert(0);
+	    }
+
+	    argv = mkIRExprVec_3( ev->addr,
+				  ev2->addr, mkIRExpr_HWord( ev->size ));
+	    regparms = 3;
+
+	    // Skip the next event, since we paired it
+	    i++;
+	}
+	else if (ev2 &&
+		ev->ekind == Event_Dr &&
+		ev2->ekind == Event_Dw &&
+		ev->size == ev2->size)
+	{
+	    // Load then store
+	    helperName = "trace_loadstore";
+	    helperAddr = trace_loadstore;
+
+	    argv = mkIRExprVec_3( ev->addr,
+				  ev2->addr, mkIRExpr_HWord( ev->size ));
+	    regparms = 3;
+	    i++;
+	}
+	else if (ev2 &&
+		ev->ekind == Event_Dw &&
+		ev2->ekind == Event_Dr &&
+		ev->size == ev2->size)
+	{
+	    // Store then load
+	    helperName = "trace_storeload";
+	    helperAddr = trace_storeload;
+
+	    argv = mkIRExprVec_3( ev->addr,
+				  ev2->addr, mkIRExpr_HWord( ev->size ));
+	    regparms = 3;
+	    i++;
+	}
+	else
+	{
+
+	    // Decide on helper fn to call and args to pass it.
+	    switch (ev->ekind) {
+		case Event_Ir: helperName = "trace_instr";
+			       helperAddr =  trace_instr;  break;
+
+		case Event_Dr: helperName = "trace_load";
+			       helperAddr =  trace_load;   break;
+
+		case Event_Dw: helperName = "trace_store";
+			       helperAddr =  trace_store;  break;
+
+		case Event_Dm: helperName = "trace_modify";
+			       helperAddr =  trace_modify; break;
+		default:
+			       tl_assert(0);
+	    }
+
+	    argv = mkIRExprVec_2( ev->addr, mkIRExpr_HWord( ev->size ) );
+	    regparms = 2;
 	}
 
-	if (!clo_trace_instrs && helperAddr == trace_instr)
-	    continue;
-
 	// Add the helper.
-	argv = mkIRExprVec_2( ev->addr, mkIRExpr_HWord( ev->size ) );
-	di   = unsafeIRDirty_0_N( /*regparms*/2, 
+	di   = unsafeIRDirty_0_N(regparms,
 		helperName, VG_(fnptr_to_fnentry)( helperAddr ),
 		argv );
+
 	addStmtToIRSB( sb, IRStmt_Dirty(di) );
     }
 
     events_used = 0;
 }
 
-// WARNING:  If you aren't interested in instruction reads, you can omit the
-// code that adds calls to trace_instr() in flushEvents().  However, you
-// must still call this function, addEvent_Ir() -- it is necessary to add
-// the Ir events to the events list so that merging of paired load/store
-// events into modify events works correctly.
 static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
 {
     Event* evt;
@@ -252,6 +347,7 @@ static void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
     evt->addr  = daddr;
     evt->size  = dsize;
     events_used++;
+    canCreateModify = True;
 }
 
 static void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
@@ -263,7 +359,7 @@ static void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
 
     // Is it possible to merge this write with the preceding read?
     lastEvt = &events[events_used-1];
-    if (events_used > 0
+    if (canCreateModify && events_used > 0
 	    && lastEvt->ekind == Event_Dr
 	    && lastEvt->size  == dsize
 	    && eqIRAtom(lastEvt->addr, daddr))
@@ -361,11 +457,13 @@ mv_instrument ( VgCallbackClosure* closure,
 		break;
 
 	    case Ist_IMark:
-		// WARNING: do not remove this function call, even if you
-		// aren't interested in instruction reads.  See the comment
-		// above the function itself for more detail.
-		addEvent_Ir( sbOut, mkIRExpr_HWord( (HWord)st->Ist.IMark.addr ),
-			st->Ist.IMark.len );
+		canCreateModify = False;
+		if (clo_trace_instrs)
+		{
+		    addEvent_Ir( sbOut,
+			    mkIRExpr_HWord( (HWord)st->Ist.IMark.addr ),
+			    st->Ist.IMark.len );
+		}
 		addStmtToIRSB( sbOut, st );
 		break;
 
