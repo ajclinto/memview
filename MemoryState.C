@@ -129,7 +129,7 @@ static const uint32	theBlack = 0xFF000000;
 static inline bool
 putNextPixel(int &r, int &c, GLImage &image, uint32 val)
 {
-    image.putPixel(r, c, val);
+    image.setPixel(r, c, val);
     c++;
     if (c >= image.width())
     {
@@ -300,7 +300,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
 	r += roff;
 	c += coff;
 	if (r < image.height() && c < image.width())
-	    image.putPixel(r, c, data[i]);
+	    image.setPixel(r, c, data[i]);
     }
 
     coff += bwidth + theBlockSpacing;

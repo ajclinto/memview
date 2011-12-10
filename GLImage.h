@@ -32,7 +32,7 @@ public:
 	for (int i = 0; i < myWidth*myHeight; i++)
 	    myData[i] = val;
     }
-    void putPixel(int r, int c, uint32 val)
+    void setPixel(int r, int c, uint32 val)
     {
 	myData[(myHeight-r-1)*myWidth+c] = val;
     }
