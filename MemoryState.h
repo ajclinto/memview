@@ -22,7 +22,15 @@ public:
 		{ myVisualization = vis; }
     void	fillImage(GLImage &image) const;
 
-    void	updateAddress(uint64 addr, int size, char type);
+    void	updateAddress(uint64 addr, int size, char type)
+		{
+		    addr >>= myIgnoreBits;
+		    size >>= myIgnoreBits;
+		    size = SYSmax(size, 1);
+		    for (int i = 0; i < size; i++)
+			setEntry(addr+i, myTime, type);
+		}
+    void	incrementTime(int inc);
 
 private:
     void	fillLinear(GLImage &image) const;

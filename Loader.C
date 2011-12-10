@@ -216,6 +216,9 @@ Loader::loadFromLackey(int max_read)
 	myState->updateAddress(addr, size, type);
     }
 
+    if (i > 0)
+	myState->incrementTime(i);
+
     if (buf)
 	free(buf);
 
@@ -248,6 +251,8 @@ Loader::loadFromPipe()
 		myState->updateAddress(
 			block.myAddr[j], block.mySize[j], block.myType[j]);
 	    }
+
+	    myState->incrementTime(block.myEntries);
 	}
 
 	return block.myEntries == theBlockSize;
@@ -283,6 +288,8 @@ Loader::loadFromSharedMemory()
 	    myState->updateAddress(
 		    block.myAddr[i], block.mySize[i], block.myType[i]);
 	}
+
+	myState->incrementTime(count);
     }
 
     block.myWSem = 1;

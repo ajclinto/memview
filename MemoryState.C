@@ -89,26 +89,20 @@ MemoryState::openPipe(int argc, char *argv[])
 }
 
 void
-MemoryState::updateAddress(uint64 addr, int size, char type)
+MemoryState::incrementTime(int inc)
 {
-    addr >>= myIgnoreBits;
-    if (addr & ~theAllMask)
-	fprintf(stderr, "clipping address %llx\n", addr);
-    addr &= theAllMask;
-    size >>= myIgnoreBits;
-    size = SYSmax(size, 1);
-    for (int i = 0; i < size; i++)
-	setEntry(addr+i, myTime, type);
-
     if (sizeof(State) == sizeof(uint32))
     {
-	myTime++;
+	myTime += inc;
     }
     else
     {
-	myHRTime++;
-	if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
-	    myTime++;
+	for (int i = 0; i < inc; i++)
+	{
+	    myHRTime++;
+	    if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
+		myTime++;
+	}
     }
 
     // The time wrapped
