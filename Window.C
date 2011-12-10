@@ -49,8 +49,9 @@ Window::~Window()
 //
 
 MemViewWidget::MemViewWidget(int argc, char *argv[])
-    : myImage(theDefaultSize, QImage::Format_ARGB32_Premultiplied)
 {
+    myImage.resize(theDefaultSize.width(), theDefaultSize.height());
+
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
 
@@ -80,21 +81,23 @@ MemViewWidget::block()
 }
 
 void
-MemViewWidget::paintEvent(QPaintEvent *)
+MemViewWidget::paintGL()
 {
     //StopWatch	timer;
-    QPainter	painter(this);
 
     myState->fillImage(myImage);
-    painter.drawImage(QPoint(), myImage);
+
+    glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
+	    GL_UNSIGNED_BYTE, myImage.data());
 }
 
 void
 MemViewWidget::resizeEvent(QResizeEvent *)
 {
-    if (size() != myImage.size())
+    if (size().width() != myImage.width() ||
+	size().height() != myImage.height())
     {
-	myImage = QImage(size(), QImage::Format_ARGB32_Premultiplied);
+	myImage.resize(size().width(), size().height());
 	update();
     }
 }

@@ -1,6 +1,9 @@
 #ifndef NOTEPAD_H
 
 #include <QtGui>
+#include <QGLWidget>
+#include "Math.h"
+#include "GLImage.h"
 
 class MemoryState;
 class MemViewWidget;
@@ -26,7 +29,7 @@ private:
 };
 
 // A widget to render the memory visualization.
-class MemViewWidget : public QWidget {
+class MemViewWidget : public QGLWidget {
     Q_OBJECT
 
 public:
@@ -34,7 +37,7 @@ public:
     virtual ~MemViewWidget();
 
 protected:
-    void	paintEvent(QPaintEvent *event);
+    void	paintGL();
     void	resizeEvent(QResizeEvent *event);
 
 private slots:
@@ -43,7 +46,7 @@ private slots:
     void    tick();
 
 private:
-    QImage	 myImage;
+    GLImage	 myImage;
     QTimer	*myTimer;
 
     MemoryState	*myState;

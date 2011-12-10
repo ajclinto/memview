@@ -5,6 +5,7 @@
 #include "Math.h"
 
 class Loader;
+class GLImage;
 
 class MemoryState {
 public:
@@ -19,13 +20,13 @@ public:
     };
     void	setVisualization(Visualization vis)
 		{ myVisualization = vis; }
-    void	fillImage(QImage &image) const;
+    void	fillImage(GLImage &image) const;
 
     void	updateAddress(uint64 addr, int size, char type);
 
 private:
-    void	fillLinear(QImage &image) const;
-    void	fillRecursiveBlock(QImage &image) const;
+    void	fillLinear(GLImage &image) const;
+    void	fillRecursiveBlock(GLImage &image) const;
 
     typedef uint32	State;
 

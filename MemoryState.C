@@ -2,6 +2,7 @@
 #include "StopWatch.h"
 #include "Color.h"
 #include "Loader.h"
+#include "GLImage.h"
 #include <assert.h>
 
 static void
@@ -131,17 +132,10 @@ MemoryState::updateAddress(uint64 addr, int size, char type)
 static const uint32	theWhite = 0xFFFFFFFF;
 static const uint32	theBlack = 0xFF000000;
 
-static inline void
-putPixel(int r, int c, QImage &image, uint32 val)
-{
-    QRgb	*data = (QRgb *)image.scanLine(r);
-    data[c] = val;
-}
-
 static inline bool
-putNextPixel(int &r, int &c, QImage &image, uint32 val)
+putNextPixel(int &r, int &c, GLImage &image, uint32 val)
 {
-    putPixel(r, c, image, val);
+    image.putPixel(r, c, val);
     c++;
     if (c >= image.width())
     {
@@ -156,7 +150,7 @@ putNextPixel(int &r, int &c, QImage &image, uint32 val)
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(QImage &image) const
+MemoryState::fillLinear(GLImage &image) const
 {
     int		 r = 0;
     int		 c = 0;
@@ -278,7 +272,7 @@ static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
 
 static bool
 plotBlock(int &roff, int &coff, int &maxheight,
-	QImage &image, const std::vector<uint32> &data)
+	GLImage &image, const std::vector<uint32> &data)
 {
     // Determine the width and height of the result block
     int	bwidth, bheight;
@@ -312,7 +306,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
 	r += roff;
 	c += coff;
 	if (r < image.height() && c < image.width())
-	    putPixel(r, c, image, data[i]);
+	    image.putPixel(r, c, data[i]);
     }
 
     coff += bwidth + theBlockSpacing;
@@ -321,7 +315,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
 }
 
 void
-MemoryState::fillRecursiveBlock(QImage &image) const
+MemoryState::fillRecursiveBlock(GLImage &image) const
 {
     int		 r = 0;
     int		 c = 0;
@@ -356,7 +350,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 }
 
 void
-MemoryState::fillImage(QImage &image) const
+MemoryState::fillImage(GLImage &image) const
 {
     //StopWatch	 timer;
     image.fill(theBlack);
