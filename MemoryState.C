@@ -158,7 +158,6 @@ static const int	theBlockSpacing = 1;
 void
 MemoryState::fillLinear(QImage &image) const
 {
-    //StopWatch	 timer;
     int		 r = 0;
     int		 c = 0;
 
@@ -324,7 +323,6 @@ plotBlock(int &roff, int &coff, int &maxheight,
 void
 MemoryState::fillRecursiveBlock(QImage &image) const
 {
-    //StopWatch	 timer;
     int		 r = 0;
     int		 c = 0;
     int		 maxheight = 0;
@@ -360,6 +358,7 @@ MemoryState::fillRecursiveBlock(QImage &image) const
 void
 MemoryState::fillImage(QImage &image) const
 {
+    //StopWatch	 timer;
     image.fill(theBlack);
 
     switch (myVisualization)

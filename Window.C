@@ -1,5 +1,6 @@
 #include "Window.h"
 #include "MemoryState.h"
+#include "StopWatch.h"
 
 static const QSize	theDefaultSize(800, 600);
 
@@ -81,11 +82,11 @@ MemViewWidget::block()
 void
 MemViewWidget::paintEvent(QPaintEvent *)
 {
+    //StopWatch	timer;
     QPainter	painter(this);
 
     myState->fillImage(myImage);
-
-    painter.drawPixmap(QPoint(), QPixmap::fromImage(myImage));
+    painter.drawImage(QPoint(), myImage);
 }
 
 void
