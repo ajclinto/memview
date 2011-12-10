@@ -92,9 +92,6 @@ Loader::openPipe(int argc, char *argv[])
 	// Close input for child
 	close(fd[0]);
 
-	// Copy stderr to the output of the pipe
-	dup2(fd[1], 2);
-
 	static const int	 theMaxArgs = 256;
 	const char		*args[theMaxArgs];
 	int			 vg_args = 0;
@@ -104,12 +101,21 @@ Loader::openPipe(int argc, char *argv[])
 	{
 	    args[vg_args++] = "--tool=memview";
 	    if (mySource == MEMVIEW_SHM)
+	    {
 		args[vg_args++] = "--shared-mem=/dev/shm"SHARED_NAME;
+	    }
 	    else
-		args[vg_args++] = "--pipe=yes";
+	    {
+		char	pipearg[64];
+		sprintf(pipearg, "--pipe=%d", fd[1]);
+		args[vg_args++] = pipearg;
+	    }
 	}
 	else
 	{
+	    // Copy stderr to the output of the pipe
+	    dup2(fd[1], 2);
+
 	    args[vg_args++] = "--tool=lackey";
 	    args[vg_args++] = "--basic-counts=no";
 	    args[vg_args++] = "--trace-mem=yes";
@@ -132,11 +138,6 @@ Loader::openPipe(int argc, char *argv[])
     // Open the pipe for reading
     myPipeFD = fd[0];
     myPipe = fdopen(myPipeFD, "r");
-
-    // Load the initial 5 lines ("==")
-    // TODO: Fragile
-    if (mySource == MEMVIEW_PIPE)
-	loadFromLackey(5);
 
     return true;
 }
