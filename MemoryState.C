@@ -260,6 +260,88 @@ private:
 
 static BlockLUT		theBlockLUT;
 
+static const int	theMinBlockWidth = 32;
+static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
+
+static bool
+plotBlock(int &roff, int &coff, int &maxheight,
+	GLImage &image, const std::vector<uint32> &data, const QPoint &off)
+{
+    // Determine the width and height of the result block
+    int	bwidth, bheight;
+
+    getBlockSize(bwidth, bheight, data.size());
+
+    // Force a minimum size
+    bwidth = SYSmax(bwidth, theMinBlockWidth);
+    bheight = SYSmax(bheight, theMinBlockWidth);
+
+    // Does the block fit horizontally?
+    if (coff + bwidth > image.width())
+    {
+	roff += maxheight + theBlockSpacing;
+	coff = 0;
+	maxheight = bheight;
+    }
+    else
+    {
+	maxheight = SYSmax(maxheight, bheight);
+    }
+
+    if (roff > image.height())
+	return false;
+
+    // Display the block
+    for (int i = 0; i < (int)data.size(); i++)
+    {
+	int	r, c;
+	theBlockLUT.lookup(r, c, i);
+	r += roff + off.y();
+	c += coff;
+	if (r >= 0 && r < image.height() && c < image.width())
+	    image.setPixel(r, c, data[i]);
+    }
+
+    coff += bwidth + theBlockSpacing;
+
+    return true;
+}
+
+void
+MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
+{
+    int		 r = 0;
+    int		 c = 0;
+    int		 maxheight = 0;
+    std::vector<uint32>	pending;
+
+    StateIterator	it(this);
+    for (it.rewind(); !it.atEnd(); it.advance())
+    {
+	if (it.nempty() >= (uint64)theMinBlockSize)
+	{
+	    if (pending.size())
+	    {
+		// Plot the pending block
+		if (!plotBlock(r, c, maxheight, image, pending, off))
+		    return;
+
+		// Reset
+		pending.clear();
+	    }
+	}
+	else
+	{
+	    pending.insert(pending.end(), it.nempty(), theBlack);
+	}
+
+	pending.push_back(mapColor(it.state(), it.type()));
+    }
+
+    if (pending.size())
+	plotBlock(r, c, maxheight, image, pending, off);
+}
+
 void
 MemoryState::QuadTree::addChild(int level, int r, int c, StateArray *arr)
 {
@@ -374,6 +456,7 @@ MemoryState::QuadTree::render(GLImage &image,
     }
 }
 
+#if 0
 void
 MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 {
@@ -392,6 +475,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
     tree.computeSize();
     tree.render(image, off, *this);
 }
+#endif
 
 void
 MemoryState::fillImage(GLImage &image, const QPoint &off) const
