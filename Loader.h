@@ -23,6 +23,7 @@ private:
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
     bool	loadFromSharedMemory();
+    bool	loadFromTest();
 
 private:
     MemoryState	*myState;
@@ -40,7 +41,8 @@ private:
     enum LoadSource {
 	LACKEY,
 	MEMVIEW_PIPE,
-	MEMVIEW_SHM
+	MEMVIEW_SHM,
+	TEST
     };
 
     LoadSource	 mySource;

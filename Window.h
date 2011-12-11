@@ -40,6 +40,10 @@ protected:
     void	paintGL();
     void	resizeEvent(QResizeEvent *event);
 
+    void	mousePressEvent(QMouseEvent *event);
+    void	mouseMoveEvent(QMouseEvent *event);
+    void	mouseReleaseEvent(QMouseEvent *event);
+
 private slots:
     void    linear();
     void    block();
@@ -50,6 +54,9 @@ private:
     QTimer	*myTimer;
 
     MemoryState	*myState;
+
+    QPoint	 myDragPos;
+    QPoint	 myRenderPos;
 };
 
 #endif

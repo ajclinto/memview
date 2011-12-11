@@ -83,7 +83,7 @@ MemViewWidget::paintGL()
 {
     //StopWatch	timer;
 
-    myState->fillImage(myImage);
+    myState->fillImage(myImage, myRenderPos);
 
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
@@ -98,6 +98,30 @@ MemViewWidget::resizeEvent(QResizeEvent *)
 	myImage.resize(size().width(), size().height());
 	update();
     }
+}
+
+void
+MemViewWidget::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+	myDragPos = event->pos();
+}
+
+void
+MemViewWidget::mouseMoveEvent(QMouseEvent *event)
+{
+    if (event->buttons() & Qt::LeftButton)
+    {
+	myRenderPos += event->pos() - myDragPos;
+	myDragPos = event->pos();
+    }
+}
+
+void
+MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::LeftButton)
+	myRenderPos += event->pos() - myDragPos;
 }
 
 void

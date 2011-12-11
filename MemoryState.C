@@ -144,12 +144,11 @@ putNextPixel(int &r, int &c, GLImage &image, uint32 val)
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(GLImage &image) const
+MemoryState::fillLinear(GLImage &image, const QPoint &) const
 {
     int		 r = 0;
     int		 c = 0;
 
-    // Assume that the stack occupies the top half of memory
     StateIterator	it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
@@ -261,90 +260,141 @@ private:
 
 static BlockLUT		theBlockLUT;
 
-static const int	theMinBlockWidth = 32;
-static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
-
-static bool
-plotBlock(int &roff, int &coff, int &maxheight,
-	GLImage &image, const std::vector<uint32> &data)
+void
+MemoryState::QuadTree::addChild(int level, int r, int c, StateArray *arr)
 {
-    // Determine the width and height of the result block
-    int	bwidth, bheight;
-
-    getBlockSize(bwidth, bheight, data.size());
-
-    // Force a minimum size
-    bwidth = SYSmax(bwidth, theMinBlockWidth);
-    bheight = SYSmax(bheight, theMinBlockWidth);
-
-    // Does the block fit horizontally?
-    if (coff + bwidth > image.width())
+    if (level)
     {
-	roff += maxheight + theBlockSpacing;
-	coff = 0;
-	maxheight = bheight;
+	int idx;
+
+	level--;
+	idx  = r&(1<<level) ? 2 : 0;
+	idx |= c&(1<<level) ? 1 : 0;
+	if (!mySubtree[idx])
+	    mySubtree[idx] = new QuadTree;
+	mySubtree[idx]->addChild(level, r, c, arr);
     }
     else
     {
-	maxheight = SYSmax(maxheight, bheight);
+	myLeaf = arr;
     }
+}
 
-    if (roff > image.height())
-	return false;
-
-    // Display the block
-    for (int i = 0; i < (int)data.size(); i++)
+QSize
+MemoryState::QuadTree::computeWSize(int off)
+{
+    QSize	size(0, 0);
+    if (mySubtree[off])
     {
-	int	r, c;
-	theBlockLUT.lookup(r, c, i);
-	r += roff;
-	c += coff;
-	if (r < image.height() && c < image.width())
-	    image.setPixel(r, c, data[i]);
+	size = mySubtree[off]->computeSize();
     }
+    if (mySubtree[off+1])
+    {
+	QSize	tmp(mySubtree[off+1]->computeSize());
+	size = QSize(size.width() + tmp.width(),
+		SYSmax(size.height(), tmp.height()));
+    }
+    return size;
+}
 
-    coff += bwidth + theBlockSpacing;
+QSize
+MemoryState::QuadTree::computeSize()
+{
+    if (myLeaf)
+    {
+	int width = 1<<(theBottomBits>>1);
+	mySize = QSize(width, width);
+    }
+    else
+    {
+	QSize	tmp;
 
-    return true;
+	mySize = computeWSize(0);
+	tmp = computeWSize(2);
+
+	mySize = QSize(SYSmax(mySize.width(), tmp.width()),
+		mySize.height() + tmp.height());
+    }
+    return mySize;
 }
 
 void
-MemoryState::fillRecursiveBlock(GLImage &image) const
+MemoryState::QuadTree::render(GLImage &image,
+	const QPoint &off, const MemoryState &state) const
 {
-    int		 r = 0;
-    int		 c = 0;
-    int		 maxheight = 0;
-    std::vector<uint32>	pending;
+    QRect	box(off, mySize);
+    QRect	ibox(0, 0, image.width(), image.height());
 
-    StateIterator	it(this);
-    for (it.rewind(); !it.atEnd(); it.advance())
+    // Culling
+    if (!box.intersects(ibox))
+	return;
+
+    if (myLeaf)
     {
-	if (it.nempty() >= (uint64)theMinBlockSize)
+	// Display the block
+	for (uint32 i = 0; i < theBottomSize; i++)
 	{
-	    if (pending.size())
+	    if (myLeaf->myState[i])
 	    {
-		// Plot the pending block
-		if (!plotBlock(r, c, maxheight, image, pending))
-		    return;
-
-		// Reset
-		pending.clear();
+		int	r, c;
+		theBlockLUT.lookup(r, c, i);
+		r += off.y();
+		c += off.x();
+		if (r >= 0 && r < image.height() &&
+		    c >= 0 && c < image.width())
+		    image.setPixel(r, c,
+			    state.mapColor(myLeaf->myState[i],
+					   myLeaf->myType[i]));
 	    }
 	}
-	else
-	{
-	    pending.insert(pending.end(), it.nempty(), theBlack);
-	}
-
-	pending.push_back(mapColor(it.state(), it.type()));
     }
-
-    if (pending.size())
-	plotBlock(r, c, maxheight, image, pending);
+    else
+    {
+	QPoint	xoff = off;
+	QPoint	yoff = off;
+	if (mySubtree[0])
+	{
+	    mySubtree[0]->render(image, off, state);
+	    xoff = QPoint(off.x()+mySubtree[0]->getSize().width(), off.y());
+	    yoff = QPoint(off.x(), off.y()+mySubtree[0]->getSize().height());
+	}
+	if (mySubtree[1])
+	{
+	    mySubtree[1]->render(image, xoff, state);
+	    yoff = QPoint(off.x(), SYSmax(yoff.y(),
+			off.y()+mySubtree[1]->getSize().height()));
+	}
+	if (mySubtree[2])
+	{
+	    mySubtree[2]->render(image, yoff, state);
+	    yoff = QPoint(yoff.x()+mySubtree[2]->getSize().width(), yoff.y());
+	}
+	if (mySubtree[3])
+	    mySubtree[3]->render(image, yoff, state);
+    }
 }
 
 void
-MemoryState::fillImage(GLImage &image) const
+MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
+{
+    QuadTree	tree;
+
+    // Build the quad-tree
+    for (uint32 i = 0; i < theTopSize; i++)
+    {
+	if (myTable[i])
+	{
+	    int	r, c;
+	    theBlockLUT.lookup(r, c, i);
+	    tree.addChild(theTopBits>>1, r, c, myTable[i]);
+	}
+    }
+    tree.computeSize();
+    tree.render(image, off, *this);
+}
+
+void
+MemoryState::fillImage(GLImage &image, const QPoint &off) const
 {
     //StopWatch	 timer;
     image.fill(theBlack);
@@ -352,10 +402,10 @@ MemoryState::fillImage(GLImage &image) const
     switch (myVisualization)
     {
 	case LINEAR:
-	    fillLinear(image);
+	    fillLinear(image, off);
 	    break;
 	case BLOCK:
-	    fillRecursiveBlock(image);
+	    fillRecursiveBlock(image, off);
 	    break;
     }
 }

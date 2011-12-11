@@ -39,6 +39,9 @@ Loader::~Loader()
 bool
 Loader::openPipe(int argc, char *argv[])
 {
+    if (mySource == TEST)
+	return true;
+
     if (mySource == MEMVIEW_SHM)
     {
 	int		shm_fd;
@@ -150,6 +153,9 @@ Loader::run()
 	bool	rval = false;
 	switch (mySource)
 	{
+	    case TEST:
+		rval = loadFromTest();
+		break;
 	    case LACKEY:
 		rval = loadFromLackey(10000);
 		break;
@@ -301,4 +307,11 @@ Loader::loadFromSharedMemory()
     return count == theBlockSize;
 }
 
+bool
+Loader::loadFromTest()
+{
+    for (int i = 0; i < 1024*16; i++)
+	myState->updateAddress(i, 4, 'L');
+    return false;
+}
 

@@ -20,7 +20,7 @@ public:
     };
     void	setVisualization(Visualization vis)
 		{ myVisualization = vis; }
-    void	fillImage(GLImage &image) const;
+    void	fillImage(GLImage &image, const QPoint &off) const;
 
     void	updateAddress(uint64 addr, int size, char type)
 		{
@@ -33,8 +33,8 @@ public:
     void	incrementTime(int inc);
 
 private:
-    void	fillLinear(GLImage &image) const;
-    void	fillRecursiveBlock(GLImage &image) const;
+    void	fillLinear(GLImage &image, const QPoint &off) const;
+    void	fillRecursiveBlock(GLImage &image, const QPoint &off) const;
 
     typedef uint32	State;
 
@@ -176,6 +176,35 @@ private:
 	uint64			 myTop;
 	uint64			 myBottom;
 	uint64			 myEmptyCount;
+    };
+
+    class QuadTree {
+    public:
+	QuadTree()
+	    : myLeaf(0)
+	{
+	    memset(mySubtree, 0, 4*sizeof(QuadTree *));
+	}
+	~QuadTree()
+	{
+	    for (int i = 0; i < 4; i++)
+		delete mySubtree[i];
+	}
+
+	void	 addChild(int level, int r, int c, StateArray *arr);
+	QSize	 computeSize();
+	QSize	 getSize() const	{ return mySize; }
+
+	void	 render(GLImage &image, const QPoint &off, const
+			MemoryState &state) const;
+
+    private:
+	QSize	 computeWSize(int off);
+
+    private:
+	QuadTree	*mySubtree[4];
+	StateArray	*myLeaf;
+	QSize		 mySize;
     };
 
 private:
