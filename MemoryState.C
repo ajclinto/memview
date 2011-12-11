@@ -127,9 +127,8 @@ static const uint32	theWhite = 0xFFFFFFFF;
 static const uint32	theBlack = 0xFF000000;
 
 static inline bool
-putNextPixel(int &r, int &c, GLImage &image, uint32 val)
+nextPixel(int &r, int &c, const GLImage &image)
 {
-    image.setPixel(r, c, val);
     c++;
     if (c >= image.width())
     {
@@ -144,9 +143,9 @@ putNextPixel(int &r, int &c, GLImage &image, uint32 val)
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(GLImage &image, const QPoint &) const
+MemoryState::fillLinear(GLImage &image, const QPoint &off) const
 {
-    int		 r = 0;
+    int		 r = off.y();
     int		 c = 0;
 
     StateIterator	it(this);
@@ -171,7 +170,10 @@ MemoryState::fillLinear(GLImage &image, const QPoint &) const
 	if (r >= image.height())
 	    return;
 
-	if (!putNextPixel(r, c, image, mapColor(it.state(), it.type())))
+	if (r >= 0)
+	    image.setPixel(r, c, mapColor(it.state(), it.type()));
+
+	if (!nextPixel(r, c, image))
 	    return;
     }
 }
@@ -265,7 +267,7 @@ static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
 
 static bool
 plotBlock(int &roff, int &coff, int &maxheight,
-	GLImage &image, const std::vector<uint32> &data, const QPoint &off)
+	GLImage &image, const std::vector<uint32> &data)
 {
     // Determine the width and height of the result block
     int	bwidth, bheight;
@@ -291,15 +293,18 @@ plotBlock(int &roff, int &coff, int &maxheight,
     if (roff > image.height())
 	return false;
 
-    // Display the block
-    for (int i = 0; i < (int)data.size(); i++)
+    if (roff + bheight > 0)
     {
-	int	r, c;
-	theBlockLUT.lookup(r, c, i);
-	r += roff + off.y();
-	c += coff;
-	if (r >= 0 && r < image.height() && c < image.width())
-	    image.setPixel(r, c, data[i]);
+	// Display the block
+	for (int i = 0; i < (int)data.size(); i++)
+	{
+	    int	r, c;
+	    theBlockLUT.lookup(r, c, i);
+	    r += roff;
+	    c += coff;
+	    if (r >= 0 && r < image.height() && c < image.width())
+		image.setPixel(r, c, data[i]);
+	}
     }
 
     coff += bwidth + theBlockSpacing;
@@ -310,7 +315,7 @@ plotBlock(int &roff, int &coff, int &maxheight,
 void
 MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 {
-    int		 r = 0;
+    int		 r = off.y();
     int		 c = 0;
     int		 maxheight = 0;
     std::vector<uint32>	pending;
@@ -323,7 +328,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 	    if (pending.size())
 	    {
 		// Plot the pending block
-		if (!plotBlock(r, c, maxheight, image, pending, off))
+		if (!plotBlock(r, c, maxheight, image, pending))
 		    return;
 
 		// Reset
@@ -339,7 +344,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
     }
 
     if (pending.size())
-	plotBlock(r, c, maxheight, image, pending, off);
+	plotBlock(r, c, maxheight, image, pending);
 }
 
 void
