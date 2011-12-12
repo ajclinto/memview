@@ -32,6 +32,11 @@ public:
 	for (int i = 0; i < myWidth*myHeight; i++)
 	    myData[i] = val;
     }
+    void invert()
+    {
+	for (int i = 0; i < myWidth*myHeight; i++)
+	    myData[i] = ~myData[i] | 0xFF000000;
+    }
     void setPixel(int r, int c, uint32 val)
     {
 	myData[(myHeight-r-1)*myWidth+c] = val;
