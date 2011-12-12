@@ -6,6 +6,12 @@ public:
     Color() {}
     Color(float r, float g, float b)
 	: myR(r), myG(g), myB(b) {}
+    Color(uint32 val)
+    {
+	myB = (val & 0xFF) / 255.0F; val >>= 8;
+	myG = (val & 0xFF) / 255.0F; val >>= 8;
+	myR = (val & 0xFF) / 255.0F;
+    }
 
     uint32	toInt32() const
 		{

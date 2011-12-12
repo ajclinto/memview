@@ -8,12 +8,12 @@
 static void
 fillLut(uint32 *lut, const Color &hi, const Color &lo)
 {
-    const uint32	lcutoff = 160;
+    const uint32	lcutoff = 120;
     const uint32	hcutoff = 230;
     Color		vals[4];
 
-    vals[0] = lo * (0.04/ lo.luminance());
-    vals[1] = lo * (0.2 / lo.luminance());
+    vals[0] = lo * (0.02/ lo.luminance());
+    vals[1] = lo * (0.15 / lo.luminance());
     vals[2] = hi * (0.5 / hi.luminance());
     vals[3] = hi * (2.0 / hi.luminance());
 
@@ -40,8 +40,8 @@ MemoryState::MemoryState()
     memset(myTable, 0, theTopSize*sizeof(State *));
 
     Color	rhi(0.2, 1.0, 0.2);
-    Color	whi(0.2, 0.5, 1.0);
-    Color	ihi(0.5, 1.0, 0.2);
+    Color	whi(1.0, 0.7, 0.2);
+    Color	ihi(0.3, 0.2, 0.8);
 
     Color	rlo(0.1, 0.1, 0.5);
     Color	wlo(0.3, 0.1, 0.1);
