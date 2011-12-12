@@ -8,8 +8,8 @@
 static void
 fillLut(uint32 *lut, const Color &hi, const Color &lo)
 {
-    const uint32	lcutoff = 100;
-    const uint32	hcutoff = 140;
+    const uint32	lcutoff = 160;
+    const uint32	hcutoff = 230;
     Color		vals[4];
 
     vals[0] = lo * (0.04/ lo.luminance());
@@ -89,28 +89,18 @@ MemoryState::openPipe(int argc, char *argv[])
 }
 
 void
-MemoryState::incrementTime(int inc)
+MemoryState::incrementTime()
 {
-    uint32  ptime = myTime;
-
     if (sizeof(State) == sizeof(uint32))
     {
-	myTime += inc;
+	myTime++;
     }
     else
     {
-	for (int i = 0; i < inc; i++)
-	{
-	    myHRTime++;
-	    if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
-		myTime++;
-	}
+	myHRTime++;
+	if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
+	    myTime++;
     }
-
-    if (myTime < ptime || myTime > theFullLife)
-	myTime = theFullLife;
-    else if (myTime > theHalfLife && ptime < theHalfLife)
-	myTime = theHalfLife;
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)

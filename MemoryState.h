@@ -31,7 +31,7 @@ public:
 		    for (int i = 0; i < size; i++)
 			setEntry(addr+i, myTime, type);
 		}
-    void	incrementTime(int inc);
+    void	incrementTime();
 
 private:
     void	fillLinear(GLImage &image,

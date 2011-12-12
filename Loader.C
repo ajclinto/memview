@@ -157,7 +157,7 @@ Loader::run()
 		rval = loadFromTest();
 		break;
 	    case LACKEY:
-		rval = loadFromLackey(10000);
+		rval = loadFromLackey(theBlockSize);
 		break;
 	    case MEMVIEW_PIPE:
 		rval = loadFromPipe();
@@ -223,7 +223,7 @@ Loader::loadFromLackey(int max_read)
     }
 
     if (i > 0)
-	myState->incrementTime(i);
+	myState->incrementTime();
 
     if (buf)
 	free(buf);
@@ -258,7 +258,7 @@ Loader::loadFromPipe()
 			block.myAddr[j], block.mySize[j], block.myType[j]);
 	    }
 
-	    myState->incrementTime(block.myEntries);
+	    myState->incrementTime();
 	}
 
 	return block.myEntries == theBlockSize;
@@ -295,7 +295,7 @@ Loader::loadFromSharedMemory()
 		    block.myAddr[i], block.mySize[i], block.myType[i]);
 	}
 
-	myState->incrementTime(count);
+	myState->incrementTime();
     }
 
     block.myWSem = 1;
