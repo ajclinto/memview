@@ -88,13 +88,21 @@ void
 MemViewWidget::paintGL()
 {
     //StopWatch	timer;
-    int		height = 0;
+    int	    height = 0;
 
     myState->fillImage(myImage, QPoint(0, -myScrollBar->value()), height);
-    myScrollBar->setRange(0, SYSmax(height-myScrollBar->pageStep(), 0));
 
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
+
+    int	    pmax = myScrollBar->maximum();
+    int	    nmax;
+
+    nmax = SYSmax(height-myScrollBar->pageStep(), 0);
+    myScrollBar->setMaximum(nmax);
+    if (pmax && nmax > pmax)
+	myScrollBar->setValue((myScrollBar->value()*nmax) / pmax);
+
 }
 
 void
@@ -103,8 +111,11 @@ MemViewWidget::resizeEvent(QResizeEvent *)
     if (size().width() != myImage.width() ||
 	size().height() != myImage.height())
     {
-	myScrollBar->setPageStep(size().height());
-	myImage.resize(size().width(), size().height());
+	int w = size().width();
+	int h = size().height();
+
+	myScrollBar->setPageStep(h);
+	myImage.resize(w, h);
 	update();
     }
 }
