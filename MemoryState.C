@@ -311,11 +311,21 @@ MemoryState::fillRecursiveBlock(GLImage &image,
     int		 r = off.y();
     int		 c = 0;
     int		 maxheight = 0;
+    int		 maxsize = 1;
+
+    // Find the greatest power of 2 less than the image size, so that we
+    // can clamp the block size to this amount.
+    while (maxsize < SYSmin(image.width(), image.height()))
+	maxsize <<= 1;
+    maxsize >>= 1;
+    maxsize *= maxsize;
 
     DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	plotBlock(r, c, maxheight, image, it.addr(), it.size());
+	for (int i = 0; i < it.size(); i += maxsize)
+	    plotBlock(r, c, maxheight, image, it.addr() + i,
+		    SYSmin(it.size()-i, maxsize));
     }
 
     height = r + maxheight - off.y();
