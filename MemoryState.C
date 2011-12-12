@@ -126,18 +126,6 @@ MemoryState::incrementTime(int inc)
 static const uint32	theWhite = 0xFFFFFFFF;
 static const uint32	theBlack = 0xFF000000;
 
-static inline bool
-nextPixel(int &r, int &c, const GLImage &image)
-{
-    c++;
-    if (c >= image.width())
-    {
-	r++;
-	c = 0;
-    }
-    return r < image.height();
-}
-
 static const int	theBlockSpacing = 1;
 
 void
@@ -151,12 +139,20 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
     {
 	// Calculate a consistent column offset
 	c = it.addr() % image.width();
-	int nr = r + (c + it.size()) / image.width();
-	if (nr > 0 && r < image.height())
+	int nr = r + (c + it.size() - 1) / image.width();
+	if (nr >= 0 && r < image.height())
 	{
-	    for (int i = 0; i < it.size(); i++)
+	    int	i = 0;
+	    if (r < 0)
 	    {
-		if (r >= 0 && r < image.height())
+		i = -r*image.width() - c;
+		r = 0;
+		c = 0;
+	    }
+	    for (; r <= SYSmin(nr, image.height()-1) &&
+		    i < it.size(); r++)
+	    {
+		for (; c < image.width() && i < it.size(); c++, i++)
 		{
 		    int	     tidx = (it.addr() + i)>>theBottomBits;
 		    int	     bidx = (it.addr() + i)&theBottomMask;
@@ -166,14 +162,11 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
 			image.setPixel(r, c,
 				mapColor(arr->myState[bidx], arr->myType[bidx]));
 		}
-		nextPixel(r, c, image);
+		c = 0;
 	    }
 	}
-	else
-	{
-	    r = nr;
-	}
 
+	r = nr;
 	r += theBlockSpacing+1;
     }
 
