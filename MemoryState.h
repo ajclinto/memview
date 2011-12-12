@@ -20,7 +20,8 @@ public:
     };
     void	setVisualization(Visualization vis)
 		{ myVisualization = vis; }
-    void	fillImage(GLImage &image, const QPoint &off) const;
+    void	fillImage(GLImage &image,
+			  const QPoint &off, int &height) const;
 
     void	updateAddress(uint64 addr, int size, char type)
 		{
@@ -33,8 +34,10 @@ public:
     void	incrementTime(int inc);
 
 private:
-    void	fillLinear(GLImage &image, const QPoint &off) const;
-    void	fillRecursiveBlock(GLImage &image, const QPoint &off) const;
+    void	fillLinear(GLImage &image,
+			const QPoint &off, int &height) const;
+    void	fillRecursiveBlock(GLImage &image,
+			const QPoint &off, int &height) const;
 
     typedef uint32	State;
 

@@ -7,6 +7,7 @@
 
 class MemoryState;
 class MemViewWidget;
+class MemViewScroll;
 
 class Window : public QMainWindow {
     Q_OBJECT
@@ -26,6 +27,19 @@ private:
     QAction		*myVis[theVisCount];
 
     MemViewWidget	*myMemView;
+    MemViewScroll	*myScrollArea;
+    QGridLayout		*myLayout;
+};
+
+// A scroll area to contain the memory view.  We'll pass off control over
+// the vertical scrollbar to MemViewWidget.
+class MemViewScroll : public QAbstractScrollArea {
+public:
+    MemViewScroll(QWidget *parent)
+	: QAbstractScrollArea(parent) {}
+
+    // Viewport events need to be passed directly to the viewport.
+    bool    viewportEvent(QEvent *) { return false; }
 };
 
 // A widget to render the memory visualization.
@@ -33,9 +47,11 @@ class MemViewWidget : public QGLWidget {
     Q_OBJECT
 
 public:
-	     MemViewWidget(int argc, char *argv[]);
+	     MemViewWidget(int argc, char *argv[], QScrollBar *scrollbar);
     virtual ~MemViewWidget();
 
+    void	paint(QPaintEvent *event)
+		{ paintEvent(event); }
 protected:
     void	paintGL();
     void	resizeEvent(QResizeEvent *event);
@@ -52,11 +68,11 @@ private slots:
 private:
     GLImage	 myImage;
     QTimer	*myTimer;
+    QScrollBar	*myScrollBar;
 
     MemoryState	*myState;
 
     QPoint	 myDragPos;
-    QPoint	 myRenderPos;
 };
 
 #endif

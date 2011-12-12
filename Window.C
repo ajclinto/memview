@@ -29,13 +29,18 @@ Window::Window(int argc, char *argv[])
     }
     myVis[1]->setChecked(true);
 
-    myMemView = new MemViewWidget(argc, argv);
-    setCentralWidget(myMemView);
+    myScrollArea = new MemViewScroll(this);
+
+    myMemView = new MemViewWidget(argc, argv,
+	    myScrollArea->verticalScrollBar());
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
 
     setWindowTitle("Memview");
+
+    myScrollArea->setViewport(myMemView);
+    setCentralWidget(myScrollArea);
 
     resize(theDefaultSize);
 }
@@ -48,7 +53,8 @@ Window::~Window()
 // MemViewWidget
 //
 
-MemViewWidget::MemViewWidget(int argc, char *argv[])
+MemViewWidget::MemViewWidget(int argc, char *argv[], QScrollBar *scrollbar)
+    : myScrollBar(scrollbar)
 {
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -82,8 +88,10 @@ void
 MemViewWidget::paintGL()
 {
     //StopWatch	timer;
+    int		height = 0;
 
-    myState->fillImage(myImage, myRenderPos);
+    myState->fillImage(myImage, QPoint(0, -myScrollBar->value()), height);
+    myScrollBar->setRange(0, SYSmax(height-myScrollBar->pageStep(), 0));
 
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
@@ -95,6 +103,7 @@ MemViewWidget::resizeEvent(QResizeEvent *)
     if (size().width() != myImage.width() ||
 	size().height() != myImage.height())
     {
+	myScrollBar->setPageStep(size().height());
 	myImage.resize(size().width(), size().height());
 	update();
     }
@@ -112,7 +121,8 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-	myRenderPos += event->pos() - myDragPos;
+	myScrollBar->setValue(myScrollBar->value() +
+		myDragPos.y() - event->pos().y());
 	myDragPos = event->pos();
     }
 }
@@ -121,7 +131,8 @@ void
 MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
-	myRenderPos += event->pos() - myDragPos;
+	myScrollBar->setValue(myScrollBar->value() +
+		event->pos().y() - myDragPos.y());
 }
 
 void

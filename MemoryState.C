@@ -133,17 +133,15 @@ nextPixel(int &r, int &c, const GLImage &image)
     if (c >= image.width())
     {
 	r++;
-	if (r >= image.height())
-	    return false;
 	c = 0;
     }
-    return true;
+    return r < image.height();
 }
 
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(GLImage &image, const QPoint &off) const
+MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
 {
     int		 r = off.y();
     int		 c = 0;
@@ -167,15 +165,13 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off) const
 		r++;
 	    }
 	}
-	if (r >= image.height())
-	    return;
 
-	if (r >= 0)
+	if (r >= 0 && r < image.height())
 	    image.setPixel(r, c, mapColor(it.state(), it.type()));
 
-	if (!nextPixel(r, c, image))
-	    return;
+	nextPixel(r, c, image);
     }
+    height = r - off.y();
 }
 
 static void
@@ -290,9 +286,6 @@ plotBlock(int &roff, int &coff, int &maxheight,
 	maxheight = SYSmax(maxheight, bheight);
     }
 
-    if (roff > image.height())
-	return false;
-
     if (roff + bheight > 0)
     {
 	// Display the block
@@ -313,7 +306,8 @@ plotBlock(int &roff, int &coff, int &maxheight,
 }
 
 void
-MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
+MemoryState::fillRecursiveBlock(GLImage &image,
+	const QPoint &off, int &height) const
 {
     int		 r = off.y();
     int		 c = 0;
@@ -345,6 +339,8 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 
     if (pending.size())
 	plotBlock(r, c, maxheight, image, pending);
+
+    height = r - off.y();
 }
 
 void
@@ -483,7 +479,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 #endif
 
 void
-MemoryState::fillImage(GLImage &image, const QPoint &off) const
+MemoryState::fillImage(GLImage &image, const QPoint &off, int &height) const
 {
     //StopWatch	 timer;
     image.fill(theBlack);
@@ -491,10 +487,10 @@ MemoryState::fillImage(GLImage &image, const QPoint &off) const
     switch (myVisualization)
     {
 	case LINEAR:
-	    fillLinear(image, off);
+	    fillLinear(image, off, height);
 	    break;
 	case BLOCK:
-	    fillRecursiveBlock(image, off);
+	    fillRecursiveBlock(image, off, height);
 	    break;
     }
 }
