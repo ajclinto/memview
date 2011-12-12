@@ -162,8 +162,9 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
 		    int	     bidx = (it.addr() + i)&theBottomMask;
 		    StateArray  *arr = myTable[tidx];
 
-		    image.setPixel(r, c,
-			    mapColor(arr->myState[bidx], arr->myType[bidx]));
+		    if (arr->myState[bidx])
+			image.setPixel(r, c,
+				mapColor(arr->myState[bidx], arr->myType[bidx]));
 		}
 		nextPixel(r, c, image);
 	    }
@@ -300,8 +301,9 @@ MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
 		int	     bidx = (addr + i)&theBottomMask;
 		StateArray  *arr = myTable[tidx];
 
-		image.setPixel(r, c,
-			mapColor(arr->myState[bidx], arr->myType[bidx]));
+		if (arr->myState[bidx])
+		    image.setPixel(r, c,
+			    mapColor(arr->myState[bidx], arr->myType[bidx]));
 	    }
 	}
     }
