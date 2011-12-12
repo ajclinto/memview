@@ -38,6 +38,8 @@ private:
 			const QPoint &off, int &height) const;
     void	fillRecursiveBlock(GLImage &image,
 			const QPoint &off, int &height) const;
+    void	plotBlock(int &roff, int &coff, int &maxheight,
+			  GLImage &image, uint64 addr, int size) const;
 
     typedef uint32	State;
 
@@ -57,15 +59,25 @@ private:
     static const uint64	theBottomSize = 1L << theBottomBits;
     static const uint64	theBottomMask = theBottomSize-1;
 
+    // For display - 32x32 is the basic block size to ignore
+    static const int	theDisplayWidthBits = 5;
+    static const uint64	theDisplayWidth = 1<<theDisplayWidthBits;
+    static const int	theDisplayBits = theDisplayWidthBits<<1;
+    static const uint64	theDisplaySize = 1<<theDisplayBits;
+    static const uint64	theDisplayBlocksPerBottom =
+			    1<<(theBottomBits-theDisplayBits);
+
     struct StateArray {
 	StateArray()
 	{
 	    memset(myState, 0, theBottomSize*sizeof(State));
 	    memset(myType, 0, theBottomSize*sizeof(char));
+	    memset(myExists, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	}
 
 	State	myState[theBottomSize];
 	char	myType[theBottomSize];
+	bool	myExists[theDisplayBlocksPerBottom];
     };
 
     int		topIndex(uint64 addr) const
@@ -86,6 +98,7 @@ private:
 			row = new StateArray;
 		    row->myState[idx] = val;
 		    row->myType[idx] = type;
+		    row->myExists[idx>>theDisplayBits] = true;
 		}
 
     uint32	mapColor(State val, char type) const
@@ -115,6 +128,72 @@ private:
 		    return type == 'I' ? myILut[clr] :
 			(type == 'L' ? myRLut[clr] : myWLut[clr]);
 		}
+
+    // A class to find contiguous blocks
+    class DisplayIterator {
+    public:
+	DisplayIterator(const MemoryState *state)
+	    : myState(state)
+	    , myTop(0)
+	    , myDisplay(0)
+	    , myAddr(0)
+	    , mySize(0)
+	{
+	}
+
+	void	rewind()
+		{
+		    myTop = 0;
+		    myDisplay = 0;
+		    myAddr = 0;
+		    mySize = 0;
+		    advance();
+		}
+	bool	atEnd() const
+		{
+		    return myTop >= theTopSize;
+		}
+	void	advance()
+		{
+		    mySize = 0;
+		    for (; myTop < theTopSize; myTop++)
+		    {
+			if (table(myTop))
+			{
+			    for (; myDisplay < theDisplayBlocksPerBottom;
+				    myDisplay++)
+			    {
+				if (table(myTop)->myExists[myDisplay])
+				{
+				    if (!mySize)
+					myAddr = (myTop<<theBottomBits) |
+					    (myDisplay<<theDisplayBits);
+				    mySize += theDisplaySize;
+				}
+				else if (mySize)
+				    return;
+			    }
+			}
+			else if (mySize)
+			    return;
+			myDisplay = 0;
+		    }
+		}
+
+	uint64	addr() const	{ return myAddr; }
+	int	size() const	{ return mySize; }
+
+    private:
+	const StateArray	*table(int top)	const
+				 { return myState->myTable[top]; }
+
+    private:
+	const MemoryState	*myState;
+	uint64			 myTop;
+	uint64			 myDisplay;
+	uint64			 myAddr;
+	int			 mySize;
+    };
 
     // A class to iterate over only non-zero state values
     class StateIterator {

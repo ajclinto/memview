@@ -146,31 +146,36 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
     int		 r = off.y();
     int		 c = 0;
 
-    StateIterator	it(this);
+    DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (it.nempty() >= (uint64)image.width())
+	// Calculate a consistent column offset
+	c = it.addr() % image.width();
+	int nr = r + (c + it.size()) / image.width();
+	if (nr > 0 && r < image.height())
 	{
-	    // Put a blank line
-	    r += theBlockSpacing+1;
-	    c = 0;
+	    for (int i = 0; i < it.size(); i++)
+	    {
+		if (r >= 0 && r < image.height())
+		{
+		    int	     tidx = (it.addr() + i)>>theBottomBits;
+		    int	     bidx = (it.addr() + i)&theBottomMask;
+		    StateArray  *arr = myTable[tidx];
+
+		    image.setPixel(r, c,
+			    mapColor(arr->myState[bidx], arr->myType[bidx]));
+		}
+		nextPixel(r, c, image);
+	    }
 	}
 	else
 	{
-	    // Skip the empty pixels
-	    c += it.nempty();
-	    if (c >= image.width())
-	    {
-		c -= image.width();
-		r++;
-	    }
+	    r = nr;
 	}
 
-	if (r >= 0 && r < image.height())
-	    image.setPixel(r, c, mapColor(it.state(), it.type()));
-
-	nextPixel(r, c, image);
+	r += theBlockSpacing+1;
     }
+
     height = r - off.y();
 }
 
@@ -258,21 +263,15 @@ private:
 
 static BlockLUT		theBlockLUT;
 
-static const int	theMinBlockWidth = 32;
-static const int	theMinBlockSize = theMinBlockWidth*theMinBlockWidth;
-
-static bool
-plotBlock(int &roff, int &coff, int &maxheight,
-	GLImage &image, const std::vector<uint32> &data)
+void
+MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
+	GLImage &image, uint64 addr, int size) const
 {
     // Determine the width and height of the result block
     int	bwidth, bheight;
 
-    getBlockSize(bwidth, bheight, data.size());
+    getBlockSize(bwidth, bheight, size);
 
-    // Force a minimum size
-    bwidth = SYSmax(bwidth, theMinBlockWidth);
-    bheight = SYSmax(bheight, theMinBlockWidth);
 
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
@@ -286,23 +285,28 @@ plotBlock(int &roff, int &coff, int &maxheight,
 	maxheight = SYSmax(maxheight, bheight);
     }
 
-    if (roff + bheight > 0)
+    if (roff < image.height() && roff + bheight > 0)
     {
 	// Display the block
-	for (int i = 0; i < (int)data.size(); i++)
+	for (int i = 0; i < size; i++)
 	{
 	    int	r, c;
 	    theBlockLUT.lookup(r, c, i);
 	    r += roff;
 	    c += coff;
 	    if (r >= 0 && r < image.height() && c < image.width())
-		image.setPixel(r, c, data[i]);
+	    {
+		int	     tidx = (addr + i)>>theBottomBits;
+		int	     bidx = (addr + i)&theBottomMask;
+		StateArray  *arr = myTable[tidx];
+
+		image.setPixel(r, c,
+			mapColor(arr->myState[bidx], arr->myType[bidx]));
+	    }
 	}
     }
 
     coff += bwidth + theBlockSpacing;
-
-    return true;
 }
 
 void
@@ -312,35 +316,14 @@ MemoryState::fillRecursiveBlock(GLImage &image,
     int		 r = off.y();
     int		 c = 0;
     int		 maxheight = 0;
-    std::vector<uint32>	pending;
 
-    StateIterator	it(this);
+    DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (it.nempty() >= (uint64)theMinBlockSize)
-	{
-	    if (pending.size())
-	    {
-		// Plot the pending block
-		if (!plotBlock(r, c, maxheight, image, pending))
-		    return;
-
-		// Reset
-		pending.clear();
-	    }
-	}
-	else
-	{
-	    pending.insert(pending.end(), it.nempty(), theBlack);
-	}
-
-	pending.push_back(mapColor(it.state(), it.type()));
+	plotBlock(r, c, maxheight, image, it.addr(), it.size());
     }
 
-    if (pending.size())
-	plotBlock(r, c, maxheight, image, pending);
-
-    height = r - off.y();
+    height = r + maxheight - off.y();
 }
 
 void
