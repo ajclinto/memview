@@ -105,25 +105,20 @@ private:
 		{
 		    uint32	diff;
 
-		    if (val != theStale)
-		    {
-			if (myTime >= val)
-			    diff = myTime - val + 1;
-			else
-			    diff = val - myTime + 1;
-		    }
-		    else
-			diff = theHalfLife;
+		    diff = val == theStale ? theHalfLife :
+			((myTime > val) ? myTime-val+1 : val-myTime+1);
 
 		    diff <<= 8*(sizeof(uint32)-sizeof(State));
 
 		    uint32	bits = __builtin_clz(diff);
-		    uint32	clr = bits*8;
+		    uint32	clr = bits<<3;
 
 		    if (bits > 28)
-			clr += ~(diff << (bits-28)) & 7;
+			diff <<= bits-28;
 		    else
-			clr += ~(diff >> (28-bits)) & 7;
+			diff >>= 28-bits;
+
+		    clr |= ~diff & 7;
 
 		    return type == 'I' ? myILut[clr] :
 			(type == 'L' ? myRLut[clr] : myWLut[clr]);

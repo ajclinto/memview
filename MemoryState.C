@@ -91,6 +91,8 @@ MemoryState::openPipe(int argc, char *argv[])
 void
 MemoryState::incrementTime(int inc)
 {
+    uint32  ptime = myTime;
+
     if (sizeof(State) == sizeof(uint32))
     {
 	myTime += inc;
@@ -104,6 +106,11 @@ MemoryState::incrementTime(int inc)
 		myTime++;
 	}
     }
+
+    if (myTime < ptime || myTime > theFullLife)
+	myTime = theFullLife;
+    else if (myTime > theHalfLife && ptime < theHalfLife)
+	myTime = theHalfLife;
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)
