@@ -20,8 +20,29 @@ public:
     };
     void	setVisualization(Visualization vis)
 		{ myVisualization = vis; }
-    void	fillImage(GLImage &image,
-			  const QPoint &off, int &height) const;
+
+    // This struct is used as input and output for the fillImage routine,
+    // to indicate the preferred rendering position and also to report back
+    // accumulated information for the scrollbars.
+    struct AnchorInfo {
+	AnchorInfo()
+	    : myAnchorAddr(0)
+	    , myAnchorOffset(0)
+	    , myHeight(0) {}
+
+	// A memory address that should be placed in a fixed vertical
+	// location on the current page
+	uint64	myAnchorAddr;
+	// The relative display offset from the anchor address in pixels
+	int	myAnchorOffset;
+
+	// The absolute vertical location of the first visible row of state
+	int	myAbsoluteOffset;
+	// The full height of the memory state in pixels
+	int	myHeight;
+    };
+
+    void	fillImage(GLImage &image, AnchorInfo &info) const;
 
     void	updateAddress(uint64 addr, int size, char type)
 		{
@@ -34,12 +55,11 @@ public:
     void	incrementTime();
 
 private:
-    void	fillLinear(GLImage &image,
-			const QPoint &off, int &height) const;
-    void	fillRecursiveBlock(GLImage &image,
-			const QPoint &off, int &height) const;
+    void	fillLinear(GLImage &image, AnchorInfo &info) const;
+    void	fillRecursiveBlock(GLImage &image, AnchorInfo &info) const;
     void	plotBlock(int &roff, int &coff, int &maxheight,
-			  GLImage &image, uint64 addr, int size) const;
+			  GLImage &image, uint64 addr, int size,
+			  bool allow_display) const;
 
     typedef uint32	State;
 
@@ -80,9 +100,9 @@ private:
 	bool	myExists[theDisplayBlocksPerBottom];
     };
 
-    int		topIndex(uint64 addr) const
+    static int	topIndex(uint64 addr)
 		{ return (addr >> theBottomBits) & theTopMask; }
-    int		bottomIndex(uint64 addr) const
+    static int	bottomIndex(uint64 addr)
 		{ return addr & theBottomMask; }
 
     State	getEntry(uint64 addr) const
@@ -136,11 +156,11 @@ private:
 	{
 	}
 
-	void	rewind()
+	void	rewind(uint64 addr = 0)
 		{
-		    myTop = 0;
-		    myDisplay = 0;
-		    myAddr = 0;
+		    myTop = topIndex(addr);
+		    myDisplay = bottomIndex(addr) >> theDisplayBits;
+		    myAddr = addr;
 		    mySize = 0;
 		    advance();
 		}

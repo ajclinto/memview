@@ -88,21 +88,19 @@ void
 MemViewWidget::paintGL()
 {
     //StopWatch	timer;
-    int	    height = 0;
 
-    myState->fillImage(myImage, QPoint(0, -myScrollBar->value()), height);
+    // Adjust the position due to scrolling
+    myAnchor.myAnchorOffset += myScrollBar->value() -
+	myAnchor.myAbsoluteOffset;
+
+    myState->fillImage(myImage, myAnchor);
 
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
 
-    int	    pmax = myScrollBar->maximum();
-    int	    nmax;
-
-    nmax = SYSmax(height-myScrollBar->pageStep(), 0);
+    int nmax = SYSmax(myAnchor.myHeight - myScrollBar->pageStep(), 0);
     myScrollBar->setMaximum(nmax);
-    if (pmax && nmax > pmax)
-	myScrollBar->setValue((myScrollBar->value()*nmax) / pmax);
-
+    myScrollBar->setValue(myAnchor.myAbsoluteOffset);
 }
 
 void

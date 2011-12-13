@@ -119,9 +119,9 @@ static const uint32	theBlack = 0xFF000000;
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
+MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 {
-    int		 r = off.y();
+    int		 r = -info.myAnchorOffset;
     int		 c = 0;
 
     DisplayIterator it(this);
@@ -160,7 +160,8 @@ MemoryState::fillLinear(GLImage &image, const QPoint &off, int &height) const
 	r += theBlockSpacing+1;
     }
 
-    height = r - off.y();
+    info.myAbsoluteOffset = info.myAnchorOffset;
+    info.myHeight = r + info.myAnchorOffset;
 }
 
 static void
@@ -249,7 +250,7 @@ static BlockLUT		theBlockLUT;
 
 void
 MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
-	GLImage &image, uint64 addr, int size) const
+	GLImage &image, uint64 addr, int size, bool allow_display) const
 {
     // Determine the width and height of the result block
     int	bwidth, bheight;
@@ -269,7 +270,8 @@ MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
 	maxheight = SYSmax(maxheight, bheight);
     }
 
-    if (roff < image.height() && roff + bheight > 0)
+    if (allow_display &&
+	    roff < image.height() && roff + bheight > 0)
     {
 	// Display the block
 	for (int i = 0; i < size; i++)
@@ -294,11 +296,12 @@ MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
     coff += bwidth + theBlockSpacing;
 }
 
+typedef std::pair<uint64, int>	AddrRow;
+
 void
-MemoryState::fillRecursiveBlock(GLImage &image,
-	const QPoint &off, int &height) const
+MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 {
-    int		 r = off.y();
+    int		 r = 0;
     int		 c = 0;
     int		 maxheight = 0;
     int		 maxsize = 1;
@@ -310,15 +313,56 @@ MemoryState::fillRecursiveBlock(GLImage &image,
     maxsize >>= 1;
     maxsize *= maxsize;
 
+    // Whenever we start a new row, keep track of the address/row mapping
+    // so that it's possible to search backward for an anchor point if
+    // needed.
+    std::vector<AddrRow>	rows;
+    int				prevr = -1;
+    bool			found = false;
+
     DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
+	if (it.addr() >= info.myAnchorAddr)
+	{
+	    if (!found)
+	    {
+		if (info.myAnchorOffset < 0)
+		{
+		    // Search back until we find the first row that needs
+		    // to be plotted
+		    for (int i = rows.size(); i-- > 0; )
+		    {
+			if (rows[i].second - r <= info.myAnchorOffset)
+			{
+			    it.rewind(rows[i].first);
+			    r = rows[i].second - r - info.myAnchorOffset;
+			    c = 0;
+			    break;
+			}
+		    }
+		}
+		else
+		{
+		    r = -info.myAnchorOffset;
+		    c = 0;
+		}
+		found = true;
+	    }
+	}
+	else
+	{
+	    if (r != prevr)
+		rows.push_back(AddrRow(it.addr(), r));
+	}
+
 	for (int i = 0; i < it.size(); i += maxsize)
 	    plotBlock(r, c, maxheight, image, it.addr() + i,
-		    SYSmin(it.size()-i, maxsize));
+		    SYSmin(it.size()-i, maxsize), found);
     }
 
-    height = r + maxheight - off.y();
+    info.myAbsoluteOffset = info.myAnchorOffset;
+    info.myHeight = r + maxheight + info.myAnchorOffset;
 }
 
 void
@@ -457,7 +501,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
 #endif
 
 void
-MemoryState::fillImage(GLImage &image, const QPoint &off, int &height) const
+MemoryState::fillImage(GLImage &image, AnchorInfo &info) const
 {
     //StopWatch	 timer;
     image.fill(theBlack);
@@ -465,10 +509,10 @@ MemoryState::fillImage(GLImage &image, const QPoint &off, int &height) const
     switch (myVisualization)
     {
 	case LINEAR:
-	    fillLinear(image, off, height);
+	    fillLinear(image, info);
 	    break;
 	case BLOCK:
-	    fillRecursiveBlock(image, off, height);
+	    fillRecursiveBlock(image, info);
 	    break;
     }
 }

@@ -4,8 +4,8 @@
 #include <QGLWidget>
 #include "Math.h"
 #include "GLImage.h"
+#include "MemoryState.h"
 
-class MemoryState;
 class MemViewWidget;
 class MemViewScroll;
 
@@ -70,7 +70,8 @@ private:
     QTimer	*myTimer;
     QScrollBar	*myScrollBar;
 
-    MemoryState	*myState;
+    MemoryState::AnchorInfo  myAnchor;
+    MemoryState		    *myState;
 
     QPoint	 myDragPos;
 };
