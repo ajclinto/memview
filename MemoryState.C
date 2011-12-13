@@ -64,17 +64,10 @@ MemoryState::~MemoryState()
 bool
 MemoryState::openPipe(int argc, char *argv[])
 {
-    static const char	*theIgnoreOption = "--ignore-bits=";
-    for (int i = 0; i < argc; i++)
-    {
-	if (!strncmp(argv[i], theIgnoreOption, strlen(theIgnoreOption)))
-	{
-	    argv[i] += strlen(theIgnoreOption);
-	    myIgnoreBits = atoi(argv[i]);
-	    argc--; argv++;
-	    break;
-	}
-    }
+    const char	*ignore = extractOption(argc, argv, "--ignore-bits=");
+
+    if (ignore)
+	myIgnoreBits = atoi(ignore);
 
     myLoader = new Loader(this);
 

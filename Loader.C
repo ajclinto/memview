@@ -39,6 +39,23 @@ Loader::~Loader()
 bool
 Loader::openPipe(int argc, char *argv[])
 {
+    const char	*tool = extractOption(argc, argv, "--tool=");
+    const char	*valgrind = extractOption(argc, argv, "--valgrind=");
+
+    // Check if we have a --tool argument.  This can override whether to
+    // use lackey or the memview tool.
+    if (tool)
+    {
+	if (!strcmp(tool, "lackey"))
+	    mySource = LACKEY;
+	else if (!strcmp(tool, "test"))
+	    mySource = TEST;
+    }
+
+    // Allow overriden valgrind binary
+    if (!valgrind)
+	valgrind = "valgrind";
+
     if (mySource == TEST)
 	return true;
 
@@ -99,7 +116,7 @@ Loader::openPipe(int argc, char *argv[])
 	const char		*args[theMaxArgs];
 	int			 vg_args = 0;
 
-	args[vg_args++] = "valgrind";
+	args[vg_args++] = valgrind;
 	if (mySource != LACKEY)
 	{
 	    args[vg_args++] = "--tool=memview";
@@ -127,9 +144,11 @@ Loader::openPipe(int argc, char *argv[])
 	    args[i+vg_args] = argv[i];
 	args[argc+vg_args] = NULL;
 
-	if (execvp("valgrind", (char * const *)args) == -1)
+	if (execvp(valgrind, (char * const *)args) == -1)
 	{
-	    perror("exec failed");
+	    char    buf[256];
+	    sprintf(buf, "Could not execute %s", valgrind);
+	    perror(buf);
 	    return false;
 	}
 	// Unreachable

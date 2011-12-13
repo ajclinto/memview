@@ -49,4 +49,24 @@ private:
     bool	 myAbort;
 };
 
+// Extract the option with the given prefix, removing it from argc/argv.
+static const char *
+extractOption(int &argc, char *argv[], const char *prefix)
+{
+    const int	len = strlen(prefix);
+    for (int i = 0; i < argc; i++)
+    {
+	if (!strncmp(argv[i], prefix, len))
+	{
+	    const char	*opt = argv[i] + len;
+	    // Shorten the argument list
+	    argc--;
+	    for (; i < argc; i++)
+		argv[i] = argv[i+1];
+	    return opt;
+	}
+    }
+    return 0;
+}
+
 #endif
