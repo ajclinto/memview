@@ -248,15 +248,12 @@ private:
 
 static BlockLUT		theBlockLUT;
 
-void
-MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
-	GLImage &image, uint64 addr, int size, bool allow_display) const
+static void
+placeBlock(int &roff, int &coff, int &bwidth, int &bheight,
+	int &maxheight, GLImage &image, int size)
 {
     // Determine the width and height of the result block
-    int	bwidth, bheight;
-
     getBlockSize(bwidth, bheight, size);
-
 
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
@@ -269,9 +266,13 @@ MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
     {
 	maxheight = SYSmax(maxheight, bheight);
     }
+}
 
-    if (allow_display &&
-	    roff < image.height() && roff + bheight > 0)
+void
+MemoryState::plotBlock(int roff, int coff, int bwidth, int bheight,
+	GLImage &image, uint64 addr, int size) const
+{
+    if (roff < image.height() && roff + bheight > 0)
     {
 	// Display the block
 	for (int i = 0; i < size; i++)
@@ -292,8 +293,6 @@ MemoryState::plotBlock(int &roff, int &coff, int &maxheight,
 	    }
 	}
     }
-
-    coff += bwidth + theBlockSpacing;
 }
 
 typedef std::pair<uint64, int>	AddrRow;
@@ -317,52 +316,75 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
     // so that it's possible to search backward for an anchor point if
     // needed.
     std::vector<AddrRow>	rows;
-    int				prevr = -1;
     bool			found = false;
 
     DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	if (it.addr() >= info.myAnchorAddr)
+	for (int i = 0; i < it.size(); i += maxsize)
 	{
+	    uint64  addr = it.addr() + i;
+	    int	    size = SYSmin(it.size()-i, maxsize);
+	    int	    bwidth, bheight;
+
+	    placeBlock(r, c, bwidth, bheight, maxheight, image, size);
+
 	    if (!found)
 	    {
-		if (info.myAnchorOffset < 0)
+		if (c == 0)
+		    rows.push_back(AddrRow(addr, r));
+
+		if (addr >= info.myAnchorAddr)
 		{
 		    // Search back until we find the first row that needs
 		    // to be plotted
-		    for (int i = rows.size(); i-- > 0; )
+		    int	j;
+		    for (j = rows.size(); j-- > 0; )
 		    {
-			if (rows[i].second - r <= info.myAnchorOffset)
+			if (rows[j].second <= r + info.myAnchorOffset)
 			{
-			    it.rewind(rows[i].first);
-			    r = rows[i].second - r - info.myAnchorOffset;
-			    c = 0;
+			    // Also rewind addr, size, etc.
+			    it.rewind(rows[j].first);
+			    i = 0;
+			    addr = it.addr();
+			    size = SYSmin(it.size(), maxsize);
+			    getBlockSize(bwidth, bheight, size);
+			    maxheight = bheight;
+
+			    info.myAbsoluteOffset = r + info.myAnchorOffset;
+			    r = rows[j].second - info.myAbsoluteOffset;
 			    break;
 			}
 		    }
-		}
-		else
-		{
-		    r = -info.myAnchorOffset;
-		    c = 0;
-		}
-		found = true;
-	    }
-	}
-	else
-	{
-	    if (r != prevr)
-		rows.push_back(AddrRow(it.addr(), r));
-	}
+		    if (j < 0)
+		    {
+			it.rewind();
+			info.myAbsoluteOffset = 0;
+			r = 0;
+		    }
 
-	for (int i = 0; i < it.size(); i += maxsize)
-	    plotBlock(r, c, maxheight, image, it.addr() + i,
-		    SYSmin(it.size()-i, maxsize), found);
+		    c = 0;
+
+		    found = true;
+		}
+	    }
+
+	    if (found)
+	    {
+		// This will try to anchor the view in a block that is
+		// somewhere in the middle of the screen
+		if (c == 0 && r < (image.height()>>1))
+		{
+		    info.myAnchorAddr = addr;
+		    info.myAnchorOffset = -r;
+		}
+		plotBlock(r, c, bwidth, bheight, image, addr, size);
+	    }
+	    c += bwidth + theBlockSpacing;
+	}
     }
 
-    info.myAbsoluteOffset = info.myAnchorOffset;
-    info.myHeight = r + maxheight + info.myAnchorOffset;
+    info.myHeight = r + maxheight + info.myAbsoluteOffset;
 }
 
 void

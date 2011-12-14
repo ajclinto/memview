@@ -28,6 +28,7 @@ public:
 	AnchorInfo()
 	    : myAnchorAddr(0)
 	    , myAnchorOffset(0)
+	    , myAbsoluteOffset(0)
 	    , myHeight(0) {}
 
 	// A memory address that should be placed in a fixed vertical
@@ -57,9 +58,9 @@ public:
 private:
     void	fillLinear(GLImage &image, AnchorInfo &info) const;
     void	fillRecursiveBlock(GLImage &image, AnchorInfo &info) const;
-    void	plotBlock(int &roff, int &coff, int &maxheight,
-			  GLImage &image, uint64 addr, int size,
-			  bool allow_display) const;
+    void	plotBlock(int roff, int coff,
+			  int bwidth, int bheight,
+			  GLImage &image, uint64 addr, int size) const;
 
     typedef uint32	State;
 
