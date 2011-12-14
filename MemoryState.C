@@ -272,24 +272,38 @@ void
 MemoryState::plotBlock(int roff, int coff, int bwidth, int bheight,
 	GLImage &image, uint64 addr, int size) const
 {
-    if (roff < image.height() && roff + bheight > 0)
+    // Cull the entire block
+    if (roff + bheight > 0 && roff < image.height() &&
+	coff + bwidth > 0 && coff < image.width())
     {
-	// Display the block
-	for (int i = 0; i < size; i++)
+	for (int i = 0; i < size; i += theDisplaySize)
 	{
 	    int	r, c;
 	    theBlockLUT.lookup(r, c, i);
 	    r += roff;
 	    c += coff;
-	    if (r >= 0 && r < image.height() && c < image.width())
+	    // Cull display width sub-blocks
+	    if (r + (int)theDisplayWidth > 0 && r < image.height() &&
+		c + (int)theDisplayWidth > 0 && c < image.width())
 	    {
-		int	     tidx = (addr + i)>>theBottomBits;
-		int	     bidx = (addr + i)&theBottomMask;
-		StateArray  *arr = myTable[tidx];
+		for (int j = i; j < SYSmin(size, i+(int)theDisplaySize); j++)
+		{
+		    theBlockLUT.lookup(r, c, j);
+		    r += roff;
+		    c += coff;
+		    // Cull individual pixels
+		    if (r >= 0 && r < image.height() &&
+			c >= 0 && c < image.width())
+		    {
+			int	     tidx = (addr + j)>>theBottomBits;
+			int	     bidx = (addr + j)&theBottomMask;
+			StateArray  *arr = myTable[tidx];
 
-		if (arr->myState[bidx])
-		    image.setPixel(r, c,
-			    mapColor(arr->myState[bidx], arr->myType[bidx]));
+			if (arr->myState[bidx])
+			    image.setPixel(r, c,
+				    mapColor(arr->myState[bidx], arr->myType[bidx]));
+		    }
+		}
 	    }
 	}
     }
@@ -321,67 +335,61 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
     DisplayIterator it(this);
     for (it.rewind(); !it.atEnd(); it.advance())
     {
-	for (int i = 0; i < it.size(); i += maxsize)
+	uint64	    addr = it.addr();
+	int	    size = it.size();
+	int	    bwidth, bheight;
+
+	placeBlock(r, c, bwidth, bheight, maxheight, image, size);
+
+	if (!found)
 	{
-	    uint64  addr = it.addr() + i;
-	    int	    size = SYSmin(it.size()-i, maxsize);
-	    int	    bwidth, bheight;
+	    if (c == 0)
+		rows.push_back(AddrRow(addr, r));
 
-	    placeBlock(r, c, bwidth, bheight, maxheight, image, size);
-
-	    if (!found)
+	    if (addr >= info.myAnchorAddr)
 	    {
-		if (c == 0)
-		    rows.push_back(AddrRow(addr, r));
-
-		if (addr >= info.myAnchorAddr)
+		// Search back until we find the first row that needs
+		// to be plotted
+		int	j;
+		for (j = rows.size(); j-- > 0; )
 		{
-		    // Search back until we find the first row that needs
-		    // to be plotted
-		    int	j;
-		    for (j = rows.size(); j-- > 0; )
+		    if (rows[j].second <= r + info.myAnchorOffset)
 		    {
-			if (rows[j].second <= r + info.myAnchorOffset)
-			{
-			    // Also rewind addr, size, etc.
-			    it.rewind(rows[j].first);
-			    i = 0;
-			    addr = it.addr();
-			    size = SYSmin(it.size(), maxsize);
-			    getBlockSize(bwidth, bheight, size);
-			    maxheight = bheight;
+			// Also rewind addr, size, etc.
+			it.rewind(rows[j].first);
+			addr = it.addr();
+			size = it.size();
+			getBlockSize(bwidth, bheight, size);
+			maxheight = bheight;
 
-			    info.myAbsoluteOffset = r + info.myAnchorOffset;
-			    r = rows[j].second - info.myAbsoluteOffset;
-			    break;
-			}
+			info.myAbsoluteOffset = r + info.myAnchorOffset;
+			r = rows[j].second - info.myAbsoluteOffset;
+			break;
 		    }
-		    if (j < 0)
-		    {
-			it.rewind();
-			info.myAbsoluteOffset = 0;
-			r = 0;
-		    }
-
-		    c = 0;
-
-		    found = true;
 		}
-	    }
-
-	    if (found)
-	    {
-		// This will try to anchor the view in a block that is
-		// somewhere in the middle of the screen
-		if (c == 0 && r < (image.height()>>1))
+		if (j < 0)
 		{
-		    info.myAnchorAddr = addr;
-		    info.myAnchorOffset = -r;
+		    it.rewind();
+		    info.myAbsoluteOffset = 0;
+		    r = 0;
 		}
-		plotBlock(r, c, bwidth, bheight, image, addr, size);
+
+		c = 0;
+
+		found = true;
 	    }
-	    c += bwidth + theBlockSpacing;
 	}
+
+	if (found)
+	{
+	    if (c == 0 && r <= 0)
+	    {
+		info.myAnchorAddr = addr;
+		info.myAnchorOffset = -r;
+	    }
+	    plotBlock(r, c, bwidth, bheight, image, addr, size);
+	}
+	c += bwidth + theBlockSpacing;
     }
 
     info.myHeight = r + maxheight + info.myAbsoluteOffset;
