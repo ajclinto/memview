@@ -35,7 +35,7 @@ MemoryState::MemoryState()
     , myHRTime(1)
     , myLoader(0)
     , myIgnoreBits(2)
-    , myVisualization(BLOCK)
+    , myVisualization(HILBERT)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 

@@ -28,7 +28,7 @@ Window::Window(int argc, char *argv[])
 	myVis[i]->setCheckable(true);
 	myVisMenu->addAction(myVis[i]);
     }
-    myVis[1]->setChecked(true);
+    myVis[2]->setChecked(true);
 
     myScrollArea = new MemViewScroll(this);
 

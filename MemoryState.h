@@ -19,8 +19,9 @@ public:
 	BLOCK,
 	HILBERT
     };
-    void	setVisualization(Visualization vis)
-		{ myVisualization = vis; }
+    Visualization   getVisualization() const	{ return myVisualization; }
+    void	    setVisualization(Visualization vis)
+		    { myVisualization = vis; }
 
     // This struct is used as input and output for the fillImage routine,
     // to indicate the preferred rendering position and also to report back
