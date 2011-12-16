@@ -33,7 +33,8 @@ Window::Window(int argc, char *argv[])
     myScrollArea = new MemViewScroll(this);
 
     myMemView = new MemViewWidget(argc, argv,
-	    myScrollArea->verticalScrollBar());
+	    myScrollArea->verticalScrollBar(),
+	    myScrollArea->horizontalScrollBar());
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
@@ -55,8 +56,10 @@ Window::~Window()
 // MemViewWidget
 //
 
-MemViewWidget::MemViewWidget(int argc, char *argv[], QScrollBar *scrollbar)
-    : myScrollBar(scrollbar)
+MemViewWidget::MemViewWidget(int argc, char *argv[],
+	QScrollBar *vscrollbar, QScrollBar *hscrollbar)
+    : myVScrollBar(vscrollbar)
+    , myHScrollBar(hscrollbar)
 {
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -99,17 +102,21 @@ MemViewWidget::paintGL()
     StopWatch	timer;
 
     // Adjust the position due to scrolling
-    myAnchor.myAnchorOffset += myScrollBar->value() -
+    myAnchor.myAnchorOffset += myVScrollBar->value() -
 	myAnchor.myAbsoluteOffset;
+    myAnchor.myColumn += myHScrollBar->value() - myAnchor.myColumn;
 
     myState->fillImage(myImage, myAnchor);
 
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
 
-    int nmax = SYSmax(myAnchor.myHeight - myScrollBar->pageStep(), 0);
-    myScrollBar->setMaximum(nmax);
-    myScrollBar->setValue(myAnchor.myAbsoluteOffset);
+    int nmax = SYSmax(myAnchor.myHeight - myVScrollBar->pageStep(), 0);
+    myVScrollBar->setMaximum(nmax);
+    myVScrollBar->setValue(myAnchor.myAbsoluteOffset);
+
+    nmax = SYSmax(myAnchor.myWidth - myHScrollBar->pageStep(), 0);
+    myHScrollBar->setMaximum(nmax);
 }
 
 void
@@ -121,7 +128,8 @@ MemViewWidget::resizeEvent(QResizeEvent *)
 	int w = size().width();
 	int h = size().height();
 
-	myScrollBar->setPageStep(h);
+	myVScrollBar->setPageStep(h);
+	myHScrollBar->setPageStep(w);
 	myImage.resize(w, h);
 	update();
     }
@@ -139,8 +147,10 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-	myScrollBar->setValue(myScrollBar->value() +
+	myVScrollBar->setValue(myVScrollBar->value() +
 		myDragPos.y() - event->pos().y());
+	myHScrollBar->setValue(myHScrollBar->value() +
+		myDragPos.x() - event->pos().x());
 	myDragPos = event->pos();
     }
 }
@@ -149,8 +159,12 @@ void
 MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
-	myScrollBar->setValue(myScrollBar->value() +
-		event->pos().y() - myDragPos.y());
+    {
+	myVScrollBar->setValue(myVScrollBar->value() +
+		myDragPos.y() - event->pos().y());
+	myHScrollBar->setValue(myHScrollBar->value() +
+		myDragPos.x() - event->pos().x());
+    }
 }
 
 void

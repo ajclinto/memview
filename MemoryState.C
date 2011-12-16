@@ -162,6 +162,7 @@ MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 
     info.myAbsoluteOffset = info.myAnchorOffset;
     info.myHeight = r + info.myAnchorOffset;
+    info.myWidth = 0;
 }
 
 static void
@@ -420,6 +421,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
     int		 r = 0;
     int		 c = 0;
     int		 maxheight = 0;
+    int		 maxwidth = 0;
     int		 maxsize = 1;
 
     // Find the greatest power of 2 less than the image size, so that we
@@ -447,6 +449,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 		myVisualization == HILBERT, 0, false);
 	bwidth = sizer.myWidth;
 	bheight = sizer.myHeight;
+	maxwidth = SYSmax(maxwidth, bwidth);
 
 	placeBlock(r, c, bwidth, bheight, maxheight, image);
 
@@ -502,7 +505,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 		info.myAnchorAddr = addr;
 		info.myAnchorOffset = -r;
 	    }
-	    PlotImage	plot(*this, image, addr, r, c);
+	    PlotImage	plot(*this, image, addr, r, c - info.myColumn);
 	    blockTraverse(0, 0, 0, plot, size, 15,
 		    myVisualization == HILBERT, 0, false);
 	}
@@ -510,6 +513,7 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
     }
 
     info.myHeight = r + maxheight + info.myAbsoluteOffset;
+    info.myWidth = maxwidth;
 }
 
 void

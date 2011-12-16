@@ -47,7 +47,9 @@ class MemViewWidget : public QGLWidget {
     Q_OBJECT
 
 public:
-	     MemViewWidget(int argc, char *argv[], QScrollBar *scrollbar);
+	     MemViewWidget(int argc, char *argv[],
+			    QScrollBar *vscrollbar,
+			    QScrollBar *hscrollbar);
     virtual ~MemViewWidget();
 
     void	paint(QPaintEvent *event)
@@ -69,7 +71,8 @@ private slots:
 private:
     GLImage	 myImage;
     QTimer	*myTimer;
-    QScrollBar	*myScrollBar;
+    QScrollBar	*myVScrollBar;
+    QScrollBar	*myHScrollBar;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;

@@ -30,18 +30,27 @@ public:
 	    : myAnchorAddr(0)
 	    , myAnchorOffset(0)
 	    , myAbsoluteOffset(0)
-	    , myHeight(0) {}
+	    , myHeight(0)
+	    , myWidth(0)
+	    , myColumn(0)
+	    {}
 
+	// ** Input/Output
 	// A memory address that should be placed in a fixed vertical
 	// location on the current page
 	uint64	myAnchorAddr;
 	// The relative display offset from the anchor address in pixels
 	int	myAnchorOffset;
 
+	// ** Output only
 	// The absolute vertical location of the first visible row of state
 	int	myAbsoluteOffset;
-	// The full height of the memory state in pixels
+	// The full image resolution
 	int	myHeight;
+	int	myWidth;
+
+	// ** Input only
+	int	myColumn;
     };
 
     void	fillImage(GLImage &image, AnchorInfo &info) const;
