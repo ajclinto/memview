@@ -273,15 +273,27 @@ public:
 	    return false;
 	}
 
-	if (level == 0)
+	if (level <= 4)
 	{
-	    int		 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
-	    int		 bidx = (myAddr + idx) &MemoryState::theBottomMask;
-	    MemoryState::StateArray  *arr = myState.myTable[tidx];
+	    int	size = bsize*bsize;
+	    for (int i = 0; i < size; i++, idx++)
+	    {
+		int	 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
+		int	 bidx = (myAddr + idx) &MemoryState::theBottomMask;
+		MemoryState::StateArray  *arr = myState.myTable[tidx];
 
-	    if (arr->myState[bidx])
-		myImage.setPixel(roff, coff, myState.mapColor(
-			    arr->myState[bidx], arr->myType[bidx]));
+		if (arr->myState[bidx])
+		{
+		    theBlockLUT.lookup(r, c, i);
+		    r += roff;
+		    c += coff;
+
+		    if (r >= 0 && r < myImage.height() &&
+			c >= 0 && c < myImage.width())
+			myImage.setPixel(r, c, myState.mapColor(
+				    arr->myState[bidx], arr->myType[bidx]));
+		}
+	    }
 	    return false;
 	}
 
