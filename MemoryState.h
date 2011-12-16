@@ -16,7 +16,8 @@ public:
 
     enum Visualization {
 	LINEAR,
-	BLOCK
+	BLOCK,
+	HILBERT
     };
     void	setVisualization(Visualization vis)
 		{ myVisualization = vis; }
@@ -58,9 +59,6 @@ public:
 private:
     void	fillLinear(GLImage &image, AnchorInfo &info) const;
     void	fillRecursiveBlock(GLImage &image, AnchorInfo &info) const;
-    void	plotBlock(int roff, int coff,
-			  int bwidth, int bheight,
-			  GLImage &image, uint64 addr, int size) const;
 
     typedef uint32	State;
 
@@ -276,35 +274,6 @@ private:
 	uint64			 myEmptyCount;
     };
 
-    class QuadTree {
-    public:
-	QuadTree()
-	    : myLeaf(0)
-	{
-	    memset(mySubtree, 0, 4*sizeof(QuadTree *));
-	}
-	~QuadTree()
-	{
-	    for (int i = 0; i < 4; i++)
-		delete mySubtree[i];
-	}
-
-	void	 addChild(int level, int r, int c, StateArray *arr);
-	QSize	 computeSize();
-	QSize	 getSize() const	{ return mySize; }
-
-	void	 render(GLImage &image, const QPoint &off, const
-			MemoryState &state) const;
-
-    private:
-	QSize	 computeWSize(int off);
-
-    private:
-	QuadTree	*mySubtree[4];
-	StateArray	*myLeaf;
-	QSize		 mySize;
-    };
-
 private:
     // Raw memory state
     StateArray	*myTable[theTopSize];
@@ -324,6 +293,8 @@ private:
     int		 myIgnoreBits;
 
     Visualization	myVisualization;
+
+    friend class PlotImage;
 };
 
 #endif

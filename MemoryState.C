@@ -165,47 +165,6 @@ MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 }
 
 static void
-getBlockSize(int &w, int &h, int size)
-{
-    if (size == 0)
-    {
-	w = h = 0;
-	return;
-    }
-
-    int	bits = 0;
-    int	tmp = (size-1) >> 2;
-
-    while (tmp)
-    {
-	bits++;
-	tmp >>= 2;
-    }
-
-    if (size > (3 << (bits*2)))
-    {
-	w = (2 << bits);
-	h = (2 << bits);
-    }
-    else if (size > (2 << (bits*2)))
-    {
-	getBlockSize(w, h, size-(2 << (bits*2)));
-	w = (2 << bits);
-	h += (1 << bits);
-    }
-    else if (size > (1 << (bits*2)))
-    {
-	getBlockSize(w, h, size-(1 << (bits*2)));
-	w += (1 << bits);
-	h = (1 << bits);
-    }
-    else
-    {
-	w = h = 1;
-    }
-}
-
-static void
 getBlockCoord(int &r, int &c, int idx)
 {
     int	bit = 0;
@@ -249,12 +208,9 @@ private:
 static BlockLUT		theBlockLUT;
 
 static void
-placeBlock(int &roff, int &coff, int &bwidth, int &bheight,
-	int &maxheight, GLImage &image, int size)
+placeBlock(int &roff, int &coff, int bwidth, int bheight,
+	int &maxheight, GLImage &image)
 {
-    // Determine the width and height of the result block
-    getBlockSize(bwidth, bheight, size);
-
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
     {
@@ -268,44 +224,135 @@ placeBlock(int &roff, int &coff, int &bwidth, int &bheight,
     }
 }
 
-void
-MemoryState::plotBlock(int roff, int coff, int bwidth, int bheight,
-	GLImage &image, uint64 addr, int size) const
-{
-    // Cull the entire block
-    if (roff + bheight > 0 && roff < image.height() &&
-	coff + bwidth > 0 && coff < image.width())
-    {
-	for (int i = 0; i < size; i += theDisplaySize)
-	{
-	    int	r, c;
-	    theBlockLUT.lookup(r, c, i);
-	    r += roff;
-	    c += coff;
-	    // Cull display width sub-blocks
-	    if (r + (int)theDisplayWidth > 0 && r < image.height() &&
-		c + (int)theDisplayWidth > 0 && c < image.width())
-	    {
-		for (int j = i; j < SYSmin(size, i+(int)theDisplaySize); j++)
-		{
-		    theBlockLUT.lookup(r, c, j);
-		    r += roff;
-		    c += coff;
-		    // Cull individual pixels
-		    if (r >= 0 && r < image.height() &&
-			c >= 0 && c < image.width())
-		    {
-			int	     tidx = (addr + j)>>theBottomBits;
-			int	     bidx = (addr + j)&theBottomMask;
-			StateArray  *arr = myTable[tidx];
+// A callback for recursive block traversal
+class Traverser {
+public:
+    // Return false if you don't want any further traversal
+    virtual bool	visit(int idx, int r, int c, int level) = 0;
+};
 
-			if (arr->myState[bidx])
-			    image.setPixel(r, c,
-				    mapColor(arr->myState[bidx], arr->myType[bidx]));
-		    }
-		}
-	    }
+class BlockSizer : public Traverser {
+public:
+    BlockSizer()
+	: myWidth(0)
+	, myHeight(0) {}
+
+    void reset() { myWidth = myHeight = 0; }
+    virtual bool visit(int, int r, int c, int level)
+    {
+	int bsize = 1 << level;
+	myHeight = SYSmax(myHeight, r + bsize);
+	myWidth = SYSmax(myWidth, c + bsize);
+	return false;
+    }
+
+public:
+    int	     myWidth;
+    int	     myHeight;
+};
+
+class PlotImage : public Traverser {
+public:
+    PlotImage(const MemoryState &state,
+	    GLImage &image, uint64 addr, int roff, int coff)
+	: myState(state)
+	, myImage(image)
+	, myAddr(addr)
+	, myRowOff(roff)
+	, myColOff(coff) {}
+
+    virtual bool visit(int idx, int r, int c, int level)
+    {
+	int bsize = 1 << level;
+	int roff = myRowOff + r;
+	int coff = myColOff + c;
+
+	if (roff + bsize <= 0 || roff >= myImage.height() ||
+	    coff + bsize <= 0 || coff >= myImage.width())
+	{
+	    return false;
 	}
+
+	if (level == 0)
+	{
+	    int		 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
+	    int		 bidx = (myAddr + idx) &MemoryState::theBottomMask;
+	    MemoryState::StateArray  *arr = myState.myTable[tidx];
+
+	    if (arr->myState[bidx])
+		myImage.setPixel(roff, coff, myState.mapColor(
+			    arr->myState[bidx], arr->myType[bidx]));
+	    return false;
+	}
+
+	return true;
+    }
+
+private:
+    const MemoryState	&myState;
+    GLImage &myImage;
+    uint64   myAddr;
+    int	     myRowOff;
+    int	     myColOff;
+};
+
+static void
+blockTraverse(int idx, int roff, int coff,
+	Traverser &traverser, int size, int level,
+	bool hilbert, int rotate, bool flip)
+{
+    // Only calls the traverser for full blocks
+    if (size >= (1 << (2*level)))
+    {
+	if (!traverser.visit(idx, roff, coff, level) || level == 0)
+	    return;
+    }
+
+    int	s = 1 << (level-1);
+    int	off = s*s;
+    int	rs[4], cs[4];
+    int	map[4];
+
+    if (hilbert)
+    {
+	for (int i = 0; i < 4; i++)
+	    map[i] = (rotate + i) & 3;
+	if (flip)
+	    SYSswap(map[1], map[3]);
+    }
+    else
+    {
+	map[0] = 0;
+	map[1] = 2;
+	map[2] = 3;
+	map[3] = 1;
+    }
+
+    rs[map[0]] = 0; cs[map[0]] = 0;
+    rs[map[1]] = s; cs[map[1]] = 0;
+    rs[map[2]] = s; cs[map[2]] = s;
+    rs[map[3]] = 0; cs[map[3]] = s;
+
+    blockTraverse(idx, roff + rs[0], coff + cs[0],
+	    traverser, SYSmin(size, off), level-1,
+	    hilbert, rotate, !flip);
+    if (size > off)
+    {
+	blockTraverse(idx+off, roff + rs[1], coff + cs[1],
+	    traverser, SYSmin(size-off, off), level-1,
+	    hilbert, rotate, flip);
+    }
+    if (size > 2*off)
+    {
+	blockTraverse(idx+2*off, roff + rs[2], coff + cs[2],
+	    traverser, SYSmin(size-2*off, off), level-1,
+	    hilbert, rotate, flip);
+    }
+    if (size > 3*off)
+    {
+	blockTraverse(idx+3*off, roff + rs[3], coff + cs[3],
+	    traverser, SYSmin(size-3*off, off), level-1,
+	    hilbert, rotate ^ 2, !flip);
     }
 }
 
@@ -339,7 +386,13 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 	int	    size = it.size();
 	int	    bwidth, bheight;
 
-	placeBlock(r, c, bwidth, bheight, maxheight, image, size);
+	BlockSizer  sizer;
+	blockTraverse(0, 0, 0, sizer, size, 15,
+		myVisualization == HILBERT, 0, false);
+	bwidth = sizer.myWidth;
+	bheight = sizer.myHeight;
+
+	placeBlock(r, c, bwidth, bheight, maxheight, image);
 
 	if (!found)
 	{
@@ -359,7 +412,13 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 			it.rewind(rows[j].first);
 			addr = it.addr();
 			size = it.size();
-			getBlockSize(bwidth, bheight, size);
+
+			sizer.reset();
+			blockTraverse(0, 0, 0, sizer, size, 15,
+				myVisualization == HILBERT, 0, false);
+			bwidth = sizer.myWidth;
+			bheight = sizer.myHeight;
+
 			maxheight = bheight;
 
 			info.myAbsoluteOffset = r + info.myAnchorOffset;
@@ -387,148 +446,15 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 		info.myAnchorAddr = addr;
 		info.myAnchorOffset = -r;
 	    }
-	    plotBlock(r, c, bwidth, bheight, image, addr, size);
+	    PlotImage	plot(*this, image, addr, r, c);
+	    blockTraverse(0, 0, 0, plot, size, 15,
+		    myVisualization == HILBERT, 0, false);
 	}
 	c += bwidth + theBlockSpacing;
     }
 
     info.myHeight = r + maxheight + info.myAbsoluteOffset;
 }
-
-void
-MemoryState::QuadTree::addChild(int level, int r, int c, StateArray *arr)
-{
-    if (level)
-    {
-	int idx;
-
-	level--;
-	idx  = r&(1<<level) ? 2 : 0;
-	idx |= c&(1<<level) ? 1 : 0;
-	if (!mySubtree[idx])
-	    mySubtree[idx] = new QuadTree;
-	mySubtree[idx]->addChild(level, r, c, arr);
-    }
-    else
-    {
-	myLeaf = arr;
-    }
-}
-
-QSize
-MemoryState::QuadTree::computeWSize(int off)
-{
-    QSize	size(0, 0);
-    if (mySubtree[off])
-    {
-	size = mySubtree[off]->computeSize();
-    }
-    if (mySubtree[off+1])
-    {
-	QSize	tmp(mySubtree[off+1]->computeSize());
-	size = QSize(size.width() + tmp.width(),
-		SYSmax(size.height(), tmp.height()));
-    }
-    return size;
-}
-
-QSize
-MemoryState::QuadTree::computeSize()
-{
-    if (myLeaf)
-    {
-	int width = 1<<(theBottomBits>>1);
-	mySize = QSize(width, width);
-    }
-    else
-    {
-	QSize	tmp;
-
-	mySize = computeWSize(0);
-	tmp = computeWSize(2);
-
-	mySize = QSize(SYSmax(mySize.width(), tmp.width()),
-		mySize.height() + tmp.height());
-    }
-    return mySize;
-}
-
-void
-MemoryState::QuadTree::render(GLImage &image,
-	const QPoint &off, const MemoryState &state) const
-{
-    QRect	box(off, mySize);
-    QRect	ibox(0, 0, image.width(), image.height());
-
-    // Culling
-    if (!box.intersects(ibox))
-	return;
-
-    if (myLeaf)
-    {
-	// Display the block
-	for (uint32 i = 0; i < theBottomSize; i++)
-	{
-	    if (myLeaf->myState[i])
-	    {
-		int	r, c;
-		theBlockLUT.lookup(r, c, i);
-		r += off.y();
-		c += off.x();
-		if (r >= 0 && r < image.height() &&
-		    c >= 0 && c < image.width())
-		    image.setPixel(r, c,
-			    state.mapColor(myLeaf->myState[i],
-					   myLeaf->myType[i]));
-	    }
-	}
-    }
-    else
-    {
-	QPoint	xoff = off;
-	QPoint	yoff = off;
-	if (mySubtree[0])
-	{
-	    mySubtree[0]->render(image, off, state);
-	    xoff = QPoint(off.x()+mySubtree[0]->getSize().width(), off.y());
-	    yoff = QPoint(off.x(), off.y()+mySubtree[0]->getSize().height());
-	}
-	if (mySubtree[1])
-	{
-	    mySubtree[1]->render(image, xoff, state);
-	    yoff = QPoint(off.x(), SYSmax(yoff.y(),
-			off.y()+mySubtree[1]->getSize().height()));
-	}
-	if (mySubtree[2])
-	{
-	    mySubtree[2]->render(image, yoff, state);
-	    yoff = QPoint(yoff.x()+mySubtree[2]->getSize().width(), yoff.y());
-	}
-	if (mySubtree[3])
-	    mySubtree[3]->render(image, yoff, state);
-    }
-}
-
-#if 0
-void
-MemoryState::fillRecursiveBlock(GLImage &image, const QPoint &off) const
-{
-    QuadTree	tree;
-
-    // Build the quad-tree
-    for (uint32 i = 0; i < theTopSize; i++)
-    {
-	if (myTable[i])
-	{
-	    int	r, c;
-	    theBlockLUT.lookup(r, c, i);
-	    tree.addChild(theTopBits>>1, r, c, myTable[i]);
-	}
-    }
-    tree.computeSize();
-    tree.render(image, off, *this);
-}
-#endif
 
 void
 MemoryState::fillImage(GLImage &image, AnchorInfo &info) const
@@ -542,6 +468,7 @@ MemoryState::fillImage(GLImage &image, AnchorInfo &info) const
 	    fillLinear(image, info);
 	    break;
 	case BLOCK:
+	case HILBERT:
 	    fillRecursiveBlock(image, info);
 	    break;
     }

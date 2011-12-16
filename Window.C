@@ -16,7 +16,8 @@ Window::Window(int argc, char *argv[])
 
     static const char	*theVisNames[theVisCount] = {
 	"&Linear",
-	"&Recursive Block"
+	"&Recursive Block",
+	"&Hilbert Curve"
     };
 
     myVisGroup = new QActionGroup(this);
@@ -36,6 +37,7 @@ Window::Window(int argc, char *argv[])
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
+    connect(myVis[2], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
 
     setWindowTitle("Memview");
 
@@ -85,9 +87,16 @@ MemViewWidget::block()
 }
 
 void
+MemViewWidget::hilbert()
+{
+    myState->setVisualization(MemoryState::HILBERT);
+    update();
+}
+
+void
 MemViewWidget::paintGL()
 {
-    //StopWatch	timer;
+    StopWatch	timer;
 
     // Adjust the position due to scrolling
     myAnchor.myAnchorOffset += myScrollBar->value() -

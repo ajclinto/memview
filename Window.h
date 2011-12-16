@@ -20,7 +20,7 @@ private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
 
-    static const int	 theVisCount = 2;
+    static const int	 theVisCount = 3;
 
     QMenu		*myVisMenu;
     QActionGroup	*myVisGroup;
@@ -63,6 +63,7 @@ protected:
 private slots:
     void    linear();
     void    block();
+    void    hilbert();
     void    tick();
 
 private:

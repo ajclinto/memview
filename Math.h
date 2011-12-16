@@ -25,5 +25,12 @@ inline T SYSlerp(T v1, T v2, T bias)
 {
     return v1 + bias*(v2-v1);
 }
+template <typename T>
+inline void SYSswap(T &v1, T &v2)
+{
+    T	tmp(v1);
+    v1 = v2;
+    v2 = tmp;
+}
 
 #endif
