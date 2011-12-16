@@ -152,6 +152,8 @@ private:
 	    , myDisplay(0)
 	    , myAddr(0)
 	    , mySize(0)
+	    , myEmpty(0)
+	    , myVacant(0)
 	{
 	}
 
@@ -161,6 +163,8 @@ private:
 		    myDisplay = bottomIndex(addr) >> theDisplayBits;
 		    myAddr = addr;
 		    mySize = 0;
+		    myEmpty = 0;
+		    myVacant = 0;
 		    advance();
 		}
 	bool	atEnd() const
@@ -170,6 +174,8 @@ private:
 	void	advance()
 		{
 		    mySize = 0;
+		    myEmpty = 0;
+		    myVacant = 0;
 		    for (; myTop < theTopSize; myTop++)
 		    {
 			if (table(myTop))
@@ -183,9 +189,16 @@ private:
 					myAddr = (myTop<<theBottomBits) |
 					    (myDisplay<<theDisplayBits);
 				    mySize += theDisplaySize;
+				    mySize += myEmpty;
+				    myEmpty = 0;
 				}
 				else if (mySize)
-				    return;
+				{
+				    myEmpty += theDisplaySize;
+				    myVacant += theDisplaySize;
+				    if (myVacant > (mySize>>3))
+					return;
+				}
 			    }
 			}
 			else if (mySize)
@@ -206,7 +219,9 @@ private:
 	uint64			 myTop;
 	uint64			 myDisplay;
 	uint64			 myAddr;
-	int			 mySize;
+	int			 mySize;    // Display block size
+	int			 myEmpty;   // Contiguous empties
+	int			 myVacant;  // Total empties seen
     };
 
     // A class to iterate over only non-zero state values
