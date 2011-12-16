@@ -179,133 +179,12 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
-class BlockLUT {
-public:
-    BlockLUT()
-    {
-	for (int i = 0; i < 256; i++)
-	{
-	    int	r, c;
-	    getBlockCoord(r, c, i);
-	    myRowCol[i] = r | (c<<16);
-	}
-    }
-
-    void	lookup(int &r, int &c, int idx)
-    {
-	r = (myRowCol[idx & 0xFF] |
-	     (myRowCol[(idx>>8) & 0xFF] << 4)) |
-	    ((myRowCol[(idx>>16) & 0xFF] << 8) |
-	     (myRowCol[idx>>24] << 12));
-	c = (r>>16) & 0xFFFF;
-	r &= 0xFFFF;
-    }
-
-private:
-    int		myRowCol[256];
-};
-
-static BlockLUT		theBlockLUT;
-
-static void
-placeBlock(int &roff, int &coff, int bwidth, int bheight,
-	int &maxheight, GLImage &image)
-{
-    // Does the block fit horizontally?
-    if (coff + bwidth > image.width())
-    {
-	roff += maxheight + theBlockSpacing;
-	coff = 0;
-	maxheight = bheight;
-    }
-    else
-    {
-	maxheight = SYSmax(maxheight, bheight);
-    }
-}
-
 // A callback for recursive block traversal
 class Traverser {
 public:
     // Return false if you don't want any further traversal
-    virtual bool	visit(int idx, int r, int c, int level) = 0;
-};
-
-class BlockSizer : public Traverser {
-public:
-    BlockSizer()
-	: myWidth(0)
-	, myHeight(0) {}
-
-    void reset() { myWidth = myHeight = 0; }
-    virtual bool visit(int, int r, int c, int level)
-    {
-	int bsize = 1 << level;
-	myHeight = SYSmax(myHeight, r + bsize);
-	myWidth = SYSmax(myWidth, c + bsize);
-	return false;
-    }
-
-public:
-    int	     myWidth;
-    int	     myHeight;
-};
-
-class PlotImage : public Traverser {
-public:
-    PlotImage(const MemoryState &state,
-	    GLImage &image, uint64 addr, int roff, int coff)
-	: myState(state)
-	, myImage(image)
-	, myAddr(addr)
-	, myRowOff(roff)
-	, myColOff(coff) {}
-
-    virtual bool visit(int idx, int r, int c, int level)
-    {
-	int bsize = 1 << level;
-	int roff = myRowOff + r;
-	int coff = myColOff + c;
-
-	if (roff + bsize <= 0 || roff >= myImage.height() ||
-	    coff + bsize <= 0 || coff >= myImage.width())
-	{
-	    return false;
-	}
-
-	if (level <= 4)
-	{
-	    int	size = bsize*bsize;
-	    for (int i = 0; i < size; i++, idx++)
-	    {
-		int	 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
-		int	 bidx = (myAddr + idx) &MemoryState::theBottomMask;
-		MemoryState::StateArray  *arr = myState.myTable[tidx];
-
-		if (arr->myState[bidx])
-		{
-		    theBlockLUT.lookup(r, c, i);
-		    r += roff;
-		    c += coff;
-
-		    if (r >= 0 && r < myImage.height() &&
-			c >= 0 && c < myImage.width())
-			myImage.setPixel(r, c, myState.mapColor(
-				    arr->myState[bidx], arr->myType[bidx]));
-		}
-	    }
-	    return false;
-	}
-
-	return true;
-    }
-
-private:
-    const MemoryState	&myState;
-    GLImage &myImage;
-    uint64   myAddr;
-    int	     myRowOff;
-    int	     myColOff;
+    virtual bool	visit(int idx, int r, int c, int level,
+			      bool hilbert, int rotate, bool flip) = 0;
 };
 
 static void
@@ -316,7 +195,8 @@ blockTraverse(int idx, int roff, int coff,
     // Only calls the traverser for full blocks
     if (size >= (1 << (2*level)))
     {
-	if (!traverser.visit(idx, roff, coff, level) || level == 0)
+	if (!traverser.visit(idx, roff, coff, level, hilbert, rotate, flip)
+		|| level == 0)
 	    return;
     }
 
@@ -365,6 +245,170 @@ blockTraverse(int idx, int roff, int coff,
 	blockTraverse(idx+3*off, roff + rs[3], coff + cs[3],
 	    traverser, SYSmin(size-3*off, off), level-1,
 	    hilbert, rotate ^ 2, !flip);
+    }
+}
+
+class BlockFill : public Traverser {
+public:
+    BlockFill(int *data)
+	: myData(data) {}
+
+    virtual bool visit(int idx, int r, int c, int level, bool, int, bool)
+    {
+	if (level == 0)
+	    myData[idx] = r | (c << 16);
+	return true;
+    }
+
+public:
+    int	    *myData;
+};
+
+class BlockLUT {
+public:
+    BlockLUT()
+    {
+	for (int i = 0; i < 256; i++)
+	{
+	    int	r, c;
+	    getBlockCoord(r, c, i);
+	    myBlock[i] = r | (c<<16);
+	}
+	for (int r = 0; r < 4; r++)
+	{
+	    for (int f = 0; f < 2; f++)
+	    {
+		BlockFill   fill(myHilbert[r][f]);
+		blockTraverse(0, 0, 0, fill, 256, 4, true, r, f);
+	    }
+	}
+    }
+
+    void lookup(int &r, int &c, int idx)
+    {
+	r = (myBlock[idx & 0xFF] |
+	     (myBlock[(idx>>8) & 0xFF] << 4)) |
+	    ((myBlock[(idx>>16) & 0xFF] << 8) |
+	     (myBlock[idx>>24] << 12));
+	c = r>>16;
+	r &= 0xFFFF;
+    }
+    // This is only valid for idx in the range 0 to 255
+    void smallBlock(int &r, int &c, int idx)
+    {
+	r = myBlock[idx & 0xFF];
+	c = r>>16;
+	r &= 0xFFFF;
+    }
+    void smallHilbert(int &r, int &c, int idx, int rotate, bool flip)
+    {
+	r = myHilbert[rotate][flip][idx & 0xFF];
+	c = r>>16;
+	r &= 0xFFFF;
+    }
+
+private:
+    int		myBlock[256];
+    int		myHilbert[4][2][256];
+};
+
+static BlockLUT		theBlockLUT;
+
+class BlockSizer : public Traverser {
+public:
+    BlockSizer()
+	: myWidth(0)
+	, myHeight(0) {}
+
+    void reset() { myWidth = myHeight = 0; }
+    virtual bool visit(int, int r, int c, int level, bool, int, bool)
+    {
+	int bsize = 1 << level;
+	myHeight = SYSmax(myHeight, r + bsize);
+	myWidth = SYSmax(myWidth, c + bsize);
+	return false;
+    }
+
+public:
+    int	     myWidth;
+    int	     myHeight;
+};
+
+class PlotImage : public Traverser {
+public:
+    PlotImage(const MemoryState &state,
+	    GLImage &image, uint64 addr, int roff, int coff)
+	: myState(state)
+	, myImage(image)
+	, myAddr(addr)
+	, myRowOff(roff)
+	, myColOff(coff) {}
+
+    virtual bool visit(int idx, int r, int c, int level,
+		       bool hilbert, int rotate, bool flip)
+    {
+	int bsize = 1 << level;
+	int roff = myRowOff + r;
+	int coff = myColOff + c;
+
+	if (roff + bsize <= 0 || roff >= myImage.height() ||
+	    coff + bsize <= 0 || coff >= myImage.width())
+	{
+	    return false;
+	}
+
+	if (level <= 4)
+	{
+	    int	size = bsize*bsize;
+	    for (int i = 0; i < size; i++, idx++)
+	    {
+		int	 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
+		int	 bidx = (myAddr + idx) &MemoryState::theBottomMask;
+		MemoryState::StateArray  *arr = myState.myTable[tidx];
+
+		if (arr->myState[bidx])
+		{
+		    if (hilbert)
+			theBlockLUT.smallHilbert(r, c, i, rotate, flip);
+		    else
+			theBlockLUT.smallBlock(r, c, i);
+		    r += roff;
+		    c += coff;
+
+		    if (r >= 0 && r < myImage.height() &&
+			c >= 0 && c < myImage.width())
+			myImage.setPixel(r, c, myState.mapColor(
+				    arr->myState[bidx], arr->myType[bidx]));
+		}
+	    }
+	    return false;
+	}
+
+	return true;
+    }
+
+private:
+    const MemoryState	&myState;
+    GLImage &myImage;
+    uint64   myAddr;
+    int	     myRowOff;
+    int	     myColOff;
+};
+
+static void
+placeBlock(int &roff, int &coff, int bwidth, int bheight,
+	int &maxheight, GLImage &image)
+{
+    // Does the block fit horizontally?
+    if (coff + bwidth > image.width())
+    {
+	roff += maxheight + theBlockSpacing;
+	coff = 0;
+	maxheight = bheight;
+    }
+    else
+    {
+	maxheight = SYSmax(maxheight, bheight);
     }
 }
 
