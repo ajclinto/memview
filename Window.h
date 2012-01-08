@@ -4,6 +4,7 @@
 #include <QGLWidget>
 #include "Math.h"
 #include "GLImage.h"
+#include "StopWatch.h"
 #include "MemoryState.h"
 
 class MemViewWidget;
@@ -77,7 +78,11 @@ private:
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;
 
+    StopWatch	 myStopWatch;
     QPoint	 myDragPos;
+    QPoint	 myDragDir;
+    double	 myVelocity[2];
+    bool	 myDragging;
 };
 
 #endif

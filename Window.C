@@ -1,6 +1,5 @@
 #include "Window.h"
 #include "MemoryState.h"
-#include "StopWatch.h"
 
 static const QSize	theDefaultSize(800, 600);
 
@@ -60,6 +59,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 	QScrollBar *vscrollbar, QScrollBar *hscrollbar)
     : myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
+    , myStopWatch(false)
+    , myDragging(false)
 {
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -99,7 +100,7 @@ MemViewWidget::hilbert()
 void
 MemViewWidget::paintGL()
 {
-    StopWatch	timer;
+    //StopWatch	timer;
 
     // Adjust the position due to scrolling
     myAnchor.myAnchorOffset += myVScrollBar->value() -
@@ -139,7 +140,13 @@ void
 MemViewWidget::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
+    {
+	myDragDir = QPoint(0, 0);
+	myVelocity[0] = 0;
+	myVelocity[1] = 0;
 	myDragPos = event->pos();
+	myDragging = true;
+    }
 }
 
 void
@@ -147,10 +154,11 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-	myVScrollBar->setValue(myVScrollBar->value() +
-		myDragPos.y() - event->pos().y());
-	myHScrollBar->setValue(myHScrollBar->value() +
-		myDragPos.x() - event->pos().x());
+	myDragDir = myDragPos - event->pos();
+	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
+	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
+	myVelocity[0] += myDragDir.x();
+	myVelocity[1] += myDragDir.y();
 	myDragPos = event->pos();
     }
 }
@@ -160,16 +168,53 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
-	myVScrollBar->setValue(myVScrollBar->value() +
-		myDragPos.y() - event->pos().y());
-	myHScrollBar->setValue(myHScrollBar->value() +
-		myDragPos.x() - event->pos().x());
+	myDragging = false;
     }
 }
+
+#if 0
+double
+shortenDrag(double val, double delta)
+{
+    delta *= 2.0;
+    if (val > 0)
+    {
+	val -= delta*val;
+	val = SYSmax(val, 0.0);
+    }
+    else if (val < 0)
+    {
+	val -= delta*val;
+	val = SYSmin(val, 0.0);
+    }
+    return val;
+}
+#endif
 
 void
 MemViewWidget::tick()
 {
+    if (!myDragging)
+    {
+	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
+	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
+    }
+    else
+    {
+	myVelocity[0] = 0;
+	myVelocity[1] = 0;
+    }
+#if 0
+    double  time = myStopWatch.lap();
+
+    // Account for the drag direction
+    myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
+    myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
+
+    myDragDir[0] = shortenDrag(myDragDir[0], time);
+    myDragDir[1] = shortenDrag(myDragDir[1], time);
+#endif
+
     update();
 }
 

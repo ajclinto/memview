@@ -3,14 +3,25 @@
 
 class StopWatch {
 public:
-     StopWatch() { start(); }
-    ~StopWatch() { fprintf(stderr, "%f\n", lap()); }
+     StopWatch(bool print = true) : myPrint(print) { start(); }
+    ~StopWatch()
+    {
+	if (myPrint)
+	    fprintf(stderr, "%f\n", lap());
+    }
 
     void start()
     {
-	myStart = time();
+	myStart = myLap = time();
     }
     double lap()
+    {
+	double	cur = time();
+	double	val = cur - myLap;
+	myLap = cur;
+	return val;
+    }
+    double stop()
     {
 	return time()-myStart;
     }
@@ -25,6 +36,8 @@ private:
 
 private:
     double	myStart;
+    double	myLap;
+    bool	myPrint;
 };
 
 #endif
