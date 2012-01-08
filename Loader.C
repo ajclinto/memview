@@ -264,7 +264,7 @@ Loader::loadFromPipe()
 	if (block.myEntries)
 	{
 	    char	type = block.myType[0];
-	    if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	    if (!isalpha(type))
 	    {
 		fprintf(stderr, "received invalid block (size %d)\n",
 			block.myEntries);
@@ -302,7 +302,7 @@ Loader::loadFromSharedMemory()
     {
 	// Basic semantic checking to ensure we received valid data
 	char	type = block.myType[0];
-	if (type != 'I' && type != 'L' && type != 'S' && type != 'M')
+	if (!isalpha(type))
 	{
 	    fprintf(stderr, "received invalid block\n");
 	    return false;

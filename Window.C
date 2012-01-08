@@ -141,6 +141,7 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
+	myStopWatch.start();
 	myDragDir = QPoint(0, 0);
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
@@ -154,11 +155,12 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
+	double  time = myStopWatch.lap();
 	myDragDir = myDragPos - event->pos();
 	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
 	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
-	myVelocity[0] += myDragDir.x();
-	myVelocity[1] += myDragDir.y();
+	myVelocity[0] = myDragDir.x() / time;
+	myVelocity[1] = myDragDir.y() / time;
 	myDragPos = event->pos();
     }
 }
@@ -172,9 +174,8 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
-#if 0
-double
-shortenDrag(double val, double delta)
+void
+shortenDrag(double &val, double delta)
 {
     delta *= 2.0;
     if (val > 0)
@@ -187,33 +188,30 @@ shortenDrag(double val, double delta)
 	val -= delta*val;
 	val = SYSmin(val, 0.0);
     }
-    return val;
 }
-#endif
 
 void
 MemViewWidget::tick()
 {
     if (!myDragging)
     {
-	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
-	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
+	double  time = myStopWatch.lap();
+	int	drag[2];
+
+	drag[0] = (int)(myVelocity[0] * time + 0.5F);
+	drag[1] = (int)(myVelocity[1] * time + 0.5F);
+
+	shortenDrag(myVelocity[0], time);
+	shortenDrag(myVelocity[1], time);
+
+	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
+	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
     }
     else
     {
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
     }
-#if 0
-    double  time = myStopWatch.lap();
-
-    // Account for the drag direction
-    myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
-    myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
-
-    myDragDir[0] = shortenDrag(myDragDir[0], time);
-    myDragDir[1] = shortenDrag(myDragDir[1], time);
-#endif
 
     update();
 }

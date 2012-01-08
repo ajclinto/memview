@@ -6,10 +6,10 @@
 #include <assert.h>
 
 static void
-fillLut(uint32 *lut, const Color &hi, const Color &lo)
+fillLut(uint32 *lut, const Color &hi, const Color &lo, uint32 size)
 {
-    const uint32	lcutoff = 120;
-    const uint32	hcutoff = 230;
+    const uint32	lcutoff = (int)(0.47*size);
+    const uint32	hcutoff = (int)(0.90*size);
     Color		vals[4];
 
     vals[0] = lo * (0.02/ lo.luminance());
@@ -17,11 +17,11 @@ fillLut(uint32 *lut, const Color &hi, const Color &lo)
     vals[2] = hi * (0.5 / hi.luminance());
     vals[3] = hi * (2.0 / hi.luminance());
 
-    for (uint32 i = 0; i < 256; i++)
+    for (uint32 i = 0; i < size; i++)
     {
 	Color	val;
 	if (i >= hcutoff)
-	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(255-hcutoff));
+	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(size-1-hcutoff));
 	else if (i >= lcutoff)
 	    val = vals[1].lerp(vals[2], (i-lcutoff)/(float)(hcutoff-lcutoff));
 	else
@@ -42,14 +42,17 @@ MemoryState::MemoryState()
     Color	rhi(0.2, 1.0, 0.2);
     Color	whi(1.0, 0.7, 0.2);
     Color	ihi(0.3, 0.2, 0.8);
+    Color	ahi(0.3, 0.3, 0.3);
 
     Color	rlo(0.1, 0.1, 0.5);
     Color	wlo(0.3, 0.1, 0.1);
     Color	ilo(0.3, 0.1, 0.4);
+    Color	alo(0.1, 0.1, 0.1);
 
-    fillLut(myILut, ihi, ilo);
-    fillLut(myWLut, whi, wlo);
-    fillLut(myRLut, rhi, rlo);
+    fillLut(myILut, ihi, ilo, theLutSize);
+    fillLut(myWLut, whi, wlo, theLutSize);
+    fillLut(myRLut, rhi, rlo, theLutSize);
+    fillLut(myALut, ahi, alo, theLutSize);
 }
 
 MemoryState::~MemoryState()
@@ -149,8 +152,9 @@ MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 		    StateArray  *arr = myTable[tidx];
 
 		    if (arr->myState[bidx])
-			image.setPixel(r, c,
-				mapColor(arr->myState[bidx], arr->myType[bidx]));
+			image.setPixel(r, c, mapColor(
+				    arr->myState[bidx],
+				    arr->myType[bidx], r, c));
 		}
 		c = 0;
 	    }
@@ -379,7 +383,8 @@ public:
 		    if (r >= 0 && r < myImage.height() &&
 			c >= 0 && c < myImage.width())
 			myImage.setPixel(r, c, myState.mapColor(
-				    arr->myState[bidx], arr->myType[bidx]));
+				    arr->myState[bidx],
+				    arr->myType[bidx], r, c));
 		}
 	    }
 	    return false;

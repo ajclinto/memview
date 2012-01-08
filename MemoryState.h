@@ -61,8 +61,17 @@ public:
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
 		    size = SYSmax(size, 1);
-		    for (int i = 0; i < size; i++)
-			setEntry(addr+i, myTime, type);
+		    if (type != 'F')
+		    {
+			for (int i = 0; i < size; i++)
+			    setEntry(addr+i, myTime, type);
+		    }
+		    else
+		    {
+			for (int i = 0; i < size; i++)
+			    setEntry(addr+i, getEntry(addr+i),
+				    tolower(getType(addr+i)));
+		    }
 		}
     void	incrementTime();
 
@@ -72,9 +81,10 @@ private:
 
     typedef uint32	State;
 
-    static const State	theStale    = ~(State)0;
-    static const State	theHalfLife = theStale>>1;
-    static const State	theFullLife = theStale-1;
+    static const State	theStale	= ~(State)0;
+    static const State	theAllocated	= theStale-1;
+    static const State	theHalfLife	= theAllocated>>1;
+    static const State	theFullLife	= theAllocated-1;
 
     static const int	theAllBits = 36;
     static const uint64	theAllSize = 1L << theAllBits;
@@ -119,6 +129,11 @@ private:
 		    StateArray	*row = myTable[topIndex(addr)];
 		    return row ? row->myState[bottomIndex(addr)] : 0;
 		}
+    char	getType(uint64 addr) const
+		{
+		    StateArray	*row = myTable[topIndex(addr)];
+		    return row ? row->myType[bottomIndex(addr)] : '\0';
+		}
     void	setEntry(uint64 addr, State val, char type)
 		{
 		    StateArray	*&row = myTable[topIndex(addr)];
@@ -130,8 +145,14 @@ private:
 		    row->myExists[idx>>theDisplayBits] = true;
 		}
 
-    uint32	mapColor(State val, char type) const
+    uint32	mapColor(State val, char type, int, int) const
 		{
+		    // LUT indices are computed from the base-2 log of the
+		    // access time.  This constant is the number of bits in
+		    // the fractional part of this index, based on the LUT
+		    // size.
+		    const int	frac_bits = theLutBits-5;
+		    const int	thresh = 31-frac_bits;
 		    uint32	diff;
 
 		    diff = val == theStale ? theHalfLife :
@@ -139,18 +160,38 @@ private:
 
 		    diff <<= 8*(sizeof(uint32)-sizeof(State));
 
-		    uint32	bits = __builtin_clz(diff);
-		    uint32	clr = bits<<3;
+		    int		bits = __builtin_clz(diff);
+		    uint32	clr = bits << frac_bits;
 
-		    if (bits > 28)
-			diff <<= bits-28;
+		    if (bits > thresh)
+			diff <<= bits - thresh;
 		    else
-			diff >>= 28-bits;
+			diff >>= thresh - bits;
 
-		    clr |= ~diff & 7;
+		    clr |= (~diff) & ((1 << frac_bits)-1);
 
-		    return type == 'I' ? myILut[clr] :
-			(type == 'L' ? myRLut[clr] : myWLut[clr]);
+		    switch (type)
+		    {
+			case 'i': case 'I':
+			    clr = myILut[clr];
+			    break;
+			case 'l': case 'L':
+			    clr = myRLut[clr];
+			    break;
+			case 's': case 'S':
+			case 'm': case 'M':
+			    clr = myWLut[clr];
+			    break;
+			case 'a': case 'A':
+			    clr = myALut[clr];
+			    break;
+		    }
+
+		    // Half the brightness of freed memory
+		    if (type >= 'a' && type <= 'z')
+			clr = ((clr >> 1) & 0xFF7F7F7F) | 0xFF000000;
+
+		    return clr;
 		}
 
     // A class to find contiguous blocks
@@ -308,10 +349,16 @@ private:
     // Loader
     Loader	*myLoader;
 
+    // Display LUT size
+    static const int	theLutBits = 10;
+    static const uint32	theLutSize = 1 << theLutBits;
+    static const uint32	theLutMask = theLutSize-1;
+
     // Display LUT
-    uint32	 myILut[256];
-    uint32	 myRLut[256];
-    uint32	 myWLut[256];
+    uint32	 myILut[theLutSize];
+    uint32	 myRLut[theLutSize];
+    uint32	 myWLut[theLutSize];
+    uint32	 myALut[theLutSize];
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
