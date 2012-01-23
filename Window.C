@@ -1,11 +1,9 @@
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-
 #include "Window.h"
 #include "MemoryState.h"
+#include <fstream>
 
-// This define causes rendering to use textures, PBOs, and to render a
-// full-screen quad.  When disabled, glDrawPixels is used.
+// This define causes rendering to use a textured full-screen quad rather
+// than glDrawPixels().
 #define USE_SHADERS
 
 static const QSize	theDefaultSize(800, 600);
@@ -107,17 +105,41 @@ MemViewWidget::hilbert()
     update();
 }
 
+// Load a file into a buffer.  The buffer is owned by the caller, and
+// should be freed with delete[].
+static char *
+loadTextFile(const char *filename)
+{
+    std::ifstream   is(filename);
+    if (!is.good())
+	return 0;
+
+    is.seekg(0, std::ios::end);
+    long length = is.tellg();
+    is.seekg(0, std::ios::beg);
+
+    if (!length)
+	return 0;
+
+    char *buffer = new char[length+1];
+
+    is.read(buffer, length);
+    buffer[length] = '\0';
+
+    return buffer;
+}
+
 void
 MemViewWidget::initializeGL()
 {
+    glGenBuffers(1, &myPixelBuffer);
+
 #if defined(USE_SHADERS)
     glGenTextures(1, &myTexture);
     glBindTexture(GL_TEXTURE_2D, myTexture);
 
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glGenBuffers(1, &myPixelBuffer);
 
     myList = glGenLists(1);
     glNewList(myList, GL_COMPILE);
@@ -132,25 +154,14 @@ MemViewWidget::initializeGL()
     glEndList();
 
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
-    const char *vsrc =
-        "varying mediump vec2 texc;\n"
-        "void main(void)\n"
-        "{\n"
-        "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
-        "    texc = vec2(gl_MultiTexCoord0);\n"
-        "}\n";
+    const char *vsrc = loadTextFile("shader.vert");
     vshader->compileSourceCode(vsrc);
+    delete [] vsrc;
 
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    const char *fsrc =
-        "uniform sampler2D texture;\n"
-        "varying mediump vec2 texc;\n"
-        "void main(void)\n"
-        "{\n"
-        "    gl_FragColor = texture2D(texture, texc);\n"
-        //"    gl_FragColor = vec4(texc.x, texc.y, 0, 1);\n"
-        "}\n";
+    const char *fsrc = loadTextFile("shader.frag");
     fshader->compileSourceCode(fsrc);
+    delete [] fsrc;
 
     myProgram = new QGLShaderProgram(this);
     myProgram->addShader(vshader);
@@ -174,15 +185,11 @@ MemViewWidget::resizeGL(int width, int height)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
-#if defined(USE_SHADERS)
     myImage.setSize(width, height);
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, myImage.bytes(), 0, GL_STREAM_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-#else
-    myImage.resize(width, height);
-#endif
 }
 
 void
@@ -195,12 +202,6 @@ MemViewWidget::paintGL()
 	myAnchor.myAbsoluteOffset;
     myAnchor.myColumn += myHScrollBar->value() - myAnchor.myColumn;
 
-#if !defined(USE_SHADERS)
-    myState->fillImage(myImage, myAnchor);
-
-    glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
-	    GL_UNSIGNED_BYTE, myImage.data());
-#else
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
 
     myImage.setData((uint32 *)
@@ -208,9 +209,13 @@ MemViewWidget::paintGL()
     myState->fillImage(myImage, myAnchor);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
+#if !defined(USE_SHADERS)
+    glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
+	    GL_UNSIGNED_BYTE, 0 /* offset in PBO */);
+#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
 	    myImage.width(), myImage.height(), 0, GL_BGRA,
-	    GL_UNSIGNED_BYTE, 0);
+	    GL_UNSIGNED_BYTE, 0 /* offset in PBO */);
 
     glCallList(myList);
 #endif

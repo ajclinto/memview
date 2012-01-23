@@ -1,4 +1,5 @@
-#ifndef NOTEPAD_H
+#ifndef Window_H
+#define Window_H
 
 #include <QtGui>
 #include <QGLWidget>
