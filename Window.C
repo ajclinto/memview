@@ -59,6 +59,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 	QScrollBar *vscrollbar, QScrollBar *hscrollbar)
     : myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
+    , myTexture(0)
+    , myList(0)
     , myStopWatch(false)
     , myDragging(false)
 {
@@ -98,6 +100,72 @@ MemViewWidget::hilbert()
 }
 
 void
+MemViewWidget::initializeGL()
+{
+#if defined(USE_SHADERS)
+    glGenTextures(1, &myTexture);
+    glBindTexture(GL_TEXTURE_2D, myTexture);
+
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    myList = glGenLists(1);
+    glNewList(myList, GL_COMPILE);
+
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
+    glTexCoord2f(1.0, 0.0); glVertex3i(1, -1, -1);
+    glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
+    glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
+    glEnd();
+
+    glEndList();
+
+    QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
+    const char *vsrc =
+        "varying mediump vec2 texc;\n"
+        "void main(void)\n"
+        "{\n"
+        "    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;\n"
+        "    texc = vec2(gl_MultiTexCoord0);\n"
+        "}\n";
+    vshader->compileSourceCode(vsrc);
+
+    QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
+    const char *fsrc =
+        "uniform sampler2D texture;\n"
+        "varying mediump vec2 texc;\n"
+        "void main(void)\n"
+        "{\n"
+        "    gl_FragColor = texture2D(texture, texc);\n"
+        //"    gl_FragColor = vec4(texc.x, texc.y, 0, 1);\n"
+        "}\n";
+    fshader->compileSourceCode(fsrc);
+
+    myProgram = new QGLShaderProgram(this);
+    myProgram->addShader(vshader);
+    myProgram->addShader(fshader);
+    myProgram->link();
+
+    myProgram->bind();
+
+    myProgram->setUniformValue("texture", 0);
+#endif
+}
+
+void
+MemViewWidget::resizeGL(int width, int height)
+{
+    glViewport(0, 0, (GLint)width, (GLint)height);
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity ();
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+}
+
+void
 MemViewWidget::paintGL()
 {
     //StopWatch	timer;
@@ -109,8 +177,16 @@ MemViewWidget::paintGL()
 
     myState->fillImage(myImage, myAnchor);
 
+#if !defined(USE_SHADERS)
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, 3,
+	    myImage.width(), myImage.height(), 0, GL_BGRA,
+	    GL_UNSIGNED_BYTE, myImage.data());
+
+    glCallList(myList);
+#endif
 
     int nmax = SYSmax(myAnchor.myHeight - myVScrollBar->pageStep(), 0);
     myVScrollBar->setMaximum(nmax);
@@ -121,7 +197,7 @@ MemViewWidget::paintGL()
 }
 
 void
-MemViewWidget::resizeEvent(QResizeEvent *)
+MemViewWidget::resizeEvent(QResizeEvent *event)
 {
     if (size().width() != myImage.width() ||
 	size().height() != myImage.height())
@@ -133,6 +209,8 @@ MemViewWidget::resizeEvent(QResizeEvent *)
 	myHScrollBar->setPageStep(w);
 	myImage.resize(w, h);
 	update();
+
+	QGLWidget::resizeEvent(event);
     }
 }
 

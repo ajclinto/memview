@@ -2,6 +2,7 @@
 
 #include <QtGui>
 #include <QGLWidget>
+#include <QtOpenGL>
 #include "Math.h"
 #include "GLImage.h"
 #include "StopWatch.h"
@@ -56,6 +57,8 @@ public:
     void	paint(QPaintEvent *event)
 		{ paintEvent(event); }
 protected:
+    void	initializeGL();
+    void	resizeGL(int width, int height);
     void	paintGL();
     void	resizeEvent(QResizeEvent *event);
 
@@ -74,6 +77,10 @@ private:
     QTimer	*myTimer;
     QScrollBar	*myVScrollBar;
     QScrollBar	*myHScrollBar;
+
+    QGLShaderProgram	*myProgram;
+    GLuint		 myTexture;
+    GLuint		 myList;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;
