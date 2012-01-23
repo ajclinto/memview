@@ -81,6 +81,7 @@ private:
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;
     GLuint		 myList;
+    GLuint		 myPixelBuffer;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;

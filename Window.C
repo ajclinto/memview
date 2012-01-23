@@ -1,5 +1,12 @@
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+
 #include "Window.h"
 #include "MemoryState.h"
+
+// This define causes rendering to use textures, PBOs, and to render a
+// full-screen quad.  When disabled, glDrawPixels is used.
+#define USE_SHADERS
 
 static const QSize	theDefaultSize(800, 600);
 
@@ -61,6 +68,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myHScrollBar(hscrollbar)
     , myTexture(0)
     , myList(0)
+    , myPixelBuffer(0)
     , myStopWatch(false)
     , myDragging(false)
 {
@@ -108,6 +116,8 @@ MemViewWidget::initializeGL()
 
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    glGenBuffers(1, &myPixelBuffer);
 
     myList = glGenLists(1);
     glNewList(myList, GL_COMPILE);
@@ -163,6 +173,16 @@ MemViewWidget::resizeGL(int width, int height)
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
+
+#if defined(USE_SHADERS)
+    myImage.setSize(width, height);
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, myImage.bytes(), 0, GL_STREAM_DRAW);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+#else
+    myImage.resize(width, height);
+#endif
 }
 
 void
@@ -175,15 +195,22 @@ MemViewWidget::paintGL()
 	myAnchor.myAbsoluteOffset;
     myAnchor.myColumn += myHScrollBar->value() - myAnchor.myColumn;
 
+#if !defined(USE_SHADERS)
     myState->fillImage(myImage, myAnchor);
 
-#if !defined(USE_SHADERS)
     glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
 	    GL_UNSIGNED_BYTE, myImage.data());
 #else
-    glTexImage2D(GL_TEXTURE_2D, 0, 3,
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
+
+    myImage.setData((uint32 *)
+	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
+    myState->fillImage(myImage, myAnchor);
+    glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
 	    myImage.width(), myImage.height(), 0, GL_BGRA,
-	    GL_UNSIGNED_BYTE, myImage.data());
+	    GL_UNSIGNED_BYTE, 0);
 
     glCallList(myList);
 #endif
@@ -207,10 +234,9 @@ MemViewWidget::resizeEvent(QResizeEvent *event)
 
 	myVScrollBar->setPageStep(h);
 	myHScrollBar->setPageStep(w);
-	myImage.resize(w, h);
-	update();
 
 	QGLWidget::resizeEvent(event);
+	update();
     }
 }
 
