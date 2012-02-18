@@ -4,7 +4,7 @@
 #include <QtGui>
 #include <sys/types.h>
 #include <signal.h>
-#include "mv_ipc.h"
+#include "tool/mv_ipc.h"
 #include "Math.h"
 
 class MemoryState;
