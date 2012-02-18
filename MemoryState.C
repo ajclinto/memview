@@ -279,12 +279,15 @@ public:
 	    getBlockCoord(r, c, i);
 	    myBlock[i] = r | (c<<16);
 	}
-	for (int r = 0; r < 4; r++)
+	for (int level = 0; level <= 4; level++)
 	{
-	    for (int f = 0; f < 2; f++)
+	    for (int r = 0; r < 4; r++)
 	    {
-		BlockFill   fill(myHilbert[r][f]);
-		blockTraverse(0, 0, 0, fill, 256, 4, true, r, f);
+		for (int f = 0; f < 2; f++)
+		{
+		    BlockFill   fill(myHilbert[level][r][f]);
+		    blockTraverse(0, 0, 0, fill, 256, level, true, r, f);
+		}
 	    }
 	}
     }
@@ -301,20 +304,20 @@ public:
     // This is only valid for idx in the range 0 to 255
     void smallBlock(int &r, int &c, int idx)
     {
-	r = myBlock[idx & 0xFF];
+	r = myBlock[idx];
 	c = r>>16;
 	r &= 0xFFFF;
     }
-    void smallHilbert(int &r, int &c, int idx, int rotate, bool flip)
+    void smallHilbert(int &r, int &c, int idx, int level, int rotate, bool flip)
     {
-	r = myHilbert[rotate][flip][idx & 0xFF];
+	r = myHilbert[level][rotate][flip][idx];
 	c = r>>16;
 	r &= 0xFFFF;
     }
 
 private:
     int		myBlock[256];
-    int		myHilbert[4][2][256];
+    int		myHilbert[5][4][2][256];
 };
 
 static BlockLUT		theBlockLUT;
@@ -356,35 +359,42 @@ public:
 	int roff = myRowOff + r;
 	int coff = myColOff + c;
 
+	// Discard boxes that are outside the valid range
 	if (roff + bsize <= 0 || roff >= myImage.height() ||
 	    coff + bsize <= 0 || coff >= myImage.width())
 	{
 	    return false;
 	}
 
+	// Subdivide more for partially overlapping boxes
+	if (roff < 0 || roff + bsize > myImage.height() ||
+	    coff < 0 || coff + bsize > myImage.width())
+	{
+	    return true;
+	}
+
 	if (level <= 4)
 	{
 	    int	size = bsize*bsize;
-	    for (int i = 0; i < size; i++, idx++)
-	    {
-		int	 tidx = (myAddr + idx)>>MemoryState::theBottomBits;
-		int	 bidx = (myAddr + idx) &MemoryState::theBottomMask;
-		MemoryState::StateArray  *arr = myState.myTable[tidx];
+	    int	tidx = (myAddr + idx)>>MemoryState::theBottomBits;
+	    int	bidx = (myAddr + idx) &MemoryState::theBottomMask;
+	    MemoryState::StateArray  *arr = myState.myTable[tidx];
 
+	    assert(bidx + size <= (int)MemoryState::theBottomSize);
+	    for (int i = 0; i < size; i++, bidx++)
+	    {
 		if (arr->myState[bidx])
 		{
 		    if (hilbert)
-			theBlockLUT.smallHilbert(r, c, i, rotate, flip);
+			theBlockLUT.smallHilbert(r, c, i, level, rotate, flip);
 		    else
 			theBlockLUT.smallBlock(r, c, i);
 		    r += roff;
 		    c += coff;
 
-		    if (r >= 0 && r < myImage.height() &&
-			c >= 0 && c < myImage.width())
-			myImage.setPixel(r, c, myState.mapColor(
-				    arr->myState[bidx],
-				    arr->myType[bidx], r, c));
+		    myImage.setPixel(r, c, myState.mapColor(
+				arr->myState[bidx],
+				arr->myType[bidx], r, c));
 		}
 	    }
 	    return false;
