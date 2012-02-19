@@ -246,16 +246,9 @@ MemViewWidget::paintGL()
     nmax = SYSmax(myAnchor.myWidth - myHScrollBar->pageStep(), 0);
     myHScrollBar->setMaximum(nmax);
 
-    if (myAnchor.myQueryAddr)
-    {
-	QString	message;
-	myState->printStatusInfo(message, myAnchor.myQueryAddr);
-	myStatusBar->showMessage(message);
-    }
-    else
-    {
-	myStatusBar->clearMessage();
-    }
+    QString	message;
+    myState->printStatusInfo(message, myAnchor.myQueryAddr);
+    myStatusBar->showMessage(message);
 }
 
 void

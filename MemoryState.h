@@ -82,13 +82,23 @@ public:
     // Print status information for a memory address
     void	printStatusInfo(QString &message, uint64 addr)
 		{
+		    message.sprintf("Batch: %4d", myTime);
+
+		    if (!addr)
+			return;
+
+		    QString	tmp;
+		    tmp.sprintf("\t\tAddress: 0x%.16llx", addr);
+
+		    message.append(tmp);
+
 		    addr >>= myIgnoreBits;
 
 		    State	entry = getEntry(addr);
 		    char	type = getType(addr);
 
-		    message.sprintf("Address: 0x%.16llx",
-			    addr << myIgnoreBits);
+		    if (!entry)
+			return;
 
 		    if (entry)
 		    {
@@ -112,9 +122,8 @@ public:
 
 			if (typestr)
 			{
-			    QString	entrystr;
-			    entrystr.sprintf(" %12s: %d", typestr, entry);
-			    message.append(entrystr);
+			    tmp.sprintf("\t%12s: %d", typestr, entry);
+			    message.append(tmp);
 			    if (islower(type))
 				message.append(" (freed)");
 			}
