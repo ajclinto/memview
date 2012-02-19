@@ -103,10 +103,10 @@ public:
 				break;
 			    case 's': case 'S':
 			    case 'm': case 'M':
-				typestr = "Write";
+				typestr = "Written";
 				break;
 			    case 'a': case 'A':
-				typestr = "Allocate";
+				typestr = "Allocated";
 				break;
 			}
 
@@ -115,6 +115,8 @@ public:
 			    QString	entrystr;
 			    entrystr.sprintf(" %12s: %d", typestr, entry);
 			    message.append(entrystr);
+			    if (islower(type))
+				message.append(" (freed)");
 			}
 		    }
 		}
