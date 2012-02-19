@@ -36,9 +36,12 @@ Window::Window(int argc, char *argv[])
 
     myScrollArea = new MemViewScroll(this);
 
+    setStatusBar(new QStatusBar(this));
+
     myMemView = new MemViewWidget(argc, argv,
 	    myScrollArea->verticalScrollBar(),
-	    myScrollArea->horizontalScrollBar());
+	    myScrollArea->horizontalScrollBar(),
+	    statusBar());
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
@@ -61,15 +64,27 @@ Window::~Window()
 //
 
 MemViewWidget::MemViewWidget(int argc, char *argv[],
-	QScrollBar *vscrollbar, QScrollBar *hscrollbar)
+	QScrollBar *vscrollbar,
+	QScrollBar *hscrollbar,
+	QStatusBar *status)
     : myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
+    , myStatusBar(status)
     , myTexture(0)
     , myList(0)
     , myPixelBuffer(0)
     , myStopWatch(false)
     , myDragging(false)
 {
+    // We need mouse events even when no buttons are held down, for status
+    // bar updates
+    setMouseTracking(true);
+
+    // Use a fixed-width font for the status bar
+    QFont	font("Monospace");
+    font.setStyleHint(QFont::TypeWriter);
+    myStatusBar->setFont(font);
+
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
 
@@ -202,6 +217,10 @@ MemViewWidget::paintGL()
 	myAnchor.myAbsoluteOffset;
     myAnchor.myColumn += myHScrollBar->value() - myAnchor.myColumn;
 
+    // Set the query mouse position
+    myAnchor.myQuery = myMousePos;
+    myAnchor.myQueryAddr = 0;
+
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
 
     myImage.setData((uint32 *)
@@ -226,6 +245,17 @@ MemViewWidget::paintGL()
 
     nmax = SYSmax(myAnchor.myWidth - myHScrollBar->pageStep(), 0);
     myHScrollBar->setMaximum(nmax);
+
+    if (myAnchor.myQueryAddr)
+    {
+	QString	message;
+	myState->printStatusInfo(message, myAnchor.myQueryAddr);
+	myStatusBar->showMessage(message);
+    }
+    else
+    {
+	myStatusBar->clearMessage();
+    }
 }
 
 void
@@ -254,9 +284,9 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
 	myDragDir = QPoint(0, 0);
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
-	myDragPos = event->pos();
 	myDragging = true;
     }
+    myMousePos = event->pos();
 }
 
 void
@@ -265,13 +295,13 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() & Qt::LeftButton)
     {
 	double  time = myStopWatch.lap();
-	myDragDir = myDragPos - event->pos();
+	myDragDir = myMousePos - event->pos();
 	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
 	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
 	myVelocity[0] = myDragDir.x() / time;
 	myVelocity[1] = myDragDir.y() / time;
-	myDragPos = event->pos();
     }
+    myMousePos = event->pos();
 }
 
 void

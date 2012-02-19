@@ -145,6 +145,16 @@ MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 	    for (; r <= SYSmin(nr, image.height()-1) &&
 		    i < it.size(); r++)
 	    {
+		if (r == info.myQuery.y())
+		{
+		    int	off = i + info.myQuery.x();
+		    if (off < it.size())
+		    {
+			info.myQueryAddr = it.addr() + off;
+			info.myQueryAddr <<= myIgnoreBits;
+		    }
+		}
+
 		for (; c < image.width() && i < it.size(); c++, i++)
 		{
 		    int	     tidx = (it.addr() + i)>>theBottomBits;
@@ -345,12 +355,16 @@ public:
 class PlotImage : public Traverser {
 public:
     PlotImage(const MemoryState &state,
-	    GLImage &image, uint64 addr, int roff, int coff)
+	    GLImage &image, uint64 addr, int roff, int coff,
+	    const QPoint &query)
 	: myState(state)
 	, myImage(image)
 	, myAddr(addr)
 	, myRowOff(roff)
-	, myColOff(coff) {}
+	, myColOff(coff)
+	, myQuery(query)
+	, myQueryAddr(0)
+	{}
 
     virtual bool visit(int idx, int r, int c, int level,
 		       bool hilbert, int rotate, bool flip)
@@ -381,6 +395,27 @@ public:
 	    MemoryState::StateArray  *arr = myState.myTable[tidx];
 
 	    assert(bidx + size <= (int)MemoryState::theBottomSize);
+
+	    if (myQuery.y() >= roff && myQuery.y() < roff + bsize &&
+		myQuery.x() >= coff && myQuery.x() < coff + bsize)
+	    {
+		// This is a reverse lookup that could be precomputed
+		for (int i = 0; i < size; i++)
+		{
+		    if (hilbert)
+			theBlockLUT.smallHilbert(r, c, i, level, rotate, flip);
+		    else
+			theBlockLUT.smallBlock(r, c, i);
+		    r += roff;
+		    c += coff;
+		    if (r == myQuery.y() && c == myQuery.x())
+		    {
+			myQueryAddr = myAddr + idx + i;
+			break;
+		    }
+		}
+	    }
+
 	    for (int i = 0; i < size; i++, bidx++)
 	    {
 		if (arr->myState[bidx])
@@ -403,12 +438,16 @@ public:
 	return true;
     }
 
+    uint64	getQueryAddr() const	{ return myQueryAddr; }
+
 private:
     const MemoryState	&myState;
     GLImage &myImage;
     uint64   myAddr;
     int	     myRowOff;
     int	     myColOff;
+    QPoint	myQuery;
+    uint64	myQueryAddr;
 };
 
 static void
@@ -520,9 +559,17 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 		info.myAnchorAddr = addr;
 		info.myAnchorOffset = -r;
 	    }
-	    PlotImage	plot(*this, image, addr, r, c - info.myColumn);
+	    PlotImage	plot(*this, image, addr,
+		    r, c - info.myColumn, info.myQuery);
 	    blockTraverse(0, 0, 0, plot, size, 15,
 		    myVisualization == HILBERT, 0, false);
+
+	    // Set the query address
+	    if (plot.getQueryAddr())
+	    {
+		info.myQueryAddr = plot.getQueryAddr();
+		info.myQueryAddr <<= myIgnoreBits;
+	    }
 	}
 	c += bwidth + theBlockSpacing;
     }
