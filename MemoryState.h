@@ -3,9 +3,9 @@
 
 #include <QtGui>
 #include "Math.h"
+#include "GLImage.h"
 
 class Loader;
-class GLImage;
 
 class MemoryState {
 public:
@@ -58,7 +58,7 @@ public:
 	QPoint	myQuery;
     };
 
-    void	fillImage(GLImage &image, AnchorInfo &info) const;
+    void	fillImage(GLImage<uint32> &image, AnchorInfo &info) const;
 
     void	updateAddress(uint64 addr, int size, char type)
 		{
@@ -131,8 +131,8 @@ public:
 		}
 
 private:
-    void	fillLinear(GLImage &image, AnchorInfo &info) const;
-    void	fillRecursiveBlock(GLImage &image, AnchorInfo &info) const;
+    void	fillLinear(GLImage<uint32> &image, AnchorInfo &info) const;
+    void	fillRecursiveBlock(GLImage<uint32> &image, AnchorInfo &info) const;
 
     typedef uint32	State;
 
@@ -200,6 +200,7 @@ private:
 		    row->myExists[idx>>theDisplayBits] = true;
 		}
 
+#if 0
     uint32	mapColor(State val, char type, int, int) const
 		{
 		    // LUT indices are computed from the base-2 log of the
@@ -248,6 +249,7 @@ private:
 
 		    return clr;
 		}
+#endif
 
     // A class to find contiguous blocks
     class DisplayIterator {
@@ -404,17 +406,6 @@ private:
     // Loader
     Loader	*myLoader;
 
-    // Display LUT size
-    static const int	theLutBits = 10;
-    static const uint32	theLutSize = 1 << theLutBits;
-    static const uint32	theLutMask = theLutSize-1;
-
-    // Display LUT
-    uint32	 myILut[theLutSize];
-    uint32	 myRLut[theLutSize];
-    uint32	 myWLut[theLutSize];
-    uint32	 myALut[theLutSize];
-
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
     int		 myIgnoreBits;
@@ -422,6 +413,7 @@ private:
     Visualization	myVisualization;
 
     friend class PlotImage;
+    friend class MemViewWidget;
 };
 
 #endif

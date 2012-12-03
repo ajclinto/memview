@@ -17,6 +17,7 @@
 #include "pub_tool_replacemalloc.h"
 #include "pub_tool_hashtable.h"
 #include "pub_tool_mallocfree.h"
+#include "pub_tool_stacktrace.h"
 #include "coregrind/pub_core_aspacemgr.h"
 
 /*------------------------------------------------------------*/
@@ -71,6 +72,7 @@ static uint64		 theTotalEvents = 0;
 
 static void flush_data(void)
 {
+    //VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 8);
     if (clo_shared_mem)
     {
 	// Post the full block
@@ -569,6 +571,7 @@ mv_instrument ( VgCallbackClosure* closure,
 	IRSB* sbIn, 
 	VexGuestLayout* layout, 
 	VexGuestExtents* vge,
+        VexArchInfo* archinfo_host,
 	IRType gWordTy, IRType hWordTy )
 {
     Int        i;

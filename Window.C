@@ -1,10 +1,7 @@
 #include "Window.h"
+#include "Color.h"
 #include "MemoryState.h"
 #include <fstream>
-
-// This define causes rendering to use a textured full-screen quad rather
-// than glDrawPixels().
-#define USE_SHADERS
 
 static const QSize	theDefaultSize(800, 600);
 
@@ -63,6 +60,31 @@ Window::~Window()
 // MemViewWidget
 //
 
+static void
+fillLut(uint32 *lut, const Color &hi, const Color &lo, uint32 size)
+{
+    const uint32	lcutoff = (int)(0.47*size);
+    const uint32	hcutoff = (int)(0.90*size);
+    Color		vals[4];
+
+    vals[0] = lo * (0.02/ lo.luminance());
+    vals[1] = lo * (0.15 / lo.luminance());
+    vals[2] = hi * (0.5 / hi.luminance());
+    vals[3] = hi * (2.0 / hi.luminance());
+
+    for (uint32 i = 0; i < size; i++)
+    {
+	Color	val;
+	if (i >= hcutoff)
+	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(size-1-hcutoff));
+	else if (i >= lcutoff)
+	    val = vals[1].lerp(vals[2], (i-lcutoff)/(float)(hcutoff-lcutoff));
+	else
+	    val = vals[0].lerp(vals[1], i/(float)lcutoff);
+	lut[i] = val.toInt32();
+    }
+}
+
 MemViewWidget::MemViewWidget(int argc, char *argv[],
 	QScrollBar *vscrollbar,
 	QScrollBar *hscrollbar,
@@ -84,6 +106,22 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     QFont	font("Monospace");
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
+
+    // Create color lookup textures
+    Color	rhi(0.2, 1.0, 0.2);
+    Color	whi(1.0, 0.7, 0.2);
+    Color	ihi(0.3, 0.2, 0.8);
+    Color	ahi(0.3, 0.3, 0.3);
+
+    Color	rlo(0.1, 0.1, 0.5);
+    Color	wlo(0.3, 0.1, 0.1);
+    Color	ilo(0.3, 0.1, 0.4);
+    Color	alo(0.1, 0.1, 0.1);
+
+    fillLut(myILut, ihi, ilo, theLutSize);
+    fillLut(myWLut, whi, wlo, theLutSize);
+    fillLut(myRLut, rhi, rlo, theLutSize);
+    fillLut(myALut, ahi, alo, theLutSize);
 
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -147,14 +185,23 @@ loadTextFile(const char *filename)
 void
 MemViewWidget::initializeGL()
 {
+    glActiveTexture(GL_TEXTURE0+1);
+    glGenTextures(1, &myLutTexture);
+    glBindTexture(GL_TEXTURE_1D, myLutTexture);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
+	    theLutSize, 0, GL_BGRA,
+	    GL_UNSIGNED_BYTE, myRLut);
+
+    glActiveTexture(GL_TEXTURE0);
     glGenBuffers(1, &myPixelBuffer);
 
-#if defined(USE_SHADERS)
     glGenTextures(1, &myTexture);
     glBindTexture(GL_TEXTURE_2D, myTexture);
 
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri( GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     myList = glGenLists(1);
     glNewList(myList, GL_COMPILE);
@@ -185,8 +232,11 @@ MemViewWidget::initializeGL()
 
     myProgram->bind();
 
-    myProgram->setUniformValue("texture", 0);
-#endif
+    myProgram->setUniformValue("tex", 0);
+    myProgram->setUniformValue("theRLut", 1);
+    myProgram->setUniformValue("theLutBits", theLutBits);
+    myProgram->setUniformValue("theStale", MemoryState::theStale);
+    myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
 }
 
 void
@@ -228,16 +278,19 @@ MemViewWidget::paintGL()
     myState->fillImage(myImage, myAnchor);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
-#if !defined(USE_SHADERS)
-    glDrawPixels(myImage.width(), myImage.height(), GL_BGRA,
-	    GL_UNSIGNED_BYTE, 0 /* offset in PBO */);
-#else
+#if 0
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
 	    myImage.width(), myImage.height(), 0, GL_BGRA,
 	    GL_UNSIGNED_BYTE, 0 /* offset in PBO */);
+#else
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
+	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
+	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
+#endif
+
+    myProgram->setUniformValue("theTime", myState->myTime);
 
     glCallList(myList);
-#endif
 
     int nmax = SYSmax(myAnchor.myHeight - myVScrollBar->pageStep(), 0);
     myVScrollBar->setMaximum(nmax);

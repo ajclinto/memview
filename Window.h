@@ -75,7 +75,7 @@ private slots:
     void    tick();
 
 private:
-    GLImage		 myImage;
+    GLImage<uint32>	 myImage;
     QTimer		*myTimer;
     QScrollBar		*myVScrollBar;
     QScrollBar		*myHScrollBar;
@@ -83,11 +83,23 @@ private:
 
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;
+    GLuint		 myLutTexture;
     GLuint		 myList;
     GLuint		 myPixelBuffer;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;
+
+    // Display LUT size
+    static const int	theLutBits = 10;
+    static const uint32	theLutSize = 1 << theLutBits;
+    static const uint32	theLutMask = theLutSize-1;
+
+    // Display LUT
+    uint32	 myILut[theLutSize];
+    uint32	 myRLut[theLutSize];
+    uint32	 myWLut[theLutSize];
+    uint32	 myALut[theLutSize];
 
     StopWatch	 myStopWatch;
     QPoint	 myMousePos;

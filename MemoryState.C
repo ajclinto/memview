@@ -5,31 +5,6 @@
 #include "GLImage.h"
 #include <assert.h>
 
-static void
-fillLut(uint32 *lut, const Color &hi, const Color &lo, uint32 size)
-{
-    const uint32	lcutoff = (int)(0.47*size);
-    const uint32	hcutoff = (int)(0.90*size);
-    Color		vals[4];
-
-    vals[0] = lo * (0.02/ lo.luminance());
-    vals[1] = lo * (0.15 / lo.luminance());
-    vals[2] = hi * (0.5 / hi.luminance());
-    vals[3] = hi * (2.0 / hi.luminance());
-
-    for (uint32 i = 0; i < size; i++)
-    {
-	Color	val;
-	if (i >= hcutoff)
-	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(size-1-hcutoff));
-	else if (i >= lcutoff)
-	    val = vals[1].lerp(vals[2], (i-lcutoff)/(float)(hcutoff-lcutoff));
-	else
-	    val = vals[0].lerp(vals[1], i/(float)lcutoff);
-	lut[i] = val.toInt32();
-    }
-}
-
 MemoryState::MemoryState()
     : myTime(1)
     , myHRTime(1)
@@ -38,21 +13,6 @@ MemoryState::MemoryState()
     , myVisualization(HILBERT)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
-
-    Color	rhi(0.2, 1.0, 0.2);
-    Color	whi(1.0, 0.7, 0.2);
-    Color	ihi(0.3, 0.2, 0.8);
-    Color	ahi(0.3, 0.3, 0.3);
-
-    Color	rlo(0.1, 0.1, 0.5);
-    Color	wlo(0.3, 0.1, 0.1);
-    Color	ilo(0.3, 0.1, 0.4);
-    Color	alo(0.1, 0.1, 0.1);
-
-    fillLut(myILut, ihi, ilo, theLutSize);
-    fillLut(myWLut, whi, wlo, theLutSize);
-    fillLut(myRLut, rhi, rlo, theLutSize);
-    fillLut(myALut, ahi, alo, theLutSize);
 }
 
 MemoryState::~MemoryState()
@@ -116,13 +76,10 @@ MemoryState::incrementTime()
     }
 }
 
-static const uint32	theWhite = 0xFFFFFFFF;
-static const uint32	theBlack = 0xFF000000;
-
 static const int	theBlockSpacing = 1;
 
 void
-MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
+MemoryState::fillLinear(GLImage<uint32> &image, AnchorInfo &info) const
 {
     int		 r = -info.myAnchorOffset;
     int		 c = 0;
@@ -162,9 +119,7 @@ MemoryState::fillLinear(GLImage &image, AnchorInfo &info) const
 		    StateArray  *arr = myTable[tidx];
 
 		    if (arr->myState[bidx])
-			image.setPixel(r, c, mapColor(
-				    arr->myState[bidx],
-				    arr->myType[bidx], r, c));
+			image.setPixel(r, c, arr->myState[bidx]);
 		}
 		c = 0;
 	    }
@@ -355,7 +310,7 @@ public:
 class PlotImage : public Traverser {
 public:
     PlotImage(const MemoryState &state,
-	    GLImage &image, uint64 addr, int roff, int coff,
+	    GLImage<uint32> &image, uint64 addr, int roff, int coff,
 	    const QPoint &query)
 	: myState(state)
 	, myImage(image)
@@ -427,9 +382,7 @@ public:
 		    r += roff;
 		    c += coff;
 
-		    myImage.setPixel(r, c, myState.mapColor(
-				arr->myState[bidx],
-				arr->myType[bidx], r, c));
+		    myImage.setPixel(r, c, arr->myState[bidx]);
 		}
 	    }
 	    return false;
@@ -442,7 +395,7 @@ public:
 
 private:
     const MemoryState	&myState;
-    GLImage &myImage;
+    GLImage<uint32> &myImage;
     uint64   myAddr;
     int	     myRowOff;
     int	     myColOff;
@@ -452,7 +405,7 @@ private:
 
 static void
 placeBlock(int &roff, int &coff, int bwidth, int bheight,
-	int &maxheight, GLImage &image)
+	int &maxheight, GLImage<uint32> &image)
 {
     // Does the block fit horizontally?
     if (coff + bwidth > image.width())
@@ -470,7 +423,7 @@ placeBlock(int &roff, int &coff, int bwidth, int bheight,
 typedef std::pair<uint64, int>	AddrRow;
 
 void
-MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
+MemoryState::fillRecursiveBlock(GLImage<uint32> &image, AnchorInfo &info) const
 {
     int		 r = 0;
     int		 c = 0;
@@ -579,10 +532,10 @@ MemoryState::fillRecursiveBlock(GLImage &image, AnchorInfo &info) const
 }
 
 void
-MemoryState::fillImage(GLImage &image, AnchorInfo &info) const
+MemoryState::fillImage(GLImage<uint32> &image, AnchorInfo &info) const
 {
     //StopWatch	 timer;
-    image.fill(theBlack);
+    image.fill(0);
 
     switch (myVisualization)
     {
