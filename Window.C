@@ -108,20 +108,15 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     myStatusBar->setFont(font);
 
     // Create color lookup textures
-    Color	rhi(0.2, 1.0, 0.2);
-    Color	whi(1.0, 0.7, 0.2);
-    Color	ihi(0.3, 0.2, 0.8);
-    Color	ahi(0.3, 0.3, 0.3);
+    const Color clrs[4][2] = {
+	{Color(0.2, 1.0, 0.2), Color(0.1, 0.1, 0.5)}, // Read
+	{Color(1.0, 0.7, 0.2), Color(0.3, 0.1, 0.1)}, // Write
+	{Color(0.3, 0.2, 0.8), Color(0.3, 0.1, 0.4)}, // Instr
+	{Color(0.3, 0.3, 0.3), Color(0.1, 0.1, 0.1)}  // Alloc
+    };
 
-    Color	rlo(0.1, 0.1, 0.5);
-    Color	wlo(0.3, 0.1, 0.1);
-    Color	ilo(0.3, 0.1, 0.4);
-    Color	alo(0.1, 0.1, 0.1);
-
-    fillLut(myILut, ihi, ilo, theLutSize);
-    fillLut(myWLut, whi, wlo, theLutSize);
-    fillLut(myRLut, rhi, rlo, theLutSize);
-    fillLut(myALut, ahi, alo, theLutSize);
+    for (int i = 0; i < theLutCount; i++)
+	fillLut(myLut[i], clrs[i][0], clrs[i][1], theLutSize);
 
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -185,14 +180,17 @@ loadTextFile(const char *filename)
 void
 MemViewWidget::initializeGL()
 {
-    glActiveTexture(GL_TEXTURE0+1);
-    glGenTextures(1, &myLutTexture);
-    glBindTexture(GL_TEXTURE_1D, myLutTexture);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
-	    theLutSize, 0, GL_BGRA,
-	    GL_UNSIGNED_BYTE, myRLut);
+    glGenTextures(theLutCount, myLutTexture);
+    for (int i = 0; i < theLutCount; i++)
+    {
+	glActiveTexture(GL_TEXTURE0+i+1);
+	glBindTexture(GL_TEXTURE_1D, myLutTexture[i]);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
+		theLutSize, 0, GL_BGRA,
+		GL_UNSIGNED_BYTE, myLut[i]);
+    }
 
     glActiveTexture(GL_TEXTURE0);
     glGenBuffers(1, &myPixelBuffer);
@@ -232,8 +230,11 @@ MemViewWidget::initializeGL()
 
     myProgram->bind();
 
-    myProgram->setUniformValue("tex", 0);
+    myProgram->setUniformValue("theState", 0);
     myProgram->setUniformValue("theRLut", 1);
+    myProgram->setUniformValue("theWLut", 2);
+    myProgram->setUniformValue("theILut", 3);
+    myProgram->setUniformValue("theALut", 4);
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
 }
@@ -277,15 +278,9 @@ MemViewWidget::paintGL()
     myState->fillImage(myImage, myAnchor);
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
-#if 0
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-	    myImage.width(), myImage.height(), 0, GL_BGRA,
-	    GL_UNSIGNED_BYTE, 0 /* offset in PBO */);
-#else
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
-#endif
 
     myProgram->setUniformValue("theTime", myState->myTime);
 

@@ -136,7 +136,7 @@ private:
 
     typedef uint32	State;
 
-    static const State	theStale	= ~(State)0;
+    static const State	theStale	= 0x1FFFFFFF;
     static const State	theAllocated	= theStale-1;
     static const State	theHalfLife	= theAllocated>>1;
     static const State	theFullLife	= theAllocated-1;
@@ -200,56 +200,36 @@ private:
 		    row->myExists[idx>>theDisplayBits] = true;
 		}
 
-#if 0
-    uint32	mapColor(State val, char type, int, int) const
+    uint32	mapColor(State val, char type) const
 		{
-		    // LUT indices are computed from the base-2 log of the
-		    // access time.  This constant is the number of bits in
-		    // the fractional part of this index, based on the LUT
-		    // size.
-		    const int	frac_bits = theLutBits-5;
-		    const int	thresh = 31-frac_bits;
-		    uint32	diff;
+		    uint32 clr = val;
 
-		    diff = val == theStale ? theHalfLife :
-			((myTime > val) ? myTime-val+1 : val-myTime+1);
-
-		    diff <<= 8*(sizeof(uint32)-sizeof(State));
-
-		    int		bits = __builtin_clz(diff);
-		    uint32	clr = bits << frac_bits;
-
-		    if (bits > thresh)
-			diff <<= bits - thresh;
-		    else
-			diff >>= thresh - bits;
-
-		    clr |= (~diff) & ((1 << frac_bits)-1);
-
+		    uint32 lut = 0;
 		    switch (type)
 		    {
-			case 'i': case 'I':
-			    clr = myILut[clr];
-			    break;
 			case 'l': case 'L':
-			    clr = myRLut[clr];
+			    lut = 0;
 			    break;
 			case 's': case 'S':
 			case 'm': case 'M':
-			    clr = myWLut[clr];
+			    lut = 1;
+			    break;
+			case 'i': case 'I':
+			    lut = 2;
 			    break;
 			case 'a': case 'A':
-			    clr = myALut[clr];
+			    lut = 3;
 			    break;
 		    }
 
+		    clr |= lut << 30;
+
 		    // Half the brightness of freed memory
 		    if (type >= 'a' && type <= 'z')
-			clr = ((clr >> 1) & 0xFF7F7F7F) | 0xFF000000;
+			clr |= 1 << 29;
 
 		    return clr;
 		}
-#endif
 
     // A class to find contiguous blocks
     class DisplayIterator {

@@ -119,7 +119,8 @@ MemoryState::fillLinear(GLImage<uint32> &image, AnchorInfo &info) const
 		    StateArray  *arr = myTable[tidx];
 
 		    if (arr->myState[bidx])
-			image.setPixel(r, c, arr->myState[bidx]);
+			image.setPixel(r, c, mapColor(arr->myState[bidx],
+						      arr->myType[bidx]));
 		}
 		c = 0;
 	    }
@@ -382,7 +383,8 @@ public:
 		    r += roff;
 		    c += coff;
 
-		    myImage.setPixel(r, c, arr->myState[bidx]);
+		    myImage.setPixel(r, c, myState.mapColor(
+				arr->myState[bidx], arr->myType[bidx]));
 		}
 	    }
 	    return false;
