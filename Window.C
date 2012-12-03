@@ -188,8 +188,8 @@ MemViewWidget::initializeGL()
     glActiveTexture(GL_TEXTURE0+1);
     glGenTextures(1, &myLutTexture);
     glBindTexture(GL_TEXTURE_1D, myLutTexture);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
 	    theLutSize, 0, GL_BGRA,
 	    GL_UNSIGNED_BYTE, myRLut);
@@ -234,7 +234,6 @@ MemViewWidget::initializeGL()
 
     myProgram->setUniformValue("tex", 0);
     myProgram->setUniformValue("theRLut", 1);
-    myProgram->setUniformValue("theLutBits", theLutBits);
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
 }
