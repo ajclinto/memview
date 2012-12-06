@@ -60,31 +60,6 @@ Window::~Window()
 // MemViewWidget
 //
 
-static void
-fillLut(uint32 *lut, const Color &hi, const Color &lo, uint32 size)
-{
-    const uint32	lcutoff = (int)(0.47*size);
-    const uint32	hcutoff = (int)(0.90*size);
-    Color		vals[4];
-
-    vals[0] = lo * (0.02/ lo.luminance());
-    vals[1] = lo * (0.15 / lo.luminance());
-    vals[2] = hi * (0.5 / hi.luminance());
-    vals[3] = hi * (2.0 / hi.luminance());
-
-    for (uint32 i = 0; i < size; i++)
-    {
-	Color	val;
-	if (i >= hcutoff)
-	    val = vals[2].lerp(vals[3], (i-hcutoff)/(float)(size-1-hcutoff));
-	else if (i >= lcutoff)
-	    val = vals[1].lerp(vals[2], (i-lcutoff)/(float)(hcutoff-lcutoff));
-	else
-	    val = vals[0].lerp(vals[1], i/(float)lcutoff);
-	lut[i] = val.toInt32();
-    }
-}
-
 MemViewWidget::MemViewWidget(int argc, char *argv[],
 	QScrollBar *vscrollbar,
 	QScrollBar *hscrollbar,
@@ -106,17 +81,6 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     QFont	font("Monospace");
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
-
-    // Create color lookup textures
-    const Color clrs[4][2] = {
-	{Color(0.2, 1.0, 0.2), Color(0.1, 0.1, 0.5)}, // Read
-	{Color(1.0, 0.7, 0.2), Color(0.3, 0.1, 0.1)}, // Write
-	{Color(0.3, 0.2, 0.8), Color(0.3, 0.1, 0.4)}, // Instr
-	{Color(0.3, 0.3, 0.3), Color(0.1, 0.1, 0.1)}  // Alloc
-    };
-
-    for (int i = 0; i < theLutCount; i++)
-	fillLut(myLut[i], clrs[i][0], clrs[i][1], theLutSize);
 
     myTimer = new QTimer;
     connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
@@ -180,17 +144,7 @@ loadTextFile(const char *filename)
 void
 MemViewWidget::initializeGL()
 {
-    glGenTextures(theLutCount, myLutTexture);
-    for (int i = 0; i < theLutCount; i++)
-    {
-	glActiveTexture(GL_TEXTURE0+i+1);
-	glBindTexture(GL_TEXTURE_1D, myLutTexture[i]);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA8,
-		theLutSize, 0, GL_BGRA,
-		GL_UNSIGNED_BYTE, myLut[i]);
-    }
+    glEnable(GL_DITHER);
 
     glActiveTexture(GL_TEXTURE0);
     glGenBuffers(1, &myPixelBuffer);
@@ -198,8 +152,9 @@ MemViewWidget::initializeGL()
     glGenTextures(1, &myTexture);
     glBindTexture(GL_TEXTURE_2D, myTexture);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    const GLuint type = GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, type);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, type);
 
     myList = glGenLists(1);
     glNewList(myList, GL_COMPILE);
@@ -231,10 +186,6 @@ MemViewWidget::initializeGL()
     myProgram->bind();
 
     myProgram->setUniformValue("theState", 0);
-    myProgram->setUniformValue("theRLut", 1);
-    myProgram->setUniformValue("theWLut", 2);
-    myProgram->setUniformValue("theILut", 3);
-    myProgram->setUniformValue("theALut", 4);
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
 }

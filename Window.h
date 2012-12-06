@@ -81,21 +81,13 @@ private:
     QScrollBar		*myHScrollBar;
     QStatusBar		*myStatusBar;
 
-    static const int theLutCount = 4;
-    // Display LUT size
-    static const uint32	theLutSize = 128;
-
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;
-    GLuint		 myLutTexture[theLutCount];
     GLuint		 myList;
     GLuint		 myPixelBuffer;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;
-
-    // Display LUT
-    uint32	 myLut[theLutCount][theLutSize];
 
     StopWatch	 myStopWatch;
     QPoint	 myMousePos;
