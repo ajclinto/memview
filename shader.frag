@@ -10,6 +10,11 @@ uniform int theTime;
 uniform int theStale;
 uniform int theHalfLife;
 
+float rand(vec2 co)
+{
+    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+}
+
 float luminance(vec3 val)
 {
     return 0.3*val.r + 0.6*val.g + 0.1*val.b;
@@ -71,4 +76,11 @@ void main(void)
 
     if (freed)
 	frag_color *= 0.5;
+
+    // Poor man's dithering
+    vec3 rval = vec3(rand(texc)-0.5,
+		     rand(texc+vec2(0.1, 0.1))-0.5,
+		     rand(texc+vec2(0.2, 0.2))-0.5);
+    rval *= 1.0/255.0;
+    frag_color += vec4(rval.r, rval.g, rval.b, 0);
 }
