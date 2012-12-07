@@ -122,7 +122,7 @@ Loader::openPipe(int argc, char *argv[])
 	    args[vg_args++] = "--tool=memview";
 	    if (mySource == MEMVIEW_SHM)
 	    {
-		args[vg_args++] = "--shared-mem=/dev/shm"SHARED_NAME;
+		args[vg_args++] = "--shared-mem=/dev/shm" SHARED_NAME;
 	    }
 	    else
 	    {

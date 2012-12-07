@@ -144,7 +144,9 @@ loadTextFile(const char *filename)
 void
 MemViewWidget::initializeGL()
 {
-    glEnable(GL_DITHER);
+    // We're doing our own dithering.  Though having this enabled didn't
+    // seem to produce any dithering.
+    glDisable(GL_DITHER);
 
     glActiveTexture(GL_TEXTURE0);
     glGenBuffers(1, &myPixelBuffer);
