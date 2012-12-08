@@ -17,7 +17,12 @@ float rand(vec2 co)
 
 float luminance(vec3 val)
 {
-    return 0.3*val.r + 0.6*val.g + 0.1*val.b;
+    return dot(val, vec3(0.3, 0.6, 0.1));
+}
+
+vec3 lum1(vec3 val)
+{
+    return val / luminance(val);
 }
 
 vec3 ramp_color(vec3 hi, vec3 lo, float interp)
@@ -26,19 +31,16 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
     float hcutoff = 0.90;
     vec3 vals[4];
 
-    vals[0] = lo * (0.02 / luminance(lo));
-    vals[1] = lo * (0.15 / luminance(lo));
-    vals[2] = hi * (0.5 / luminance(hi));
-    vals[3] = hi * (2.0 / luminance(hi));
+    vals[0] = lo * 0.02;
+    vals[1] = lo * 0.15;
+    vals[2] = hi * 0.5;
+    vals[3] = hi * 2.0;
 
-    vec3 val;
     if (interp >= hcutoff)
-	val = mix(vals[2], vals[3], (interp-hcutoff)/(1-hcutoff));
+	return mix(vals[2], vals[3], (interp-hcutoff)/(1-hcutoff));
     else if (interp >= lcutoff)
-	val = mix(vals[1], vals[2], (interp-lcutoff)/(hcutoff-lcutoff));
-    else
-	val = mix(vals[0], vals[1], interp/lcutoff);
-    return val;
+	return mix(vals[1], vals[2], (interp-lcutoff)/(hcutoff-lcutoff));
+    return mix(vals[0], vals[1], interp/lcutoff);
 }
 
 void main(void)
@@ -61,16 +63,16 @@ void main(void)
     float interp = 1-log2(float(diff))/32;
 
     vec3 hi[4];
-    hi[0] = vec3(0.2, 1.0, 0.2);
-    hi[1] = vec3(1.0, 0.7, 0.2);
-    hi[2] = vec3(0.3, 0.2, 0.8);
-    hi[3] = vec3(0.3, 0.3, 0.3);
+    hi[0] = lum1(vec3(0.2, 1.0, 0.2));
+    hi[1] = lum1(vec3(1.0, 0.7, 0.2));
+    hi[2] = lum1(vec3(0.3, 0.2, 0.8));
+    hi[3] = lum1(vec3(0.3, 0.3, 0.3));
 
     vec3 lo[4];
-    lo[0] = vec3(0.1, 0.1, 0.5);
-    lo[1] = vec3(0.3, 0.1, 0.1);
-    lo[2] = vec3(0.3, 0.1, 0.4);
-    lo[3] = vec3(0.1, 0.1, 0.1);
+    lo[0] = lum1(vec3(0.1, 0.1, 0.5));
+    lo[1] = lum1(vec3(0.3, 0.1, 0.1));
+    lo[2] = lum1(vec3(0.3, 0.1, 0.4));
+    lo[3] = lum1(vec3(0.1, 0.1, 0.1));
 
     frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
 
