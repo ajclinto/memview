@@ -33,9 +33,10 @@ Window::Window(int argc, char *argv[])
 
     myScrollArea = new MemViewScroll(this);
 
-    setStatusBar(new QStatusBar(this));
+    setStatusBar(statusBar());
 
     myMemView = new MemViewWidget(argc, argv,
+	    myScrollArea,
 	    myScrollArea->verticalScrollBar(),
 	    myScrollArea->horizontalScrollBar(),
 	    statusBar());
@@ -61,16 +62,18 @@ Window::~Window()
 //
 
 MemViewWidget::MemViewWidget(int argc, char *argv[],
+	QWidget *parent,
 	QScrollBar *vscrollbar,
 	QScrollBar *hscrollbar,
 	QStatusBar *status)
-    : myVScrollBar(vscrollbar)
+    : QGLWidget(QGLFormat(QGL::NoDepthBuffer), parent)
+    , myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
     , myStatusBar(status)
     , myTexture(0)
-    , myList(0)
     , myPixelBuffer(0)
     , myStopWatch(false)
+    , myPaintInterval(false)
     , myDragging(false)
 {
     // We need mouse events even when no buttons are held down, for status
@@ -82,13 +85,13 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
 
-    myTimer = new QTimer;
-    connect(myTimer, SIGNAL(timeout()), this, SLOT(tick()));
-
     myState = new MemoryState;
     myState->openPipe(argc, argv);
+    myPrevTime = MemoryState::theStale;
 
-    myTimer->start(30);
+    startTimer(30);
+
+    myPaintInterval.start();
 }
 
 MemViewWidget::~MemViewWidget()
@@ -158,18 +161,6 @@ MemViewWidget::initializeGL()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, type);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, type);
 
-    myList = glGenLists(1);
-    glNewList(myList, GL_COMPILE);
-
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
-    glTexCoord2f(1.0, 0.0); glVertex3i(1, -1, -1);
-    glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
-    glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
-    glEnd();
-
-    glEndList();
-
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
     const char *vsrc = loadTextFile("shader.vert");
     vshader->compileSourceCode(vsrc);
@@ -213,12 +204,17 @@ MemViewWidget::resizeGL(int width, int height)
 void
 MemViewWidget::paintGL()
 {
-    //StopWatch	timer;
+#if 0
+    StopWatch	timer;
+    fprintf(stderr, "interval %f time ", myPaintInterval.lap());
+#endif
+
+    int vdelta = myVScrollBar->value() - myAnchor.myAbsoluteOffset;
+    int hdelta = myHScrollBar->value() - myAnchor.myColumn;
 
     // Adjust the position due to scrolling
-    myAnchor.myAnchorOffset += myVScrollBar->value() -
-	myAnchor.myAbsoluteOffset;
-    myAnchor.myColumn += myHScrollBar->value() - myAnchor.myColumn;
+    myAnchor.myAnchorOffset += vdelta;
+    myAnchor.myColumn += hdelta;
 
     // Set the query mouse position
     myAnchor.myQuery = myMousePos;
@@ -237,8 +233,6 @@ MemViewWidget::paintGL()
 
     myProgram->setUniformValue("theTime", myState->myTime);
 
-    glCallList(myList);
-
     int nmax = SYSmax(myAnchor.myHeight - myVScrollBar->pageStep(), 0);
     myVScrollBar->setMaximum(nmax);
     myVScrollBar->setValue(myAnchor.myAbsoluteOffset);
@@ -246,9 +240,21 @@ MemViewWidget::paintGL()
     nmax = SYSmax(myAnchor.myWidth - myHScrollBar->pageStep(), 0);
     myHScrollBar->setMaximum(nmax);
 
+    glBegin(GL_QUADS);
+    glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
+    glTexCoord2f(1.0, 0.0); glVertex3i(1, -1, -1);
+    glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
+    glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
+    glEnd();
+
+    // This should really be placed somewhere more appropriate
     QString	message;
     myState->printStatusInfo(message, myAnchor.myQueryAddr);
-    myStatusBar->showMessage(message);
+
+    if (message.isEmpty())
+	myStatusBar->clearMessage();
+    else
+	myStatusBar->showMessage(message);
 }
 
 void
@@ -323,7 +329,7 @@ shortenDrag(double &val, double delta)
 }
 
 void
-MemViewWidget::tick()
+MemViewWidget::timerEvent(QTimerEvent *)
 {
     if (!myDragging)
     {
@@ -338,13 +344,20 @@ MemViewWidget::tick()
 
 	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
 	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
+
+	if (drag[0] || drag[1] || myState->myTime != myPrevTime)
+	{
+	    update();
+
+	    myPrevTime = myState->myTime;
+	}
     }
     else
     {
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
-    }
 
-    update();
+	update();
+    }
 }
 

@@ -51,6 +51,7 @@ class MemViewWidget : public QGLWidget {
 
 public:
 	     MemViewWidget(int argc, char *argv[],
+			    QWidget *parent,
 			    QScrollBar *vscrollbar,
 			    QScrollBar *hscrollbar,
 			    QStatusBar *status);
@@ -67,29 +68,29 @@ protected:
     void	mousePressEvent(QMouseEvent *event);
     void	mouseMoveEvent(QMouseEvent *event);
     void	mouseReleaseEvent(QMouseEvent *event);
+    void	timerEvent(QTimerEvent *event);
 
 private slots:
     void    linear();
     void    block();
     void    hilbert();
-    void    tick();
 
 private:
     GLImage<uint32>	 myImage;
-    QTimer		*myTimer;
     QScrollBar		*myVScrollBar;
     QScrollBar		*myHScrollBar;
     QStatusBar		*myStatusBar;
 
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;
-    GLuint		 myList;
     GLuint		 myPixelBuffer;
 
     MemoryState::AnchorInfo  myAnchor;
     MemoryState		    *myState;
+    MemoryState::State	     myPrevTime;
 
     StopWatch	 myStopWatch;
+    StopWatch	 myPaintInterval;
     QPoint	 myMousePos;
     QPoint	 myDragDir;
     double	 myVelocity[2];

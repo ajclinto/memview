@@ -329,8 +329,15 @@ Loader::loadFromSharedMemory()
 bool
 Loader::loadFromTest()
 {
-    for (int i = 0; i < 1024*16; i++)
-	myState->updateAddress(i, 4, 'L');
-    return false;
+    static const uint64 theSize = 64*1024;
+    static uint64 theCount = 0;
+
+    for (uint64 j = 0; j < 1024; j++)
+	myState->updateAddress(theCount*1024 + j, 4, 'L');
+
+    myState->incrementTime();
+    theCount++;
+
+    return theCount < theSize;
 }
 
