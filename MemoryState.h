@@ -10,12 +10,28 @@ class Loader;
 
 class MemoryState {
 public:
-    typedef uint32	State;
+    class State {
+    private:
+	static const int	theStateShift = 29;
+	static const uint32	theStateTimeMask = (1 << 29) - 1;
+	static const uint32	theStateTypeMask = ~theStateTimeMask;
 
-    static const State	theStale	= 0x1FFFFFFF;
-    static const State	theAllocated	= theStale-1;
-    static const State	theHalfLife	= theAllocated>>1;
-    static const State	theFullLife	= theAllocated-1;
+    public:
+	void init(uint32 time, int type)
+       	{ uval = time; uval |= type << theStateShift; }
+
+	void setTime(uint32 time) { uval &= theStateTypeMask; uval |= time; }
+	void setFree() { uval |= theTypeFree << theStateShift; }
+
+	int type() const { return uval >> theStateShift; }
+	int time() const { return uval & theStateTimeMask; }
+
+	uint32	uval;
+    };
+
+    static const uint32	theStale	= 0x1FFFFFFF;
+    static const uint32	theFullLife	= theStale-1;
+    static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
     static const int	theAllBits = 36;
@@ -43,13 +59,11 @@ private:
 	StateArray()
 	{
 	    memset(myState, 0, theBottomSize*sizeof(State));
-	    memset(myType, 0, theBottomSize*sizeof(uint8));
 	    memset(myDirty, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	    memset(myExists, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	}
 
 	State	myState[theBottomSize];
-	uint8	myType[theBottomSize];
 	bool	myDirty[theDisplayBlocksPerBottom];
 	bool	myExists[theDisplayBlocksPerBottom];
     };
@@ -65,7 +79,7 @@ public:
 
     bool	openPipe(int argc, char *argv[]);
 
-    void	updateAddress(uint64 addr, int size, uint8 type)
+    void	updateAddress(uint64 addr, int size, int type)
 		{
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
@@ -96,8 +110,7 @@ public:
 			{
 			    for (; idx < last; idx++)
 			    {
-				row->myState[idx] = myTime;
-				row->myType[idx] = type;
+				row->myState[idx].init(myTime, type);
 				row->myDirty[idx>>theDisplayBits] = true;
 			    }
 			}
@@ -105,14 +118,14 @@ public:
 			{
 			    for (; idx < last; idx++)
 			    {
-				row->myType[idx] |= theTypeFree;
+				row->myState[idx].setFree();
 				row->myDirty[idx>>theDisplayBits] = true;
 			    }
 			}
 		    }
 		}
     void	incrementTime();
-    State	getTime() const { return myTime; }
+    uint32	getTime() const { return myTime; }
 
     // Print status information for a memory address
     void	printStatusInfo(QString &message, uint64 addr);
@@ -128,10 +141,8 @@ public:
 	uint64	addr() const	{ return (myTop << theBottomBits) | myBottom; }
 	int	size() const	{ return theDisplaySize; }
 
-	State	state(int i) const
-		{ return myArr->myState[myBottom+i]; }
-	uint8	type(int i) const
-		{ return myArr->myType[myBottom+i]; }
+	State	state(int i) const { return myArr->myState[myBottom+i]; }
+	State	&state(int i) { return myArr->myState[myBottom+i]; }
 	bool	exists() const
 		{
 		    int didx = myBottom >> theDisplayBits;
@@ -140,8 +151,6 @@ public:
 			 myArr->myDirty[didx]);
 	       	}
 
-	void	setState(int i, State val)
-		{ myArr->myState[myBottom+i] = val; }
 	bool	resetDirty()
 		{
 		    int didx = myBottom >> theDisplayBits;
@@ -228,7 +237,7 @@ public:
 private:
     // Raw memory state
     StateArray	*myTable[theTopSize];
-    State	 myTime;	// Rolling counter
+    uint32	 myTime;	// Rolling counter
     uint64	 myHRTime;
 
     // Loader

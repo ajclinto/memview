@@ -273,20 +273,15 @@ private:
 static BlockLUT		theBlockLUT;
 
 template <typename T>
-void
+static inline void
 setPixel(GLImage<T> &image, int c, int r,
 	const MemoryState::DisplayPage &page, int off)
 {
-    uint32  clr = page.state(off);
-    uint32  ty = page.type(off);
-
-    clr |= ty << 29;
-
-    image.setPixel(c, r, clr);
+    image.setPixel(c, r, page.state(off).uval);
 }
 
 template <>
-void
+inline void
 setPixel<uint64>(GLImage<uint64> &image, int c, int r,
 	const MemoryState::DisplayPage &page, int off)
 {
@@ -340,7 +335,7 @@ public:
 	    page.resetDirty();
 	    for (int i = 0; i < size; i++)
 	    {
-		if (page.state(off+i))
+		if (page.state(off+i).uval)
 		{
 		    if (hilbert)
 			theBlockLUT.smallHilbert(r, c, i, level, rotate, flip);

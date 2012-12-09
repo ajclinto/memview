@@ -88,7 +88,7 @@ private:
 
     DisplayLayout	 myDisplay;
     MemoryState		*myState;
-    MemoryState::State	 myPrevTime;
+    uint32		 myPrevTime;
 
     StopWatch	 myStopWatch;
     StopWatch	 myPaintInterval;

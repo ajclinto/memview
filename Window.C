@@ -306,6 +306,7 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	    myHScrollBar->value() + myMousePos.x(),
 	    myVScrollBar->value() + myMousePos.y());
 
+#if 1
     QString	message;
     myState->printStatusInfo(message, qaddr);
 
@@ -313,6 +314,7 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	myStatusBar->clearMessage();
     else
 	myStatusBar->showMessage(message);
+#endif
 
     update();
 }

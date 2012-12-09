@@ -66,11 +66,11 @@ MemoryState::incrementTime()
 	    DisplayPage page(it.page());
 	    for (int i = 0; i < page.size(); i++)
 	    {
-		State	state = page.state(i);
+		uint32	state = page.state(i).time();
 		if ((myTime == theFullLife && state < theHalfLife) ||
 		    (myTime == theHalfLife && state >= theHalfLife &&
 		     state <= theFullLife))
-		    page.setState(i, theStale);
+		    page.state(i).setTime(theStale);
 	    }
 	}
 	if (myTime == theFullLife)
@@ -96,37 +96,26 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
     int		off;
     auto	page = getPage(addr, off);
     State	entry = page.state(off);
-    uint8	type = page.type(off);
 
-    if (!entry)
+    if (!entry.uval)
 	return;
 
-    if (entry)
-    {
-	const char	*typestr = 0;
-	switch (type)
-	{
-	    case 'i': case 'I':
-		typestr = "Instruction";
-		break;
-	    case 'l': case 'L':
-		typestr = "Read";
-		break;
-	    case 's': case 'S':
-	    case 'm': case 'M':
-		typestr = "Written";
-		break;
-	    case 'a': case 'A':
-		typestr = "Allocated";
-		break;
-	}
+    const char	*typestr = 0;
 
-	if (typestr)
-	{
-	    tmp.sprintf("\t%12s: %d", typestr, entry);
-	    message.append(tmp);
-	    if (islower(type))
-		message.append(" (freed)");
-	}
+    int type = entry.type();
+    switch (type & ~theTypeFree)
+    {
+	case 0: typestr = "Read"; break;
+	case 1: typestr = "Written"; break;
+	case 2: typestr = "Instruction"; break;
+	case 3: typestr = "Allocated"; break;
+    }
+
+    if (typestr)
+    {
+	tmp.sprintf("\t%12s: %d", typestr, entry.time());
+	message.append(tmp);
+	if (type & theTypeFree)
+	    message.append(" (freed)");
     }
 }

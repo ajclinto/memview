@@ -212,7 +212,7 @@ Loader::loadFromLackey(int max_read)
 
 	uint64		addr;
 	int		size;
-	uint8		type;
+	int		type;
 
 	char		*saveptr = 0;
 	char		*type_str;
@@ -271,7 +271,7 @@ Loader::loadFromPipe()
 	// Basic semantic checking to ensure we received valid data
 	if (block.myEntries)
 	{
-	    uint8 type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
+	    int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
 	    if (type > 7)
 	    {
 		fprintf(stderr, "received invalid block (size %d)\n",
@@ -312,7 +312,7 @@ Loader::loadFromSharedMemory()
     if (count)
     {
 	// Basic semantic checking to ensure we received valid data
-	uint8 type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
+	int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
 	if (type > 7)
 	{
 	    fprintf(stderr, "received invalid block (size %d)\n", count);
@@ -343,7 +343,7 @@ Loader::loadFromSharedMemory()
 bool
 Loader::loadFromTest()
 {
-    static const uint64 theSize = 1024*1024;
+    static const uint64 theSize = 16*1024;
     static uint64 theCount = 0;
 
     for (uint64 j = 0; j < 1024; j++)
