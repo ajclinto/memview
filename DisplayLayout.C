@@ -203,24 +203,30 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
+static const int theLUTLevels = 5;
+static const int theLUTMask = (1 << theLUTLevels) - 1;
+static const int theLUTSize = 1 << (2*theLUTLevels);
+
 class BlockFill : public Traverser {
 public:
-    BlockFill(int *data)
-	: myData(data) {}
+    BlockFill(int *data, int *idata)
+	: myData(data), myIData(idata) {}
 
     virtual bool visit(int idx, int r, int c, int level, bool, int, bool)
     {
 	if (level == 0)
-	    myData[idx] = r | (c << 16);
+	{
+	    int rc = (r << theLUTLevels) | c;
+	    myData[idx] = rc;
+	    myIData[rc] = idx;
+	}
 	return true;
     }
 
 public:
     int	    *myData;
+    int	    *myIData;
 };
-
-static const int theLUTLevels = 5;
-static const int theLUTSize = 1 << (2*theLUTLevels);
 
 // This is only valid for idx in the range 0 to 1023
 class BlockLUT {
@@ -231,7 +237,9 @@ public:
 	{
 	    int	r, c;
 	    getBlockCoord(r, c, i);
-	    myBlock[i] = r | (c<<16);
+	    int rc = (r << theLUTLevels) | c;
+	    myBlock[i] = rc;
+	    myIBlock[rc] = i;
 	}
 	for (int level = 0; level <= theLUTLevels; level++)
 	{
@@ -239,7 +247,9 @@ public:
 	    {
 		for (int f = 0; f < 2; f++)
 		{
-		    BlockFill   fill(myHilbert[level][r][f]);
+		    BlockFill   fill(
+			    myHilbert[level][r][f],
+			    myIHilbert[level][r][f]);
 		    blockTraverse(0, 0, 0, fill, theLUTSize, level, true, r, f);
 		}
 	    }
@@ -248,20 +258,32 @@ public:
 
     void smallBlock(int &r, int &c, int idx)
     {
-	r = myBlock[idx];
-	c = r>>16;
-	r &= 0xFFFF;
+	c = myBlock[idx];
+	r = c >> theLUTLevels;
+	c &= theLUTMask;
     }
     void smallHilbert(int &r, int &c, int idx, int level, int rotate, bool flip)
     {
-	r = myHilbert[level][rotate][flip][idx];
-	c = r>>16;
-	r &= 0xFFFF;
+	c = myHilbert[level][rotate][flip][idx];
+	r = c >> theLUTLevels;
+	c &= theLUTMask;
+    }
+
+    const int *getIBlock()
+    {
+	return myIBlock;
+    }
+    const int *getIHilbert(int level, int rotate, bool flip)
+    {
+	return myIHilbert[level][rotate][flip];
     }
 
 private:
     int		myBlock[theLUTSize];
+    int		myIBlock[theLUTSize];
+
     int		myHilbert[theLUTLevels+1][4][2][theLUTSize];
+    int		myIHilbert[theLUTLevels+1][4][2][theLUTSize];
 };
 
 static BlockLUT		theBlockLUT;
@@ -327,20 +349,15 @@ public:
 	    assert(off + size <= page.size());
 
 	    page.resetDirty();
-	    for (int i = 0; i < size; i++)
-	    {
-		if (page.state(off+i).uval)
-		{
-		    if (hilbert)
-			theBlockLUT.smallHilbert(r, c, i, level, rotate, flip);
-		    else
-			theBlockLUT.smallBlock(r, c, i);
-		    r += roff;
-		    c += coff;
 
-		    setPixel<T>(myImage, c, r, page, off+i);
-		}
-	    }
+	    const int *lut = hilbert ?
+		theBlockLUT.getIHilbert(level, rotate, flip) :
+		theBlockLUT.getIBlock();
+
+	    for (int r = 0, rc = 0; r < bsize; r++)
+		for (int c = 0; c < bsize; c++, rc++)
+		    setPixel<T>(myImage, c+coff, r+roff, page, off+lut[rc]);
+
 	    return false;
 	}
 
