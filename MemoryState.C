@@ -93,8 +93,10 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 
     message.append(tmp);
 
-    State	entry = getEntry(addr);
-    char	type = getType(addr);
+    int		off;
+    auto	page = getPage(addr, off);
+    State	entry = page.state(off);
+    char	type = page.type(off);
 
     if (!entry)
 	return;

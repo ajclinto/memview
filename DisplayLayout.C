@@ -125,6 +125,7 @@ placeBlock(int &c, int &r, int bwidth, int bheight,
 void
 DisplayLayout::update(MemoryState &state, int width)
 {
+    //StopWatch	timer;
     myBlocks.clear();
 
     MemoryState::DisplayIterator it(state);
@@ -350,7 +351,7 @@ public:
 	if (level <= 4)
 	{
 	    int off;
-	    auto page = myState.page(myAddr + idx, off);
+	    auto page = myState.getPage(myAddr + idx, off);
 
 	    if (!page.exists())
 		return false;
@@ -427,7 +428,7 @@ DisplayLayout::fillImage(
 		for (; c < ibox.xmax() && addr < it->end(); c++, addr++)
 		{
 		    int	    off;
-		    auto    page = state.page(addr, off);
+		    auto    page = state.getPage(addr, off);
 		    setPixel<T>(image, c-coff, r-roff, page, off);
 		}
 		addr += it->myBox.width() - ibox.width();

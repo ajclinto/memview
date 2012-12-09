@@ -210,7 +210,7 @@ MemViewWidget::resizeGL(int width, int height)
 void
 MemViewWidget::paintGL()
 {
-#if 1
+#if 0
     StopWatch	timer;
     fprintf(stderr, "interval %f time ", myPaintInterval.lap());
 #endif

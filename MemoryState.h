@@ -29,7 +29,7 @@ private:
     static const uint64	theBottomSize = 1L << theBottomBits;
     static const uint64	theBottomMask = theBottomSize-1;
 
-    // For display - 32x32 is the basic block size to ignore
+    // For display - 32x32 is the basic block size
     static const int	theDisplayWidthBits = 5;
     static const uint64	theDisplayWidth = 1<<theDisplayWidthBits;
     static const int	theDisplayBits = theDisplayWidthBits<<1;
@@ -58,27 +58,6 @@ private:
     static int	bottomIndex(uint64 addr)
 		{ return addr & theBottomMask; }
 
-    State	getEntry(uint64 addr) const
-		{
-		    StateArray	*row = myTable[topIndex(addr)];
-		    return row ? row->myState[bottomIndex(addr)] : 0;
-		}
-    char	getType(uint64 addr) const
-		{
-		    StateArray	*row = myTable[topIndex(addr)];
-		    return row ? row->myType[bottomIndex(addr)] : '\0';
-		}
-    void	setEntry(uint64 addr, State val, char type)
-		{
-		    StateArray	*&row = myTable[topIndex(addr)];
-		    int		  idx = bottomIndex(addr);
-		    if (!row)
-			row = new StateArray;
-		    row->myState[idx] = val;
-		    row->myType[idx] = type;
-		    row->myDirty[idx>>theDisplayBits] = true;
-		}
-
 public:
      MemoryState();
     ~MemoryState();
@@ -90,16 +69,45 @@ public:
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
 		    size = SYSmax(size, 1);
-		    if (type != 'F')
+
+		    while (size)
 		    {
-			for (int i = 0; i < size; i++)
-			    setEntry(addr+i, myTime, type);
-		    }
-		    else
-		    {
-			for (int i = 0; i < size; i++)
-			    setEntry(addr+i, getEntry(addr+i),
-				    tolower(getType(addr+i)));
+			StateArray	*&row = myTable[topIndex(addr)];
+			int		  idx = bottomIndex(addr);
+
+			if (!row)
+			    row = new StateArray;
+
+			int last = idx + size;
+
+			size = 0;
+
+			// The address crossed a page boundary?
+			if (last > (int)theBottomSize)
+			{
+			    // Update remaining size
+			    size = last - theBottomSize;
+			    last = theBottomSize;
+			    addr += theBottomSize-idx;
+			}
+
+			if (type != 'F')
+			{
+			    for (; idx < last; idx++)
+			    {
+				row->myState[idx] = myTime;
+				row->myType[idx] = type;
+				row->myDirty[idx>>theDisplayBits] = true;
+			    }
+			}
+			else
+			{
+			    for (; idx < last; idx++)
+			    {
+				row->myType[idx] = tolower(row->myType[idx]);
+				row->myDirty[idx>>theDisplayBits] = true;
+			    }
+			}
 		    }
 		}
     void	incrementTime();
@@ -149,7 +157,7 @@ public:
 	uint64	     myBottom;
     };
 
-    DisplayPage	page(uint64 addr, int &off)
+    DisplayPage	getPage(uint64 addr, int &off)
     {
 	int tidx = topIndex(addr);
 	int bidx = bottomIndex(addr);
