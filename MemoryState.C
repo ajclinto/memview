@@ -89,11 +89,9 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 	return;
 
     QString	tmp;
-    tmp.sprintf("\t\tAddress: 0x%.16llx", addr);
+    tmp.sprintf("\t\tAddress: 0x%.16llx", addr << myIgnoreBits);
 
     message.append(tmp);
-
-    addr >>= myIgnoreBits;
 
     State	entry = getEntry(addr);
     char	type = getType(addr);

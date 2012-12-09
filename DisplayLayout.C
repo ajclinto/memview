@@ -407,26 +407,31 @@ DisplayLayout::fillImage(
 
 	if (myVisualization == LINEAR)
 	{
-	    const int	width = image.width();
 	    uint64	addr = it->myAddr;
 	    int		c = it->myStartCol;
 
 	    if (ibox.ymin() > it->myBox.ymin())
 	    {
-		addr += (width - it->myStartCol) +
-		    (ibox.ymin() - it->myBox.ymin() - 1)*width;
-		c = 0;
+		addr += (ibox.ymin() - it->myBox.ymin())*it->myBox.width();
+		addr -= it->myStartCol;
+		c = it->myBox.xmin();
+	    }
+	    if (ibox.xmin() > c)
+	    {
+		addr += ibox.xmin() - c;
+		c = ibox.xmin();
 	    }
 
 	    for (int r = ibox.ymin(); r < ibox.ymax(); r++)
 	    {
-		for (; c < width && addr < it->end(); c++, addr++)
+		for (; c < ibox.xmax() && addr < it->end(); c++, addr++)
 		{
-		    int off;
-		    auto page = state.page(addr, off);
-		    setPixel<T>(image, c, r-roff, page, off);
+		    int	    off;
+		    auto    page = state.page(addr, off);
+		    setPixel<T>(image, c-coff, r-roff, page, off);
 		}
-		c = 0;
+		addr += it->myBox.width() - ibox.width();
+		c = ibox.xmin();
 	    }
 	}
 	else
@@ -450,16 +455,15 @@ INST_FUNC(uint64)
 uint64
 DisplayLayout::queryPixelAddress(
 	MemoryState &state,
-	int roff, int coff) const
+	int coff, int roff) const
 {
     GLImage<uint64> image;
 
     // Fill a 1x1 image with the memory address for the query pixel
 
     image.resize(1, 1);
-    image.fill(0);
 
-    fillImage(image, state, roff, coff);
+    fillImage(image, state, coff, roff);
     return *image.data();
 }
 

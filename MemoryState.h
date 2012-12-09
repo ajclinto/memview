@@ -116,7 +116,7 @@ public:
 	    , myTop(top)
 	    , myBottom(bottom) {}
 
-	uint64	addr() const	{ return (myTop << theTopBits) | myBottom; }
+	uint64	addr() const	{ return (myTop << theBottomBits) | myBottom; }
 	int	size() const	{ return theDisplaySize; }
 
 	State	state(int i) const
