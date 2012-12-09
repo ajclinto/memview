@@ -219,39 +219,33 @@ public:
     int	    *myData;
 };
 
+static const int theLUTLevels = 5;
+static const int theLUTSize = 1 << (2*theLUTLevels);
+
+// This is only valid for idx in the range 0 to 1023
 class BlockLUT {
 public:
     BlockLUT()
     {
-	for (int i = 0; i < 256; i++)
+	for (int i = 0; i < theLUTSize; i++)
 	{
 	    int	r, c;
 	    getBlockCoord(r, c, i);
 	    myBlock[i] = r | (c<<16);
 	}
-	for (int level = 0; level <= 4; level++)
+	for (int level = 0; level <= theLUTLevels; level++)
 	{
 	    for (int r = 0; r < 4; r++)
 	    {
 		for (int f = 0; f < 2; f++)
 		{
 		    BlockFill   fill(myHilbert[level][r][f]);
-		    blockTraverse(0, 0, 0, fill, 256, level, true, r, f);
+		    blockTraverse(0, 0, 0, fill, theLUTSize, level, true, r, f);
 		}
 	    }
 	}
     }
 
-    void lookup(int &r, int &c, int idx)
-    {
-	r = (myBlock[idx & 0xFF] |
-	     (myBlock[(idx>>8) & 0xFF] << 4)) |
-	    ((myBlock[(idx>>16) & 0xFF] << 8) |
-	     (myBlock[idx>>24] << 12));
-	c = r>>16;
-	r &= 0xFFFF;
-    }
-    // This is only valid for idx in the range 0 to 255
     void smallBlock(int &r, int &c, int idx)
     {
 	r = myBlock[idx];
@@ -266,8 +260,8 @@ public:
     }
 
 private:
-    int		myBlock[256];
-    int		myHilbert[5][4][2][256];
+    int		myBlock[theLUTSize];
+    int		myHilbert[theLUTLevels+1][4][2][theLUTSize];
 };
 
 static BlockLUT		theBlockLUT;
@@ -321,7 +315,7 @@ public:
 	    return true;
 	}
 
-	if (level <= 4)
+	if (level <= theLUTLevels)
 	{
 	    int off;
 	    auto page = myState.getPage(myAddr + idx, off);
