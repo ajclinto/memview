@@ -102,6 +102,48 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
     if (theBlock->myEntries >= theBlockSize)
 	flush_data();
 
+#if 0
+    if (theBlock->myEntries > 0)
+    {
+	uint64 last = theBlock->myAddr[theBlock->myEntries-1];
+	uint64 lasttype = (last & theTypeMask) >> theTypeShift;
+	uint64 lastsize = last >> theSizeShift;
+	uint64 totalsize = lastsize + size;
+	if (type == lasttype && totalsize <= 128)
+	{
+	    uint64 lastaddr = last & theAddrMask;
+	    // Sequential
+	    if (addr == lastaddr + lastsize)
+	    {
+		last &= ~theSizeMask;
+		last |= totalsize << theSizeShift;
+		theBlock->myAddr[theBlock->myEntries-1] = last;
+		return;
+	    }
+	    // Sequential, reverse
+	    if (lastaddr == addr + size)
+	    {
+		last = addr;
+		last |= type;
+		last |= totalsize << theSizeShift;
+		theBlock->myAddr[theBlock->myEntries-1] = last;
+		return;
+	    }
+	    // Duplicate
+	    if (lastaddr == addr)
+	    {
+		if (size > lastsize)
+		{
+		    last &= ~theSizeMask;
+		    last |= size << theSizeShift;
+		    theBlock->myAddr[theBlock->myEntries-1] = last;
+		}
+		return;
+	    }
+	}
+    }
+#endif
+
     uint64 data = addr;
     data |= type;
     data |= size << theSizeShift;
