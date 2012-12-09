@@ -8,6 +8,7 @@
 #include "GLImage.h"
 #include "StopWatch.h"
 #include "MemoryState.h"
+#include "DisplayLayout.h"
 
 class MemViewWidget;
 class MemViewScroll;
@@ -85,9 +86,9 @@ private:
     GLuint		 myTexture;
     GLuint		 myPixelBuffer;
 
-    MemoryState::AnchorInfo  myAnchor;
-    MemoryState		    *myState;
-    MemoryState::State	     myPrevTime;
+    DisplayLayout	 myDisplay;
+    MemoryState		*myState;
+    MemoryState::State	 myPrevTime;
 
     StopWatch	 myStopWatch;
     StopWatch	 myPaintInterval;

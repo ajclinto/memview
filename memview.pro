@@ -9,9 +9,9 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 
-QMAKE_CFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -O3
-QMAKE_CXXFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -O3 -std=c++11
+QMAKE_CFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3
+QMAKE_CXXFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3 -std=c++11
 
 # Input
-HEADERS += Window.h MemoryState.h Loader.h
-SOURCES += main.C window.C MemoryState.C Loader.C
+HEADERS += Window.h MemoryState.h Loader.h DisplayLayout.h
+SOURCES += main.C window.C MemoryState.C Loader.C DisplayLayout.C

@@ -3,6 +3,8 @@
 #include "MemoryState.h"
 #include <fstream>
 
+#define USE_PBUFFER
+
 static const QSize	theDefaultSize(800, 600);
 
 Window::Window(int argc, char *argv[])
@@ -102,21 +104,21 @@ MemViewWidget::~MemViewWidget()
 void
 MemViewWidget::linear()
 {
-    myState->setVisualization(MemoryState::LINEAR);
+    myDisplay.setVisualization(DisplayLayout::LINEAR);
     update();
 }
 
 void
 MemViewWidget::block()
 {
-    myState->setVisualization(MemoryState::BLOCK);
+    myDisplay.setVisualization(DisplayLayout::BLOCK);
     update();
 }
 
 void
 MemViewWidget::hilbert()
 {
-    myState->setVisualization(MemoryState::HILBERT);
+    myDisplay.setVisualization(DisplayLayout::HILBERT);
     update();
 }
 
@@ -194,7 +196,11 @@ MemViewWidget::resizeGL(int width, int height)
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
+#ifdef USE_PBUFFER
     myImage.setSize(width, height);
+#else
+    myImage.resize(width, height);
+#endif
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, myImage.bytes(), 0, GL_STREAM_DRAW);
@@ -204,40 +210,42 @@ MemViewWidget::resizeGL(int width, int height)
 void
 MemViewWidget::paintGL()
 {
-#if 0
+#if 1
     StopWatch	timer;
     fprintf(stderr, "interval %f time ", myPaintInterval.lap());
 #endif
 
-    int vdelta = myVScrollBar->value() - myAnchor.myAbsoluteOffset;
-    int hdelta = myHScrollBar->value() - myAnchor.myColumn;
-
-    // Adjust the position due to scrolling
-    myAnchor.myAnchorOffset += vdelta;
-    myAnchor.myColumn += hdelta;
-
-    // Set the query mouse position
-    myAnchor.myQuery = myMousePos;
-    myAnchor.myQueryAddr = 0;
-
+#ifdef USE_PBUFFER
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
 
     myImage.setData((uint32 *)
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-    myState->fillImage(myImage, myAnchor);
+    myDisplay.update(*myState, myImage.width());
+    myDisplay.fillImage(myImage, *myState,
+	    myHScrollBar->value(),
+	    myVScrollBar->value());
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
+#else
+    myDisplay.fillImage(myImage, *myState,
+	    myHScrollBar->value(),
+	    myVScrollBar->value());
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
+	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
+	    GL_UNSIGNED_INT, myImage.data());
+#endif
 
-    myProgram->setUniformValue("theTime", myState->myTime);
+    myProgram->setUniformValue("theTime", myState->getTime());
 
-    int nmax = SYSmax(myAnchor.myHeight - myVScrollBar->pageStep(), 0);
+    int nmax;
+
+    nmax = SYSmax(myDisplay.height() - myVScrollBar->pageStep(), 0);
     myVScrollBar->setMaximum(nmax);
-    myVScrollBar->setValue(myAnchor.myAbsoluteOffset);
 
-    nmax = SYSmax(myAnchor.myWidth - myHScrollBar->pageStep(), 0);
+    nmax = SYSmax(myDisplay.width() - myHScrollBar->pageStep(), 0);
     myHScrollBar->setMaximum(nmax);
 
     glBegin(GL_QUADS);
@@ -248,8 +256,12 @@ MemViewWidget::paintGL()
     glEnd();
 
     // This should really be placed somewhere more appropriate
+    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+	    myHScrollBar->value() + myMousePos.x(),
+	    myVScrollBar->value() + myMousePos.y());
+
     QString	message;
-    myState->printStatusInfo(message, myAnchor.myQueryAddr);
+    myState->printStatusInfo(message, qaddr);
 
     if (message.isEmpty())
 	myStatusBar->clearMessage();
@@ -301,6 +313,8 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	myVelocity[1] = myDragDir.y() / time;
     }
     myMousePos = event->pos();
+
+    update();
 }
 
 void
@@ -345,19 +359,17 @@ MemViewWidget::timerEvent(QTimerEvent *)
 	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
 	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
 
-	if (drag[0] || drag[1] || myState->myTime != myPrevTime)
+	if (drag[0] || drag[1] || myState->getTime() != myPrevTime)
 	{
 	    update();
 
-	    myPrevTime = myState->myTime;
+	    myPrevTime = myState->getTime();
 	}
     }
     else
     {
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
-
-	update();
     }
 }
 

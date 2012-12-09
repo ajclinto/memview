@@ -9,131 +9,6 @@ class Loader;
 
 class MemoryState {
 public:
-     MemoryState();
-    ~MemoryState();
-
-    bool	openPipe(int argc, char *argv[]);
-
-    enum Visualization {
-	LINEAR,
-	BLOCK,
-	HILBERT
-    };
-    Visualization   getVisualization() const	{ return myVisualization; }
-    void	    setVisualization(Visualization vis)
-		    { myVisualization = vis; }
-
-    // This struct is used as input and output for the fillImage routine,
-    // to indicate the preferred rendering position and also to report back
-    // accumulated information for the scrollbars.
-    struct AnchorInfo {
-	AnchorInfo()
-	    : myAnchorAddr(0)
-	    , myAnchorOffset(0)
-	    , myAbsoluteOffset(0)
-	    , myHeight(0)
-	    , myWidth(0)
-	    , myQueryAddr(0)
-	    , myColumn(0)
-	    {}
-
-	// ** Input/Output
-	// A memory address that should be placed in a fixed vertical
-	// location on the current page
-	uint64	myAnchorAddr;
-	// The relative display offset from the anchor address in pixels
-	int	myAnchorOffset;
-
-	// ** Output only
-	// The absolute vertical location of the first visible row of state
-	int	myAbsoluteOffset;
-	// The full image resolution
-	int	myHeight;
-	int	myWidth;
-	// The query address
-	uint64	myQueryAddr;
-
-	// ** Input only
-	int	myColumn;
-	QPoint	myQuery;
-    };
-
-    void	fillImage(GLImage<uint32> &image, AnchorInfo &info) const;
-
-    void	updateAddress(uint64 addr, int size, char type)
-		{
-		    addr >>= myIgnoreBits;
-		    size >>= myIgnoreBits;
-		    size = SYSmax(size, 1);
-		    if (type != 'F')
-		    {
-			for (int i = 0; i < size; i++)
-			    setEntry(addr+i, myTime, type);
-		    }
-		    else
-		    {
-			for (int i = 0; i < size; i++)
-			    setEntry(addr+i, getEntry(addr+i),
-				    tolower(getType(addr+i)));
-		    }
-		}
-    void	incrementTime();
-
-    // Print status information for a memory address
-    void	printStatusInfo(QString &message, uint64 addr)
-		{
-		    message.sprintf("Batch: %4d", myTime);
-
-		    if (!addr)
-			return;
-
-		    QString	tmp;
-		    tmp.sprintf("\t\tAddress: 0x%.16llx", addr);
-
-		    message.append(tmp);
-
-		    addr >>= myIgnoreBits;
-
-		    State	entry = getEntry(addr);
-		    char	type = getType(addr);
-
-		    if (!entry)
-			return;
-
-		    if (entry)
-		    {
-			const char	*typestr = 0;
-			switch (type)
-			{
-			    case 'i': case 'I':
-				typestr = "Instruction";
-				break;
-			    case 'l': case 'L':
-				typestr = "Read";
-				break;
-			    case 's': case 'S':
-			    case 'm': case 'M':
-				typestr = "Written";
-				break;
-			    case 'a': case 'A':
-				typestr = "Allocated";
-				break;
-			}
-
-			if (typestr)
-			{
-			    tmp.sprintf("\t%12s: %d", typestr, entry);
-			    message.append(tmp);
-			    if (islower(type))
-				message.append(" (freed)");
-			}
-		    }
-		}
-
-private:
-    void	fillLinear(GLImage<uint32> &image, AnchorInfo &info) const;
-    void	fillRecursiveBlock(GLImage<uint32> &image, AnchorInfo &info) const;
-
     typedef uint32	State;
 
     static const State	theStale	= 0x1FFFFFFF;
@@ -141,6 +16,7 @@ private:
     static const State	theHalfLife	= theAllocated>>1;
     static const State	theFullLife	= theAllocated-1;
 
+private:
     static const int	theAllBits = 36;
     static const uint64	theAllSize = 1L << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
@@ -158,6 +34,7 @@ private:
     static const uint64	theDisplayWidth = 1<<theDisplayWidthBits;
     static const int	theDisplayBits = theDisplayWidthBits<<1;
     static const uint64	theDisplaySize = 1<<theDisplayBits;
+    static const uint64	theDisplayMask = theDisplaySize-1;
     static const uint64	theDisplayBlocksPerBottom =
 			    1<<(theBottomBits-theDisplayBits);
 
@@ -166,11 +43,13 @@ private:
 	{
 	    memset(myState, 0, theBottomSize*sizeof(State));
 	    memset(myType, 0, theBottomSize*sizeof(char));
+	    memset(myDirty, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	    memset(myExists, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	}
 
 	State	myState[theBottomSize];
 	char	myType[theBottomSize];
+	bool	myDirty[theDisplayBlocksPerBottom];
 	bool	myExists[theDisplayBlocksPerBottom];
     };
 
@@ -197,129 +76,96 @@ private:
 			row = new StateArray;
 		    row->myState[idx] = val;
 		    row->myType[idx] = type;
-		    row->myExists[idx>>theDisplayBits] = true;
+		    row->myDirty[idx>>theDisplayBits] = true;
 		}
 
-    uint32	mapColor(State val, char type) const
+public:
+     MemoryState();
+    ~MemoryState();
+
+    bool	openPipe(int argc, char *argv[]);
+
+    void	updateAddress(uint64 addr, int size, char type)
 		{
-		    uint32 clr = val;
-
-		    uint32 lut = 0;
-		    switch (type)
+		    addr >>= myIgnoreBits;
+		    size >>= myIgnoreBits;
+		    size = SYSmax(size, 1);
+		    if (type != 'F')
 		    {
-			case 'l': case 'L':
-			    lut = 0;
-			    break;
-			case 's': case 'S':
-			case 'm': case 'M':
-			    lut = 1;
-			    break;
-			case 'i': case 'I':
-			    lut = 2;
-			    break;
-			case 'a': case 'A':
-			    lut = 3;
-			    break;
+			for (int i = 0; i < size; i++)
+			    setEntry(addr+i, myTime, type);
 		    }
-
-		    clr |= lut << 30;
-
-		    // Half the brightness of freed memory
-		    if (type >= 'a' && type <= 'z')
-			clr |= 1 << 29;
-
-		    return clr;
+		    else
+		    {
+			for (int i = 0; i < size; i++)
+			    setEntry(addr+i, getEntry(addr+i),
+				    tolower(getType(addr+i)));
+		    }
 		}
+    void	incrementTime();
+    State	getTime() const { return myTime; }
 
-    // A class to find contiguous blocks
-    class DisplayIterator {
+    // Print status information for a memory address
+    void	printStatusInfo(QString &message, uint64 addr);
+
+    // Abstract access to a single display page
+    class DisplayPage {
     public:
-	DisplayIterator(const MemoryState *state)
-	    : myState(state)
-	    , myTop(0)
-	    , myDisplay(0)
-	    , myAddr(0)
-	    , mySize(0)
-	    , myEmpty(0)
-	    , myVacant(0)
-	{
-	}
+	DisplayPage(StateArray *arr, uint64 top, uint64 bottom)
+	    : myArr(arr)
+	    , myTop(top)
+	    , myBottom(bottom) {}
 
-	void	rewind(uint64 addr = 0)
-		{
-		    myTop = topIndex(addr);
-		    myDisplay = bottomIndex(addr) >> theDisplayBits;
-		    myAddr = addr;
-		    mySize = 0;
-		    myEmpty = 0;
-		    myVacant = 0;
-		    advance();
-		}
-	bool	atEnd() const
-		{
-		    return myTop >= theTopSize;
-		}
-	void	advance()
-		{
-		    mySize = 0;
-		    myEmpty = 0;
-		    myVacant = 0;
-		    for (; myTop < theTopSize; myTop++)
-		    {
-			if (table(myTop))
-			{
-			    for (; myDisplay < theDisplayBlocksPerBottom;
-				    myDisplay++)
-			    {
-				if (table(myTop)->myExists[myDisplay])
-				{
-				    if (!mySize)
-					myAddr = (myTop<<theBottomBits) |
-					    (myDisplay<<theDisplayBits);
-				    mySize += theDisplaySize;
-				    mySize += myEmpty;
-				    myEmpty = 0;
-				}
-				else if (mySize)
-				{
-				    myEmpty += theDisplaySize;
-				    myVacant += theDisplaySize;
-				    if (myVacant > (mySize>>3))
-					return;
-				}
-			    }
-			}
-			else if (mySize)
-			    return;
-			myDisplay = 0;
-		    }
-		}
+	uint64	addr() const	{ return (myTop << theTopBits) | myBottom; }
+	int	size() const	{ return theDisplaySize; }
 
-	uint64	addr() const	{ return myAddr; }
-	int	size() const	{ return mySize; }
+	State	state(int i) const
+		{ return myArr->myState[myBottom+i]; }
+	char	type(int i) const
+		{ return myArr->myType[myBottom+i]; }
+	bool	exists() const
+		{
+		    int didx = myBottom >> theDisplayBits;
+		    return myArr &&
+			(myArr->myExists[didx] ||
+			 myArr->myDirty[didx]);
+	       	}
+
+	void	setState(int i, State val)
+		{ myArr->myState[myBottom+i] = val; }
+	bool	resetDirty()
+		{
+		    int didx = myBottom >> theDisplayBits;
+		    bool dirty = myArr->myDirty[didx];
+
+		    myArr->myDirty[didx] = false;
+		    myArr->myExists[didx] = true;
+		    return dirty;
+		}
 
     private:
-	const StateArray	*table(int top)	const
-				 { return myState->myTable[top]; }
-
-    private:
-	const MemoryState	*myState;
-	uint64			 myTop;
-	uint64			 myDisplay;
-	uint64			 myAddr;
-	int			 mySize;    // Display block size
-	int			 myEmpty;   // Contiguous empties
-	int			 myVacant;  // Total empties seen
+	StateArray  *myArr;
+	uint64	     myTop;
+	uint64	     myBottom;
     };
 
-    // A class to iterate over only non-zero state values
-    class StateIterator {
+    DisplayPage	page(uint64 addr, int &off)
+    {
+	int tidx = topIndex(addr);
+	int bidx = bottomIndex(addr);
+	off = bidx & theDisplayMask;
+	bidx -= off;
+	return DisplayPage(myTable[tidx], tidx, bidx);
+    }
+
+    // A class to iterate over only non-zero state values.  The iterator
+    // increments in chunks of size theDisplaySize.
+    class DisplayIterator {
     public:
-	StateIterator(const MemoryState *state)
+	DisplayIterator(MemoryState &state)
 	    : myState(state)
 	    , myTop(0)
 	    , myBottom(0)
-	    , myEmptyCount(0)
 	{
 	}
 
@@ -335,46 +181,39 @@ private:
 		}
 	void	advance()
 		{
-		    myBottom++;
+		    myBottom += theDisplaySize;
 		    skipEmpty();
 		}
 
-	State	state() const	{ return table(myTop)->myState[myBottom]; }
-	char	type() const	{ return table(myTop)->myType[myBottom]; }
-	uint64	nempty() const	{ return myEmptyCount; }
-
-	void	setState(State val)
-		{ myState->myTable[myTop]->myState[myBottom] = val; }
+	DisplayPage page() const
+	{ return DisplayPage(table(myTop), myTop, myBottom); }
 
     private:
-	const StateArray	*table(int top)	const
-				 { return myState->myTable[top]; }
+	StateArray	*table(int top) const { return myState.myTable[top]; }
 
 	void	skipEmpty()
 		{
-		    myEmptyCount = 0;
 		    for (; myTop < theTopSize; myTop++)
 		    {
 			if (table(myTop))
 			{
-			    for (; myBottom < theBottomSize; myBottom++)
+			    for (; myBottom < theBottomSize;
+				    myBottom += theDisplaySize)
 			    {
-				if (table(myTop)->myState[myBottom])
+				int didx = myBottom >> theDisplayBits;
+				if (table(myTop)->myExists[didx] ||
+				    table(myTop)->myDirty[didx])
 				    return;
-				myEmptyCount++;
 			    }
 			}
-			else
-			    myEmptyCount += theBottomSize;
 			myBottom = 0;
 		    }
 		}
 
     private:
-	const MemoryState	*myState;
-	uint64			 myTop;
-	uint64			 myBottom;
-	uint64			 myEmptyCount;
+	MemoryState	&myState;
+	uint64		 myTop;
+	uint64		 myBottom;
     };
 
 private:
@@ -389,11 +228,6 @@ private:
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
     int		 myIgnoreBits;
-
-    Visualization	myVisualization;
-
-    friend class PlotImage;
-    friend class MemViewWidget;
 };
 
 #endif

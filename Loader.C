@@ -333,6 +333,7 @@ Loader::loadFromTest()
     static uint64 theCount = 0;
 
     for (uint64 j = 0; j < 1024; j++)
+	//myState->updateAddress(theCount*16*1024 + j, 4, 'L');
 	myState->updateAddress(theCount*1024 + j, 4, 'L');
 
     myState->incrementTime();

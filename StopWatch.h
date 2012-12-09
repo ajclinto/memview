@@ -1,6 +1,9 @@
 #ifndef StopWatch_H
 #define StopWatch_H
 
+#include <stdio.h>
+#include <time.h>
+
 class StopWatch {
 public:
      StopWatch(bool print = true) : myPrint(print) { start(); }

@@ -1,6 +1,8 @@
 #ifndef GLIMAGE_H
 #define GLIMAGE_H
 
+#include <stdlib.h>
+
 template <typename T>
 class GLImage {
 public:
@@ -65,13 +67,13 @@ public:
 	for (int i = 0; i < myWidth*myHeight; i++)
 	    myData[i] = ~myData[i] | 0xFF000000;
     }
-    void setPixel(int r, int c, T val)
+    void setPixel(int x, int y, T val)
     {
-	myData[(myHeight-r-1)*myWidth+c] = val;
+	myData[(myHeight-y-1)*myWidth+x] = val;
     }
 
 private:
-    T	*myData;
+    T		*myData;
     int		 myWidth;
     int		 myHeight;
     bool	 myOwnData;
