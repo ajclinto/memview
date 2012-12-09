@@ -204,7 +204,8 @@ getBlockCoord(int &r, int &c, int idx)
 }
 
 static const int theLUTLevels = 5;
-static const int theLUTMask = (1 << theLUTLevels) - 1;
+static const int theLUTWidth = 1 << theLUTLevels;
+static const int theLUTMask = theLUTWidth - 1;
 static const int theLUTSize = 1 << (2*theLUTLevels);
 
 class BlockFill : public Traverser {
@@ -355,8 +356,13 @@ public:
 		theBlockLUT.getIBlock();
 
 	    for (int r = 0, rc = 0; r < bsize; r++)
+	    {
 		for (int c = 0; c < bsize; c++, rc++)
 		    setPixel<T>(myImage, c+coff, r+roff, page, off+lut[rc]);
+		// The LUT might have been created for a different size
+		// block
+		rc += theLUTWidth - bsize;
+	    }
 
 	    return false;
 	}
