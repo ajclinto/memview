@@ -212,7 +212,7 @@ Loader::loadFromLackey(int max_read)
 
 	uint64		addr;
 	int		size;
-	char		type;
+	uint8		type;
 
 	char		*saveptr = 0;
 	char		*type_str;
@@ -223,7 +223,15 @@ Loader::loadFromLackey(int max_read)
 	type_str = strtok_r(buf, delim, &saveptr);
 	if (!type_str)
 	    continue;
-	type = type_str[0];
+
+	switch (type_str[0])
+	{
+	    case 'L': type = theTypeRead; break;
+	    case 'S':
+	    case 'M': type = theTypeWrite; break;
+	    case 'I': type = theTypeInstr; break;
+	    default: continue;
+	}
 
 	addr_str = strtok_r(0, delim, &saveptr);
 	if (!addr_str)
@@ -263,8 +271,8 @@ Loader::loadFromPipe()
 	// Basic semantic checking to ensure we received valid data
 	if (block.myEntries)
 	{
-	    char	type = block.myType[0];
-	    if (!isalpha(type))
+	    uint8 type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
+	    if (type > 7)
 	    {
 		fprintf(stderr, "received invalid block (size %d)\n",
 			block.myEntries);
@@ -273,8 +281,11 @@ Loader::loadFromPipe()
 
 	    for (int j = 0; j < block.myEntries; j++)
 	    {
+		unsigned long long addr = block.myAddr[j];
 		myState->updateAddress(
-			block.myAddr[j], block.mySize[j], block.myType[j]);
+			addr & theAddrMask,
+			addr >> theSizeShift,
+			(addr & theTypeMask) >> theTypeShift);
 	    }
 
 	    myState->incrementTime();
@@ -301,17 +312,20 @@ Loader::loadFromSharedMemory()
     if (count)
     {
 	// Basic semantic checking to ensure we received valid data
-	char	type = block.myType[0];
-	if (!isalpha(type))
+	uint8 type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
+	if (type > 7)
 	{
-	    fprintf(stderr, "received invalid block\n");
+	    fprintf(stderr, "received invalid block (size %d)\n", count);
 	    return false;
 	}
 
 	for (int i = 0; i < count; i++)
 	{
+	    unsigned long long addr = block.myAddr[i];
 	    myState->updateAddress(
-		    block.myAddr[i], block.mySize[i], block.myType[i]);
+		    addr & theAddrMask,
+		    addr >> theSizeShift,
+		    (addr & theTypeMask) >> theTypeShift);
 	}
 
 	myState->incrementTime();
@@ -333,8 +347,8 @@ Loader::loadFromTest()
     static uint64 theCount = 0;
 
     for (uint64 j = 0; j < 1024; j++)
-	//myState->updateAddress(theCount*16*1024 + j, 4, 'L');
-	myState->updateAddress(theCount*1024 + j, 4, 'L');
+	//myState->updateAddress(theCount*16*1024 + j, 4, theTypeRead);
+	myState->updateAddress(theCount*1024 + j, 4, theTypeRead);
 
     myState->incrementTime();
     theCount++;

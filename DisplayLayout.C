@@ -278,31 +278,9 @@ setPixel(GLImage<T> &image, int c, int r,
 	const MemoryState::DisplayPage &page, int off)
 {
     uint32  clr = page.state(off);
-    char    ty = page.type(off);
+    uint32  ty = page.type(off);
 
-    uint32 lut = 0;
-    switch (ty)
-    {
-	case 'l': case 'L':
-	    lut = 0;
-	    break;
-	case 's': case 'S':
-	case 'm': case 'M':
-	    lut = 1;
-	    break;
-	case 'i': case 'I':
-	    lut = 2;
-	    break;
-	case 'a': case 'A':
-	    lut = 3;
-	    break;
-    }
-
-    clr |= lut << 30;
-
-    // Half the brightness of freed memory
-    if (ty >= 'a' && ty <= 'z')
-	clr |= 1 << 29;
+    clr |= ty << 29;
 
     image.setPixel(c, r, clr);
 }

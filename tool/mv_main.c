@@ -97,22 +97,25 @@ static void flush_data(void)
     theBlock->myEntries = 0;
 }
 
-static inline void put_data(Addr addr, char type, AccessSize size)
+static inline void put_data(Addr addr, uint64 type, uint64 size)
 {
     if (theBlock->myEntries >= theBlockSize)
 	flush_data();
-    theBlock->myAddr[theBlock->myEntries] = addr;
-    theBlock->myType[theBlock->myEntries] = type;
-    theBlock->mySize[theBlock->myEntries] = size;
+
+    uint64 data = addr;
+    data |= type;
+    data |= size << theSizeShift;
+
+    theBlock->myAddr[theBlock->myEntries] = data;
     theBlock->myEntries++;
 }
 
-static inline void put_wdata(Addr addr, char type, SizeT size)
+static inline void put_wdata(Addr addr, uint64 type, SizeT size)
 {
-    AccessSize	part;
+    uint64  part;
     while (size)
     {
-	part = (AccessSize)(size > 128 ? 128 : size);
+	part = (uint64)(size > 128 ? 128 : size);
 	put_data(addr, type, part);
 	addr += part;
 	size -= part;
@@ -175,58 +178,58 @@ static Int   canCreateModify = 0;
 
 static VG_REGPARM(2) void trace_instr(Addr addr, SizeT size)
 {
-    put_data(addr, 'I', (AccessSize)size);
+    put_data(addr, theShiftedInstr, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2instr(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'I', (AccessSize)size);
-    put_data(addr2, 'I', (AccessSize)size);
+    put_data(addr, theShiftedInstr, (uint64)size);
+    put_data(addr2, theShiftedInstr, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_load(Addr addr, SizeT size)
 {
-    put_data(addr, 'L', (AccessSize)size);
+    put_data(addr, theShiftedRead, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2load(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'L', (AccessSize)size);
-    put_data(addr2, 'L', (AccessSize)size);
+    put_data(addr, theShiftedRead, (uint64)size);
+    put_data(addr2, theShiftedRead, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_store(Addr addr, SizeT size)
 {
-    put_data(addr, 'S', (AccessSize)size);
+    put_data(addr, theShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2store(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'S', (AccessSize)size);
-    put_data(addr2, 'S', (AccessSize)size);
+    put_data(addr, theShiftedWrite, (uint64)size);
+    put_data(addr2, theShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_modify(Addr addr, SizeT size)
 {
-    put_data(addr, 'M', (AccessSize)size);
+    put_data(addr, theShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2modify(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'M', (AccessSize)size);
-    put_data(addr2, 'M', (AccessSize)size);
+    put_data(addr, theShiftedWrite, (uint64)size);
+    put_data(addr2, theShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_loadstore(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'L', (AccessSize)size);
-    put_data(addr2, 'S', (AccessSize)size);
+    put_data(addr, theShiftedRead, (uint64)size);
+    put_data(addr2, theShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, 'S', (AccessSize)size);
-    put_data(addr2, 'L', (AccessSize)size);
+    put_data(addr, theShiftedWrite, (uint64)size);
+    put_data(addr2, theShiftedRead, (uint64)size);
 }
 
 static void flushEvents(IRSB* sb)
@@ -435,7 +438,7 @@ void* alloc_block ( ThreadId tid, SizeT req_szB, SizeT req_alignB,
 
     VG_(HT_add_node)(malloc_list, hc);
 
-    put_wdata((Addr)p, 'A', req_szB);
+    put_wdata((Addr)p, theShiftedAlloc, req_szB);
 
     //VG_(printf)("ealloc: %d\n", req_szB);
     return p;
@@ -447,7 +450,7 @@ void release_block ( void* p )
     //VG_(printf)("sfree: %p\n", p);
     HP_Chunk* hc = VG_(HT_remove)(malloc_list, (UWord)p);
 
-    put_wdata((Addr)p, 'F', hc->size);
+    put_wdata((Addr)p, theShiftedFree, hc->size);
 
     VG_(free)(hc);
     VG_(cli_free)(p);

@@ -54,8 +54,8 @@ void main(void)
 	return;
     }
 
-    uint type = val >> 30u;
-    bool freed = (val & (1u << 29)) > 0u;
+    uint type = (val >> 29u) & 3u;
+    bool freed = (val >> 31u) > 0u;
 
     int ival = int(val & ~(7u << 29));
 

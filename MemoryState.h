@@ -4,6 +4,7 @@
 #include <QtGui>
 #include "Math.h"
 #include "GLImage.h"
+#include "tool/mv_ipc.h"
 
 class Loader;
 
@@ -42,13 +43,13 @@ private:
 	StateArray()
 	{
 	    memset(myState, 0, theBottomSize*sizeof(State));
-	    memset(myType, 0, theBottomSize*sizeof(char));
+	    memset(myType, 0, theBottomSize*sizeof(uint8));
 	    memset(myDirty, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	    memset(myExists, 0, theDisplayBlocksPerBottom*sizeof(bool));
 	}
 
 	State	myState[theBottomSize];
-	char	myType[theBottomSize];
+	uint8	myType[theBottomSize];
 	bool	myDirty[theDisplayBlocksPerBottom];
 	bool	myExists[theDisplayBlocksPerBottom];
     };
@@ -64,7 +65,7 @@ public:
 
     bool	openPipe(int argc, char *argv[]);
 
-    void	updateAddress(uint64 addr, int size, char type)
+    void	updateAddress(uint64 addr, int size, uint8 type)
 		{
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
@@ -91,7 +92,7 @@ public:
 			    addr += theBottomSize-idx;
 			}
 
-			if (type != 'F')
+			if (!(type & theTypeFree))
 			{
 			    for (; idx < last; idx++)
 			    {
@@ -104,7 +105,7 @@ public:
 			{
 			    for (; idx < last; idx++)
 			    {
-				row->myType[idx] = tolower(row->myType[idx]);
+				row->myType[idx] |= theTypeFree;
 				row->myDirty[idx>>theDisplayBits] = true;
 			    }
 			}
@@ -129,7 +130,7 @@ public:
 
 	State	state(int i) const
 		{ return myArr->myState[myBottom+i]; }
-	char	type(int i) const
+	uint8	type(int i) const
 		{ return myArr->myType[myBottom+i]; }
 	bool	exists() const
 		{
