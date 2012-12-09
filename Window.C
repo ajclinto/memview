@@ -157,11 +157,11 @@ MemViewWidget::initializeGL()
     glGenBuffers(1, &myPixelBuffer);
 
     glGenTextures(1, &myTexture);
-    glBindTexture(GL_TEXTURE_2D, myTexture);
+    glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
 
     const GLuint type = GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, type);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, type);
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, type);
+    glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, type);
 
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
     const char *vsrc = loadTextFile("shader.vert");
@@ -226,7 +226,7 @@ MemViewWidget::paintGL()
 	    myVScrollBar->value());
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
 #else
@@ -234,7 +234,7 @@ MemViewWidget::paintGL()
     myDisplay.fillImage(myImage, *myState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI,
+    glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, myImage.data());
 #endif
@@ -359,17 +359,21 @@ MemViewWidget::timerEvent(QTimerEvent *)
 	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
 	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
 
-	if (drag[0] || drag[1] || myState->getTime() != myPrevTime)
+	if (drag[0] || drag[1])
 	{
 	    update();
-
-	    myPrevTime = myState->getTime();
 	}
     }
     else
     {
 	myVelocity[0] = 0;
 	myVelocity[1] = 0;
+    }
+
+    if (myState->getTime() != myPrevTime)
+    {
+	update();
+	myPrevTime = myState->getTime();
     }
 }
 

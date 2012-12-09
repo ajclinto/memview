@@ -4,7 +4,7 @@
 in mediump vec2 texc;
 out vec4 frag_color;
 
-uniform usampler2D theState;
+uniform usampler2DRect theState;
 
 uniform int theTime;
 uniform int theStale;
@@ -12,7 +12,7 @@ uniform int theHalfLife;
 
 float rand(vec2 co)
 {
-    return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);
+    return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
 }
 
 float luminance(vec3 val)
@@ -45,7 +45,9 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 
 void main(void)
 {
-    uint val = texture(theState, texc).r;
+    ivec2   texsize = textureSize(theState);
+    uint    val = texture(theState, texsize*texc).r;
+
     if (val == 0u)
     {
 	frag_color = vec4(0, 0, 0, 1);
