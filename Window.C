@@ -230,6 +230,7 @@ MemViewWidget::paintGL()
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
 #else
+    myDisplay.update(*myState, myImage.width());
     myDisplay.fillImage(myImage, *myState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
@@ -254,19 +255,6 @@ MemViewWidget::paintGL()
     glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
     glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
     glEnd();
-
-    // This should really be placed somewhere more appropriate
-    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
-	    myHScrollBar->value() + myMousePos.x(),
-	    myVScrollBar->value() + myMousePos.y());
-
-    QString	message;
-    myState->printStatusInfo(message, qaddr);
-
-    if (message.isEmpty())
-	myStatusBar->clearMessage();
-    else
-	myStatusBar->showMessage(message);
 }
 
 void
@@ -313,6 +301,18 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	myVelocity[1] = myDragDir.y() / time;
     }
     myMousePos = event->pos();
+
+    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+	    myHScrollBar->value() + myMousePos.x(),
+	    myVScrollBar->value() + myMousePos.y());
+
+    QString	message;
+    myState->printStatusInfo(message, qaddr);
+
+    if (message.isEmpty())
+	myStatusBar->clearMessage();
+    else
+	myStatusBar->showMessage(message);
 
     update();
 }

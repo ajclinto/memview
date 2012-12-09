@@ -1,7 +1,7 @@
 #ifndef MV_IPC_H
 #define MV_IPC_H
 
-#define theBlockSize	(1024*16)
+#define theBlockSize	(1024*32)
 #define theBlockCount	4
 
 typedef unsigned char AccessSize;
