@@ -9,6 +9,7 @@
 #include "StopWatch.h"
 #include "MemoryState.h"
 #include "DisplayLayout.h"
+#include <queue>
 
 class MemViewWidget;
 class MemViewScroll;
@@ -69,6 +70,8 @@ protected:
     void	mousePressEvent(QMouseEvent *event);
     void	mouseMoveEvent(QMouseEvent *event);
     void	mouseReleaseEvent(QMouseEvent *event);
+    void	wheelEvent(QWheelEvent *event);
+
     void	timerEvent(QTimerEvent *event);
 
 private slots:
@@ -90,11 +93,36 @@ private:
     MemoryState		*myState;
     uint32		 myPrevTime;
 
+    struct Velocity {
+	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}
+	Velocity operator+(const Velocity &v) const
+	{
+	    return Velocity(v.x + x, v.y + y, v.time + time);
+	}
+	Velocity &operator+=(const Velocity &v)
+	{
+	    x += v.x;
+	    y += v.y;
+	    time += v.time;
+	    return *this;
+	}
+	Velocity &operator*=(double a)
+	{
+	    x *= a;
+	    y *= a;
+	    time *= a;
+	    return *this;
+	}
+
+	double x;
+	double y;
+	double time;
+    };
+
     StopWatch	 myStopWatch;
     StopWatch	 myPaintInterval;
     QPoint	 myMousePos;
-    QPoint	 myDragDir;
-    double	 myVelocity[2];
+    std::queue<Velocity> myVelocity;
     bool	 myDragging;
 };
 

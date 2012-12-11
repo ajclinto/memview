@@ -255,6 +255,8 @@ MemViewWidget::paintGL()
     glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
     glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
     glEnd();
+
+    update();
 }
 
 void
@@ -280,12 +282,10 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton)
     {
 	myStopWatch.start();
-	myDragDir = QPoint(0, 0);
-	myVelocity[0] = 0;
-	myVelocity[1] = 0;
 	myDragging = true;
+	myVelocity = std::queue<Velocity>();
+	myMousePos = event->pos();
     }
-    myMousePos = event->pos();
 }
 
 void
@@ -294,27 +294,33 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() & Qt::LeftButton)
     {
 	double  time = myStopWatch.lap();
-	myDragDir = myMousePos - event->pos();
-	myHScrollBar->setValue(myHScrollBar->value() + myDragDir.x());
-	myVScrollBar->setValue(myVScrollBar->value() + myDragDir.y());
-	myVelocity[0] = myDragDir.x() / time;
-	myVelocity[1] = myDragDir.y() / time;
+	QPoint dir = myMousePos - event->pos();
+	myHScrollBar->setValue(myHScrollBar->value() + dir.x());
+	myVScrollBar->setValue(myVScrollBar->value() + dir.y());
+	if (time > 0)
+	{
+	    if (myVelocity.size() >= 5)
+		myVelocity.pop();
+	    myVelocity.push(Velocity(dir.x(), dir.y(), time));
+	}
+	myMousePos = event->pos();
     }
-    myMousePos = event->pos();
-
-    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
-	    myHScrollBar->value() + myMousePos.x(),
-	    myVScrollBar->value() + myMousePos.y());
-
-#if 1
-    QString	message;
-    myState->printStatusInfo(message, qaddr);
-
-    if (message.isEmpty())
-	myStatusBar->clearMessage();
     else
-	myStatusBar->showMessage(message);
+    {
+#if 1
+	uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+		myHScrollBar->value() + event->pos().x(),
+		myVScrollBar->value() + event->pos().y());
+
+	QString	message;
+	myState->printStatusInfo(message, qaddr);
+
+	if (message.isEmpty())
+	    myStatusBar->clearMessage();
+	else
+	    myStatusBar->showMessage(message);
 #endif
+    }
 
     update();
 }
@@ -325,7 +331,29 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
     if (event->button() == Qt::LeftButton)
     {
 	myDragging = false;
+
+	// Compute the average velocity.  We'll require at least 2 samples
+	// to avoid spikes.
+	int size = myVelocity.size();
+	if (size > 1)
+	{
+	    Velocity  vel(0, 0, 0);
+	    while (myVelocity.size())
+	    {
+		vel += myVelocity.front();
+		myVelocity.pop();
+	    }
+	    vel *= 1.0 / vel.time;
+	    myVelocity.push(vel);
+	}
+	else
+	    myVelocity = std::queue<Velocity>();
     }
+}
+
+void
+MemViewWidget::wheelEvent(QWheelEvent *event)
+{
 }
 
 void
@@ -347,16 +375,17 @@ shortenDrag(double &val, double delta)
 void
 MemViewWidget::timerEvent(QTimerEvent *)
 {
-    if (!myDragging)
+    if (!myDragging && myVelocity.size())
     {
-	double  time = myStopWatch.lap();
-	int	drag[2];
+	Velocity   &vel = myVelocity.front();
+	double	    time = myStopWatch.lap();
+	int	    drag[2];
 
-	drag[0] = (int)(myVelocity[0] * time + 0.5F);
-	drag[1] = (int)(myVelocity[1] * time + 0.5F);
+	drag[0] = (int)(vel.x * time + 0.5F);
+	drag[1] = (int)(vel.y * time + 0.5F);
 
-	shortenDrag(myVelocity[0], time);
-	shortenDrag(myVelocity[1], time);
+	shortenDrag(vel.x, time);
+	shortenDrag(vel.y, time);
 
 	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
 	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
@@ -365,11 +394,6 @@ MemViewWidget::timerEvent(QTimerEvent *)
 	{
 	    update();
 	}
-    }
-    else
-    {
-	myVelocity[0] = 0;
-	myVelocity[1] = 0;
     }
 
     if (myState->getTime() != myPrevTime)
