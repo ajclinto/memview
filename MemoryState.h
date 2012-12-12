@@ -161,6 +161,8 @@ public:
 		    return dirty;
 		}
 
+	State	*stateArray()	{ return &myArr->myState[myBottom]; }
+
     private:
 	StateArray  *myArr;
 	uint64	     myTop;

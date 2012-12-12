@@ -2,6 +2,7 @@
 #define GLIMAGE_H
 
 #include <stdlib.h>
+#include <string.h>
 
 template <typename T>
 class GLImage {
@@ -62,14 +63,17 @@ public:
 	for (int i = 0; i < myWidth*myHeight; i++)
 	    myData[i] = val;
     }
-    void invert()
+    void zero()
     {
-	for (int i = 0; i < myWidth*myHeight; i++)
-	    myData[i] = ~myData[i] | 0xFF000000;
+	memset(myData, 0, myWidth*myHeight*sizeof(T));
     }
     void setPixel(int x, int y, T val)
     {
 	myData[(myHeight-y-1)*myWidth+x] = val;
+    }
+    T *getScanline(int y)
+    {
+	return &myData[(myHeight-y-1)*myWidth];
     }
 
 private:

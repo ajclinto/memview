@@ -306,6 +306,23 @@ setPixel<uint64>(GLImage<uint64> &image, int c, int r,
 }
 
 template <typename T>
+static inline void
+copyScanline(T *scan,
+	MemoryState::DisplayPage &page, uint64 off, int n)
+{
+    memcpy(scan, page.stateArray() + off, n*sizeof(T));
+}
+
+template <>
+inline void
+copyScanline<uint64>(uint64 *scan,
+	MemoryState::DisplayPage &page, uint64 off, int n)
+{
+    for (int i = 0; i < n; i++)
+	scan[i] = page.addr() + off + i;
+}
+
+template <typename T>
 class PlotImage : public Traverser {
 public:
     PlotImage(MemoryState &state,
@@ -385,7 +402,7 @@ DisplayLayout::fillImage(
 	MemoryState &state,
 	int coff, int roff) const
 {
-    image.fill(0);
+    image.zero();
 
     for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
     {
@@ -419,23 +436,20 @@ DisplayLayout::fillImage(
 		{
 		    uint64  off;
 		    auto    page = state.getPage(addr, off);
-		    int	    cmax = ibox.xmax() - c;
+		    int	    nc = ibox.xmax() - c;
 		   
 		    // It's a min with an int, so it can't be more than 32-bit
-		    cmax = (int)SYSmin((uint64)cmax, page.size() - off);
-		    cmax = (int)SYSmin((uint64)cmax, it->end() - addr);
+		    nc = (int)SYSmin((uint64)nc, page.size() - off);
+		    nc = (int)SYSmin((uint64)nc, it->end() - addr);
 
-		    addr += cmax;
+		    addr += nc;
 		    if (page.exists())
 		    {
-			cmax += c;
-			for (; c < cmax; c++, off++)
-			{
-			    setPixel<T>(image, c-coff, r-roff, page, off);
-			}
+			copyScanline(
+				image.getScanline(r-roff) + c-coff,
+				page, off, nc);
 		    }
-		    else
-			c = cmax;
+		    c += nc;
 		}
 		addr += it->myBox.width() - ibox.width();
 		c = ibox.xmin();
