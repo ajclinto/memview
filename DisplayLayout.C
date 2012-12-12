@@ -415,11 +415,27 @@ DisplayLayout::fillImage(
 
 	    for (int r = ibox.ymin(); r < ibox.ymax(); r++)
 	    {
-		for (; c < ibox.xmax() && addr < it->end(); c++, addr++)
+		while (c < ibox.xmax() && addr < it->end())
 		{
 		    uint64  off;
 		    auto    page = state.getPage(addr, off);
-		    setPixel<T>(image, c-coff, r-roff, page, off);
+		    int	    cmax = ibox.xmax() - c;
+		   
+		    // It's a min with an int, so it can't be more than 32-bit
+		    cmax = (int)SYSmin((uint64)cmax, page.size() - off);
+		    cmax = (int)SYSmin((uint64)cmax, it->end() - addr);
+
+		    addr += cmax;
+		    if (page.exists())
+		    {
+			cmax += c;
+			for (; c < cmax; c++, off++)
+			{
+			    setPixel<T>(image, c-coff, r-roff, page, off);
+			}
+		    }
+		    else
+			c = cmax;
 		}
 		addr += it->myBox.width() - ibox.width();
 		c = ibox.xmin();
