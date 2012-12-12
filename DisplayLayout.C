@@ -292,7 +292,7 @@ static BlockLUT		theBlockLUT;
 template <typename T>
 static inline void
 setPixel(GLImage<T> &image, int c, int r,
-	const MemoryState::DisplayPage &page, int off)
+	const MemoryState::DisplayPage &page, uint64 off)
 {
     image.setPixel(c, r, page.state(off).uval);
 }
@@ -300,7 +300,7 @@ setPixel(GLImage<T> &image, int c, int r,
 template <>
 inline void
 setPixel<uint64>(GLImage<uint64> &image, int c, int r,
-	const MemoryState::DisplayPage &page, int off)
+	const MemoryState::DisplayPage &page, uint64 off)
 {
     image.setPixel(c, r, page.addr() + off);
 }
@@ -340,7 +340,7 @@ public:
 
 	if (level <= theLUTLevels)
 	{
-	    int off;
+	    uint64 off;
 	    auto page = myState.getPage(myAddr + idx, off);
 
 	    if (!page.exists())
@@ -417,7 +417,7 @@ DisplayLayout::fillImage(
 	    {
 		for (; c < ibox.xmax() && addr < it->end(); c++, addr++)
 		{
-		    int	    off;
+		    uint64  off;
 		    auto    page = state.getPage(addr, off);
 		    setPixel<T>(image, c-coff, r-roff, page, off);
 		}

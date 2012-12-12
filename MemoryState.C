@@ -64,7 +64,7 @@ MemoryState::incrementTime()
 	for (it.rewind(); !it.atEnd(); it.advance())
 	{
 	    DisplayPage page(it.page());
-	    for (int i = 0; i < page.size(); i++)
+	    for (uint64 i = 0; i < page.size(); i++)
 	    {
 		uint32	state = page.state(i).time();
 		if ((myTime == theFullLife && state < theHalfLife) ||
@@ -93,7 +93,7 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 
     message.append(tmp);
 
-    int		off;
+    uint64	off;
     auto	page = getPage(addr, off);
     State	entry = page.state(off);
 

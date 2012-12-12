@@ -193,15 +193,13 @@ Loader::run()
 bool
 Loader::loadFromLackey(int max_read)
 {
-    int		 i;
-
     if (!myPipe)
 	return false;
 
     char	*buf = 0;
     size_t	 n = 0;
 
-    for (i = 0; i < max_read; i++)
+    for (int i = 0; i < max_read; i++)
     {
 	if (getline(&buf, &n, myPipe) <= 0)
 	{
@@ -249,13 +247,13 @@ Loader::loadFromLackey(int max_read)
 	myState->updateAddress(addr, size, type);
     }
 
-    if (i > 0)
+    if (max_read)
 	myState->incrementTime();
 
     if (buf)
 	free(buf);
 
-    return i > 0;
+    return max_read;
 }
 
 bool

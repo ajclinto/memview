@@ -46,7 +46,7 @@ public:
 
 private:
     struct DisplayBlock {
-	DisplayBlock(uint64 addr, int size)
+	DisplayBlock(uint64 addr, uint64 size)
 	    : myAddr(addr)
 	    , mySize(size) {}
 
