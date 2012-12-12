@@ -13,6 +13,7 @@
 
 class MemViewWidget;
 class MemViewScroll;
+class Loader;
 
 class Window : public QMainWindow {
     Q_OBJECT
@@ -91,6 +92,7 @@ private:
 
     DisplayLayout	 myDisplay;
     MemoryState		*myState;
+    Loader		*myLoader;
     uint32		 myPrevTime;
 
     struct Velocity {

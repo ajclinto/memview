@@ -1,6 +1,7 @@
 #include "Window.h"
 #include "Color.h"
 #include "MemoryState.h"
+#include "Loader.h"
 #include <fstream>
 
 #define USE_PBUFFER
@@ -87,8 +88,18 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
 
-    myState = new MemoryState;
-    myState->openPipe(argc, argv);
+    const char	*ignore = extractOption(argc, argv, "--ignore-bits=");
+    int		 ignorebits = ignore ? atoi(ignore) : 2;
+
+    myState = new MemoryState(ignorebits);
+    myLoader = new Loader(myState);
+
+    if (myLoader->openPipe(argc, argv))
+    {
+	// Start loading data in a new thread
+	myLoader->start();
+    }
+
     myPrevTime = MemoryState::theStale;
 
     startTimer(30);
@@ -98,6 +109,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 
 MemViewWidget::~MemViewWidget()
 {
+    delete myLoader;
     delete myState;
 }
 

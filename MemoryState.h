@@ -6,8 +6,6 @@
 #include "GLImage.h"
 #include "tool/mv_ipc.h"
 
-class Loader;
-
 class MemoryState {
 public:
     class State {
@@ -74,10 +72,8 @@ private:
 			{ return addr & theBottomMask; }
 
 public:
-     MemoryState();
+     MemoryState(int ignorebits);
     ~MemoryState();
-
-    bool	openPipe(int argc, char *argv[]);
 
     void	updateAddress(uint64 addr, int size, int type)
 		{
@@ -242,9 +238,6 @@ private:
     StateArray	*myTable[theTopSize];
     uint32	 myTime;	// Rolling counter
     uint64	 myHRTime;
-
-    // Loader
-    Loader	*myLoader;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.

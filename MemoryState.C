@@ -1,46 +1,22 @@
 #include "MemoryState.h"
 #include "StopWatch.h"
 #include "Color.h"
-#include "Loader.h"
 #include "GLImage.h"
 #include <assert.h>
 
-MemoryState::MemoryState()
+MemoryState::MemoryState(int ignorebits)
     : myTime(1)
     , myHRTime(1)
-    , myLoader(0)
-    , myIgnoreBits(2)
+    , myIgnoreBits(ignorebits)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
 }
 
 MemoryState::~MemoryState()
 {
-    delete myLoader;
-
     for (uint64 i = 0; i < theTopSize; i++)
 	if (myTable[i])
 	    delete myTable[i];
-}
-
-bool
-MemoryState::openPipe(int argc, char *argv[])
-{
-    const char	*ignore = extractOption(argc, argv, "--ignore-bits=");
-
-    if (ignore)
-	myIgnoreBits = atoi(ignore);
-
-    myLoader = new Loader(this);
-
-    if (myLoader->openPipe(argc, argv))
-    {
-	// Start loading data in a new thread
-	myLoader->start();
-	return true;
-    }
-
-    return false;
 }
 
 void
