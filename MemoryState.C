@@ -20,7 +20,7 @@ MemoryState::~MemoryState()
 
     for (uint64 i = 0; i < theTopSize; i++)
 	if (myTable[i])
-	    delete [] myTable[i];
+	    delete myTable[i];
 }
 
 bool
