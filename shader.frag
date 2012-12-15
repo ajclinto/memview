@@ -65,16 +65,16 @@ void main(void)
     float interp = 1-log2(float(diff))/32;
 
     vec3 hi[4];
-    hi[0] = lum1(vec3(0.2, 1.0, 0.2));
-    hi[1] = lum1(vec3(1.0, 0.7, 0.2));
-    hi[2] = lum1(vec3(0.3, 0.2, 0.8));
-    hi[3] = lum1(vec3(0.3, 0.3, 0.3));
+    hi[0] = lum1(vec3(0.3, 0.3, 0.3));
+    hi[1] = lum1(vec3(0.3, 0.2, 0.8));
+    hi[2] = lum1(vec3(1.0, 0.7, 0.2));
+    hi[3] = lum1(vec3(0.2, 1.0, 0.2));
 
     vec3 lo[4];
-    lo[0] = lum1(vec3(0.1, 0.1, 0.5));
-    lo[1] = lum1(vec3(0.3, 0.1, 0.1));
-    lo[2] = lum1(vec3(0.3, 0.1, 0.4));
-    lo[3] = lum1(vec3(0.1, 0.1, 0.1));
+    lo[0] = lum1(vec3(0.1, 0.1, 0.1));
+    lo[1] = lum1(vec3(0.3, 0.1, 0.4));
+    lo[2] = lum1(vec3(0.3, 0.1, 0.1));
+    lo[3] = lum1(vec3(0.1, 0.1, 0.5));
 
     frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
 

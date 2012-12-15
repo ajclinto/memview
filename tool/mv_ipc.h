@@ -12,17 +12,21 @@
 #define theTypeMask 0x00E0000000000000ul
 #define theTypeShift 53
 
-#define theTypeRead   0
-#define theTypeWrite  1
-#define theTypeInstr  2
-#define theTypeAlloc  3
+// Order is important here - we use a max() for downsampling, which will
+// cause reads to be preferred over writes when the event time matches.  If
+// you update these values, you will also need to update the shader.frag
+// code to handle it.
+#define theTypeAlloc  0
+#define theTypeInstr  1
+#define theTypeWrite  2
+#define theTypeRead   3
 #define theTypeFree   4
 
-#define theShiftedRead   (0ul << theTypeShift)
-#define theShiftedWrite  (1ul << theTypeShift)
-#define theShiftedInstr  (2ul << theTypeShift)
-#define theShiftedAlloc  (3ul << theTypeShift)
-#define theShiftedFree   (7ul << theTypeShift)
+#define theShiftedAlloc  ((unsigned long long)theTypeAlloc << theTypeShift)
+#define theShiftedInstr  ((unsigned long long)theTypeInstr << theTypeShift)
+#define theShiftedWrite  ((unsigned long long)theTypeWrite << theTypeShift)
+#define theShiftedRead   ((unsigned long long)theTypeRead << theTypeShift)
+#define theShiftedFree   ((unsigned long long)7 << theTypeShift)
 
 typedef struct {
     unsigned long long	myAddr[theBlockSize];
