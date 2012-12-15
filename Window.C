@@ -415,7 +415,8 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 	    myZoomState = myLoader->getBaseState();
 	}
 
-	zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(), myZoom > zoom);
+	if (myDisplay.getVisualization() != DisplayLayout::LINEAR)
+	    zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(), myZoom > zoom);
 	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(), myZoom > zoom);
     }
 }

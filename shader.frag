@@ -17,7 +17,7 @@ float rand(vec2 co)
 
 float luminance(vec3 val)
 {
-    return dot(val, vec3(0.3, 0.6, 0.1));
+    return dot(val, vec3(0.3, 0.59, 0.11));
 }
 
 vec3 lum1(vec3 val)
