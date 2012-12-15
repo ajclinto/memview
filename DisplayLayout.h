@@ -24,7 +24,9 @@ public:
 		    { myVisualization = vis; }
 
     // Build the block display layout from state
-    void	    update(MemoryState &state, int width);
+    void	    update(MemoryState &state);
+    // Layout blocks after update
+    void	    layout(int width, int zoom);
 
     // Get the resolution of the full layout
     int		    width() const { return myWidth; }

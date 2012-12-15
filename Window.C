@@ -75,6 +75,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myStatusBar(status)
     , myTexture(0)
     , myPixelBuffer(0)
+    , myZoom(0)
     , myStopWatch(false)
     , myPaintInterval(false)
     , myDragging(false)
@@ -92,6 +93,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     int		 ignorebits = ignore ? atoi(ignore) : 2;
 
     myState = new MemoryState(ignorebits);
+    myZoomState = myState;
     myLoader = new Loader(myState);
 
     if (myLoader->openPipe(argc, argv))
@@ -110,7 +112,6 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 MemViewWidget::~MemViewWidget()
 {
     delete myLoader;
-    delete myState;
 }
 
 void
@@ -232,8 +233,9 @@ MemViewWidget::paintGL()
 
     myImage.setData((uint32 *)
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-    myDisplay.update(*myState, myImage.width());
-    myDisplay.fillImage(myImage, *myState,
+    myDisplay.update(*myState);
+    myDisplay.layout(myImage.width(), myZoom);
+    myDisplay.fillImage(myImage, *myZoomState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
@@ -242,8 +244,9 @@ MemViewWidget::paintGL()
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
 #else
-    myDisplay.update(*myState, myImage.width());
-    myDisplay.fillImage(myImage, *myState,
+    myDisplay.update(*myState);
+    myDisplay.layout(myImage.width(), myZoom);
+    myDisplay.fillImage(myImage, *myZoomState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
@@ -320,12 +323,12 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     else
     {
 #if 1
-	uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+	uint64 qaddr = myDisplay.queryPixelAddress(*myZoomState,
 		myHScrollBar->value() + event->pos().x(),
 		myVScrollBar->value() + event->pos().y());
 
 	QString	message;
-	myState->printStatusInfo(message, qaddr);
+	myZoomState->printStatusInfo(message, qaddr);
 
 	if (message.isEmpty())
 	    myStatusBar->clearMessage();
@@ -366,6 +369,30 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 void
 MemViewWidget::wheelEvent(QWheelEvent *event)
 {
+    int zoom = myZoom;
+
+    if (event->delta() < 0)
+	myZoom++;
+    else if (event->delta() > 0)
+	myZoom--;
+
+    myZoom = SYSclamp(myZoom, 0, 14);
+
+    if (zoom != myZoom)
+    {
+	if (myZoom)
+	{
+	    MemoryState *state = new MemoryState(
+		    myLoader->getBaseState()->getIgnoreBits()+2*myZoom);
+	    myLoader->setZoomState(state);
+	    myZoomState = state;
+	}
+	else
+	{
+	    myLoader->clearZoomState();
+	    myZoomState = myLoader->getBaseState();
+	}
+    }
 }
 
 void

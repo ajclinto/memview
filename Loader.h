@@ -16,6 +16,13 @@ public:
 
     bool	openPipe(int argc, char *argv[]);
 
+    void	setZoomState(MemoryState *state)
+		{ myPendingState = state; }
+    void	clearZoomState()
+		{ myPendingClear = true; }
+
+    MemoryState	*getBaseState() const { return myState; }
+
 protected:
     void	run();
 
@@ -25,8 +32,13 @@ private:
     bool	loadFromSharedMemory();
     bool	loadFromTest();
 
+    bool	loadBlock(const TraceBlock &block);
+
 private:
     MemoryState	*myState;
+    MemoryState	*myZoomState;
+    MemoryState	*myPendingState;
+    bool	 myPendingClear;
 
     // Child process
     pid_t	 myChild;

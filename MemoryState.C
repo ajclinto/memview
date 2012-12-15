@@ -95,3 +95,36 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 	    message.append(" (freed)");
     }
 }
+
+void
+MemoryState::downsample(const MemoryState &state)
+{
+    int shift = myIgnoreBits - state.myIgnoreBits;
+
+    // Copy times first for the display to work correctly
+    myTime = state.myTime;
+    myHRTime = state.myHRTime;
+
+    DisplayIterator	it(const_cast<MemoryState &>(state));
+    for (it.rewind(); !it.atEnd(); it.advance())
+    {
+	DisplayPage page(it.page());
+	for (uint64 i = 0; i < page.size(); i++)
+	{
+	    State   state = page.state(i);
+
+	    uint64  myaddr = (page.addr() + i) >> shift;
+	    uint64  tidx = topIndex(myaddr);
+	    uint64  bidx = bottomIndex(myaddr);
+
+	    if (!myTable[tidx])
+		myTable[tidx] = new StateArray;
+	    if (state.time() > myTable[tidx]->myState[bidx].time())
+	    {
+		myTable[tidx]->myState[bidx] = state;
+		myTable[tidx]->myDirty[bidx >> theDisplayBits] = true;
+	    }
+	}
+    }
+}
+

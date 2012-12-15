@@ -122,9 +122,13 @@ public:
 		}
     void	incrementTime();
     uint32	getTime() const { return myTime; }
+    int		getIgnoreBits() const { return myIgnoreBits; }
 
     // Print status information for a memory address
     void	printStatusInfo(QString &message, uint64 addr);
+
+    // Build a mipmap from another memory state
+    void	downsample(const MemoryState &state);
 
     // Abstract access to a single display page
     class DisplayPage {

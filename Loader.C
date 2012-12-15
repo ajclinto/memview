@@ -9,6 +9,9 @@
 Loader::Loader(MemoryState *state)
     : QThread(0)
     , myState(state)
+    , myZoomState(0)
+    , myPendingState(0)
+    , myPendingClear(false)
     , myChild(-1)
     , myPipeFD(0)
     , myPipe(0)
@@ -170,6 +173,30 @@ Loader::run()
     while (!myAbort)
     {
 	bool	rval = false;
+
+	if (myPendingClear)
+	{
+	    delete myZoomState;
+	    myZoomState = 0;
+	    myPendingClear = false;
+	}
+	if (myPendingState)
+	{
+	    MemoryState *zoom = myZoomState;
+
+	    myZoomState = myPendingState;
+	    myPendingState = 0;
+
+	    // This could take a while
+	    if (zoom && zoom->getIgnoreBits() <
+		    myZoomState->getIgnoreBits())
+		myZoomState->downsample(*zoom);
+	    else
+		myZoomState->downsample(*myState);
+
+	    delete zoom;
+	}
+
 	switch (mySource)
 	{
 	    case TEST:
@@ -266,27 +293,10 @@ Loader::loadFromPipe()
 
     if (read(myPipeFD, &block, sizeof(TraceBlock)))
     {
-	// Basic semantic checking to ensure we received valid data
 	if (block.myEntries)
 	{
-	    int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
-	    if (type > 7)
-	    {
-		fprintf(stderr, "received invalid block (size %d)\n",
-			block.myEntries);
+	    if (!loadBlock(block))
 		return false;
-	    }
-
-	    for (int j = 0; j < block.myEntries; j++)
-	    {
-		unsigned long long addr = block.myAddr[j];
-		myState->updateAddress(
-			addr & theAddrMask,
-			addr >> theSizeShift,
-			(addr & theTypeMask) >> theTypeShift);
-	    }
-
-	    myState->incrementTime();
 	}
 
 	return block.myEntries == theBlockSize;
@@ -306,27 +316,10 @@ Loader::loadFromSharedMemory()
 	;
     block.myRSem = 0;
 
-    int		count = block.myEntries;
-    if (count)
+    if (block.myEntries)
     {
-	// Basic semantic checking to ensure we received valid data
-	int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
-	if (type > 7)
-	{
-	    fprintf(stderr, "received invalid block (size %d)\n", count);
+	if (!loadBlock(block))
 	    return false;
-	}
-
-	for (int i = 0; i < count; i++)
-	{
-	    unsigned long long addr = block.myAddr[i];
-	    myState->updateAddress(
-		    addr & theAddrMask,
-		    addr >> theSizeShift,
-		    (addr & theTypeMask) >> theTypeShift);
-	}
-
-	myState->incrementTime();
     }
 
     block.myWSem = 1;
@@ -335,7 +328,7 @@ Loader::loadFromSharedMemory()
 	myIdx = 0;
 
     // If it wasn't a full block, we're at the end of the stream.
-    return count == theBlockSize;
+    return block.myEntries == theBlockSize;
 }
 
 bool
@@ -344,13 +337,60 @@ Loader::loadFromTest()
     static const uint64 theSize = 16*1024;
     static uint64 theCount = 0;
 
-    for (uint64 j = 0; j < 1024; j++)
-	//myState->updateAddress(theCount*16*1024 + j, 4, theTypeRead);
-	myState->updateAddress(theCount*1024 + j, 4, theTypeRead);
+    TraceBlock	block;
+    block.myEntries = 1024;
+    for (uint64 j = 0; j < block.myEntries; j++)
+    {
+	block.myAddr[j] = 10*theCount*1024 + j;
+	block.myAddr[j] |= (uint64)theTypeRead << theTypeShift;
+	block.myAddr[j] |= (uint64)4 << theSizeShift;
+    }
+    loadBlock(block);
+
+    theCount++;
+    if (theCount >= theSize)
+	theCount = 0;
+
+    return true;
+}
+
+bool
+Loader::loadBlock(const TraceBlock &block)
+{
+    // Basic semantic checking to ensure we received valid data
+    int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
+    if (type > 7)
+    {
+	fprintf(stderr, "received invalid block (size %d)\n",
+		block.myEntries);
+	return false;
+    }
+
+    int count = block.myEntries;
+    for (int i = 0; i < count; i++)
+    {
+	unsigned long long addr = block.myAddr[i];
+	myState->updateAddress(
+		addr & theAddrMask,
+		addr >> theSizeShift,
+		(addr & theTypeMask) >> theTypeShift);
+    }
 
     myState->incrementTime();
-    theCount++;
 
-    return theCount < theSize;
+    if (myZoomState)
+    {
+	for (int i = 0; i < count; i++)
+	{
+	    unsigned long long addr = block.myAddr[i];
+	    myZoomState->updateAddress(
+		    addr & theAddrMask,
+		    addr >> theSizeShift,
+		    (addr & theTypeMask) >> theTypeShift);
+	}
+	myZoomState->incrementTime();
+    }
+
+    return true;
 }
 

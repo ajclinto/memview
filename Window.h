@@ -92,8 +92,10 @@ private:
 
     DisplayLayout	 myDisplay;
     MemoryState		*myState;
+    MemoryState		*myZoomState;
     Loader		*myLoader;
     uint32		 myPrevTime;
+    int			 myZoom;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}

@@ -123,7 +123,7 @@ placeBlock(int &c, int &r, int bwidth, int bheight,
 }
 
 void
-DisplayLayout::update(MemoryState &state, int width)
+DisplayLayout::update(MemoryState &state)
 {
     //StopWatch	timer;
     myBlocks.clear();
@@ -143,6 +143,63 @@ DisplayLayout::update(MemoryState &state, int width)
 	    else
 		myBlocks.back().mySize += page.size() + vacant;
 	}
+    }
+
+    // Initialize block sizes for non-linear display
+    if (myVisualization != LINEAR)
+    {
+	myHeight = 0;
+	myWidth = 0;
+	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	{
+	    BlockSizer  sizer;
+	    blockTraverse(0, 0, 0, sizer, it->mySize,
+		    15 - state.getIgnoreBits()/2,
+		    myVisualization == HILBERT, 0, false);
+
+	    int nc = sizer.myWidth;
+	    int nr = sizer.myHeight;
+
+	    it->myBox.initBounds(0, 0, nc, nr);
+
+	    myWidth = SYSmax(myWidth, nc);
+	    myHeight = SYSmax(myHeight, nc);
+	}
+    }
+}
+
+static void
+adjustZoom(int &val, int zoom)
+{
+    int a = (1 << zoom) - 1;
+    val = (val + a) >> zoom;
+}
+
+void
+DisplayLayout::layout(int width, int zoom)
+{
+    //StopWatch	timer;
+
+    if (zoom > 0)
+    {
+	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	{
+	    int zoom2 = 2*zoom;
+	    // Update the address range
+	    int a = (1 << zoom2) - 1;
+	    uint64 end = it->myAddr + it->mySize;
+	    end += a;
+	    end >>= zoom2;
+	    it->myAddr >>= zoom2;
+	    it->mySize = end - it->myAddr;
+
+	    // Update the block size
+	    adjustZoom(it->myBox.h[0], zoom);
+	    adjustZoom(it->myBox.h[1], zoom);
+	}
+
+	adjustZoom(myWidth, zoom);
+	adjustZoom(myHeight, zoom);
     }
 
     // Initialize global offsets
@@ -167,17 +224,12 @@ DisplayLayout::update(MemoryState &state, int width)
 	int r = 0;
 	int c = 0;
 	int maxheight = 0;
-	myWidth = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
-	    BlockSizer  sizer;
-	    blockTraverse(0, 0, 0, sizer, it->mySize, 15,
-		    myVisualization == HILBERT, 0, false);
+	    int nc = it->myBox.xmax();
+	    int nr = it->myBox.ymax();
 
-	    int nc = sizer.myWidth;
-	    int nr = sizer.myHeight;
-
-	    placeBlock(c, r, nc, nr, maxheight, width);
+	    placeBlock(c, r, nc, nr, maxheight, myWidth);
 
 	    it->myBox.initBounds(c, r, c+nc, r+nr);
 
@@ -364,7 +416,11 @@ public:
 		return false;
 
 	    int	size = bsize*bsize;
-	    assert(off + size <= page.size());
+
+	    // This can happen when zoomed out, since the addresses no
+	    // longer align perfectly with the display blocks.
+	    if (off + size > page.size())
+		return true;
 
 	    page.resetDirty();
 
@@ -461,7 +517,8 @@ DisplayLayout::fillImage(
 		    it->myBox.ymin()-roff,
 		    it->myBox.xmin()-coff);
 
-	    blockTraverse(0, 0, 0, plot, it->mySize, 15,
+	    blockTraverse(0, 0, 0, plot, it->mySize,
+		    15 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 	}
     }
