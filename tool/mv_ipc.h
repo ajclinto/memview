@@ -26,7 +26,7 @@
 
 typedef struct {
     unsigned long long	myAddr[theBlockSize];
-    int			myEntries;
+    unsigned int	myEntries;
     volatile int	myWSem;
     volatile int	myRSem;
 } TraceBlock;

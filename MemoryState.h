@@ -29,7 +29,7 @@ public:
     };
 
     static const uint32	theStale	= 1;
-    static const uint32	theFullLife	= 0xFFFFFFFF;
+    static const uint32	theFullLife	= 0x1FFFFFFF;
     static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
@@ -243,7 +243,6 @@ private:
     // Raw memory state
     StateArray	*myTable[theTopSize];
     uint32	 myTime;	// Rolling counter
-    uint64	 myHRTime;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.

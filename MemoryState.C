@@ -6,7 +6,6 @@
 
 MemoryState::MemoryState(int ignorebits)
     : myTime(2)
-    , myHRTime(2)
     , myIgnoreBits(ignorebits)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
@@ -22,16 +21,7 @@ MemoryState::~MemoryState()
 void
 MemoryState::incrementTime()
 {
-    if (sizeof(State) == sizeof(uint32))
-    {
-	myTime++;
-    }
-    else
-    {
-	myHRTime++;
-	if ((myHRTime & ((1 << 8*(sizeof(uint32)-sizeof(State)))-1)) == 0)
-	    myTime++;
-    }
+    myTime++;
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)
@@ -103,7 +93,6 @@ MemoryState::downsample(const MemoryState &state)
 
     // Copy times first for the display to work correctly
     myTime = state.myTime;
-    myHRTime = state.myHRTime;
 
     // Update the display bits first
     for (DisplayIterator it(const_cast<MemoryState &>(state));

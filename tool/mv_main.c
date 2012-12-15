@@ -28,7 +28,7 @@ static int		 clo_pipe = 0;
 static Bool		 clo_trace_instrs = False;
 static const char	*clo_shared_mem = 0;
 
-static Bool mv_process_cmd_line_option(Char* arg)
+static Bool mv_process_cmd_line_option(const HChar* arg)
 {
     if VG_INT_CLO(arg, "--pipe",		clo_pipe) {}
     else if VG_STR_CLO(arg, "--shared-mem",	clo_shared_mem) {}
@@ -170,17 +170,21 @@ static inline void put_wdata(Addr addr, uint64 type, SizeT size)
 
 #define MAX_DSIZE    512
 
-typedef IRExpr IRAtom;
+typedef
+   IRExpr 
+   IRAtom;
 
-typedef enum {
-    Event_Ir, Event_Dr, Event_Dw, Event_Dm
-} EventKind;
+typedef 
+   enum { Event_Ir, Event_Dr, Event_Dw, Event_Dm }
+   EventKind;
 
-typedef struct {
-    EventKind  ekind;
-    IRAtom*    addr;
-    Int        size;
-} Event;
+typedef
+   struct {
+      EventKind  ekind;
+      IRAtom*    addr;
+      Int        size;
+   }
+   Event;
 
 /* Up to this many unnotified events are allowed.  Must be at least two,
    so that reads and writes to the same address can be merged into a modify.
@@ -203,7 +207,8 @@ typedef struct {
    At various points the list will need to be flushed, that is, IR
    generated from it.  That must happen before any possible exit from
    the block (the end, or an IRStmt_Exit).  Flushing also takes place
-   when there is no space to add a new event.
+   when there is no space to add a new event, and before entering a
+   RMW (read-modify-write) section on processors supporting LL/SC.
 
    If we require the simulation statistics to be up to date with
    respect to possible memory exceptions, then the list would have to
@@ -277,7 +282,7 @@ static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
 static void flushEvents(IRSB* sb)
 {
     Int        i;
-    Char*      helperName;
+   const HChar* helperName;
     void*      helperAddr;
     IRExpr**   argv;
     IRDirty*   di;
@@ -381,6 +386,11 @@ static void flushEvents(IRSB* sb)
     events_used = 0;
 }
 
+// WARNING:  If you aren't interested in instruction reads, you can omit the
+// code that adds calls to trace_instr() in flushEvents().  However, you
+// must still call this function, addEvent_Ir() -- it is necessary to add
+// the Ir events to the events list so that merging of paired load/store
+// events into modify events works correctly.
 static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
 {
     Event* evt;
@@ -396,7 +406,8 @@ static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
     events_used++;
 }
 
-static void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
+static
+void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
 {
     Event* evt;
     tl_assert(isIRAtom(daddr));
@@ -412,7 +423,8 @@ static void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
     canCreateModify = True;
 }
 
-static void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
+static
+void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
 {
     Event* lastEvt;
     Event* evt;
