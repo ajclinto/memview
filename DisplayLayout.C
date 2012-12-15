@@ -224,7 +224,7 @@ DisplayLayout::layout(int width, int zoom)
 	    area += nc*nr;
 	}
 
-	myWidth = (int)sqrt(area);
+	myWidth = (int)sqrt(0.5F*area);
 
 	int r = 0;
 	int c = 0;
