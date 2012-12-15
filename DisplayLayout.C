@@ -128,8 +128,7 @@ DisplayLayout::update(MemoryState &state)
     //StopWatch	timer;
     myBlocks.clear();
 
-    MemoryState::DisplayIterator it(state);
-    for (it.rewind(); !it.atEnd(); it.advance())
+    for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
     {
 	auto page(it.page());
 	if (!myBlocks.size())

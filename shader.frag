@@ -54,10 +54,10 @@ void main(void)
 	return;
     }
 
-    uint type = (val >> 29u) & 3u;
-    bool freed = (val >> 31u) > 0u;
+    uint type = val & 3u;
+    bool freed = (val & 4u) > 0u;
 
-    int ival = int(val & ~(7u << 29));
+    int ival = int(val >> 3u);
 
     int diff = ival == theStale ? theHalfLife :
 	((theTime > ival) ? theTime-ival+1 : ival-theTime+1);

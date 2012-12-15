@@ -334,14 +334,14 @@ Loader::loadFromSharedMemory()
 bool
 Loader::loadFromTest()
 {
-    static const uint64 theSize = 16*1024;
+    static const uint64 theSize = 1024*1024;
     static uint64 theCount = 0;
 
     TraceBlock	block;
     block.myEntries = 1024;
     for (uint64 j = 0; j < block.myEntries; j++)
     {
-	block.myAddr[j] = 10*theCount*1024 + j;
+	block.myAddr[j] = theCount*1024 + j;
 	block.myAddr[j] |= (uint64)theTypeRead << theTypeShift;
 	block.myAddr[j] |= (uint64)4 << theSizeShift;
     }

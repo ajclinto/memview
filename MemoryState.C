@@ -5,8 +5,8 @@
 #include <assert.h>
 
 MemoryState::MemoryState(int ignorebits)
-    : myTime(1)
-    , myHRTime(1)
+    : myTime(2)
+    , myHRTime(2)
     , myIgnoreBits(ignorebits)
 {
     memset(myTable, 0, theTopSize*sizeof(State *));
@@ -36,8 +36,7 @@ MemoryState::incrementTime()
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)
     {
-	DisplayIterator	it(*this);
-	for (it.rewind(); !it.atEnd(); it.advance())
+	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
 	{
 	    DisplayPage page(it.page());
 	    for (uint64 i = 0; i < page.size(); i++)
@@ -50,7 +49,7 @@ MemoryState::incrementTime()
 	    }
 	}
 	if (myTime == theFullLife)
-	    myTime = 1;
+	    myTime = 2;
 	else
 	    myTime++;
     }
@@ -99,31 +98,40 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 void
 MemoryState::downsample(const MemoryState &state)
 {
-    int shift = myIgnoreBits - state.myIgnoreBits;
+    const int shift = myIgnoreBits - state.myIgnoreBits;
+    const uint64 scale = 1 << shift;
 
     // Copy times first for the display to work correctly
     myTime = state.myTime;
     myHRTime = state.myHRTime;
 
-    DisplayIterator	it(const_cast<MemoryState &>(state));
-    for (it.rewind(); !it.atEnd(); it.advance())
+    // Update the display bits first
+    for (DisplayIterator it(const_cast<MemoryState &>(state));
+	    !it.atEnd(); it.advance())
     {
 	DisplayPage page(it.page());
-	for (uint64 i = 0; i < page.size(); i++)
+
+	uint64  myaddr = page.addr() >> shift;
+	uint64  tidx = topIndex(myaddr);
+	uint64  bidx = bottomIndex(myaddr);
+
+	if (!myTable[tidx])
+	    myTable[tidx] = new StateArray;
+	myTable[tidx]->myDirty[bidx >> theDisplayBits] = true;
+
+	for (uint64 i = 0; i < page.size(); i += scale)
 	{
-	    State   state = page.state(i);
+	    State beststate;
+	    beststate.uval = 0;
 
-	    uint64  myaddr = (page.addr() + i) >> shift;
-	    uint64  tidx = topIndex(myaddr);
-	    uint64  bidx = bottomIndex(myaddr);
-
-	    if (!myTable[tidx])
-		myTable[tidx] = new StateArray;
-	    if (state.time() > myTable[tidx]->myState[bidx].time())
+	    State   *arr = page.stateArray();
+	    uint64 n = SYSmin(i+scale, page.size());
+	    for (uint64 j = i; j < n; j++)
 	    {
-		myTable[tidx]->myState[bidx] = state;
-		myTable[tidx]->myDirty[bidx >> theDisplayBits] = true;
+		beststate.uval = SYSmax(beststate.uval, arr[j].uval);
 	    }
+	    myTable[tidx]->myState[bidx] = beststate;
+	    bidx++;
 	}
     }
 }

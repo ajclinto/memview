@@ -369,7 +369,7 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 }
 
 static void
-zoomScroll(QScrollBar *scroll, int x, bool zoomout)
+zoomScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 {
     int ox = x;
     x += scroll->value();
@@ -377,11 +377,14 @@ zoomScroll(QScrollBar *scroll, int x, bool zoomout)
     if (zoomout)
 	x >>= 1;
     else
+    {
 	x <<= 1;
+	size <<= 1;
+    }
 
     x = SYSmax(x - ox, 0);
 
-    scroll->setMaximum(scroll->pageStep() + (scroll->maximum() << 1));
+    scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
     scroll->setValue(x);
 }
 
@@ -412,8 +415,8 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 	    myZoomState = myLoader->getBaseState();
 	}
 
-	zoomScroll(myHScrollBar, myMousePos.x(), myZoom > zoom);
-	zoomScroll(myVScrollBar, myMousePos.y(), myZoom > zoom);
+	zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(), myZoom > zoom);
+	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(), myZoom > zoom);
     }
 }
 

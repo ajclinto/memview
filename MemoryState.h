@@ -10,25 +10,26 @@ class MemoryState {
 public:
     class State {
     private:
-	static const int	theStateShift = 29;
-	static const uint32	theStateTimeMask = (1 << 29) - 1;
-	static const uint32	theStateTypeMask = ~theStateTimeMask;
+	static const int	theStateShift = 3;
+	static const uint32	theStateTypeMask = 0x7;
+	static const uint32	theStateTimeMask = ~theStateTypeMask;
 
     public:
 	void init(uint32 time, int type)
-       	{ uval = time; uval |= type << theStateShift; }
+       	{ uval = type; uval |= time << theStateShift; }
 
-	void setTime(uint32 time) { uval &= theStateTypeMask; uval |= time; }
-	void setFree() { uval |= theTypeFree << theStateShift; }
+	void setTime(uint32 time)
+	{ uval &= theStateTypeMask; uval |= time << theStateShift; }
+	void setFree() { uval |= theTypeFree; }
 
-	int type() const { return uval >> theStateShift; }
-	int time() const { return uval & theStateTimeMask; }
+	int type() const { return uval & theStateTypeMask; }
+	int time() const { return uval >> theStateShift; }
 
 	uint32	uval;
     };
 
-    static const uint32	theStale	= 0x1FFFFFFF;
-    static const uint32	theFullLife	= theStale-1;
+    static const uint32	theStale	= 1;
+    static const uint32	theFullLife	= 0xFFFFFFFF;
     static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
@@ -169,7 +170,7 @@ public:
 	uint64	     myBottom;
     };
 
-    DisplayPage	getPage(uint64 addr, uint64 &off)
+    DisplayPage	getPage(uint64 addr, uint64 &off) const
     {
 	uint64 tidx = topIndex(addr);
 	uint64 bidx = bottomIndex(addr);
@@ -187,6 +188,7 @@ public:
 	    , myTop(0)
 	    , myBottom(0)
 	{
+	    rewind();
 	}
 
 	void	rewind()
