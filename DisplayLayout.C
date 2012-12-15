@@ -145,11 +145,9 @@ DisplayLayout::update(MemoryState &state)
 	}
     }
 
-    // Initialize block sizes for non-linear display
+    // Initialize block sizes for block display
     if (myVisualization != LINEAR)
     {
-	myHeight = 0;
-	myWidth = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
 	    BlockSizer  sizer;
@@ -161,9 +159,6 @@ DisplayLayout::update(MemoryState &state)
 	    int nr = sizer.myHeight;
 
 	    it->myBox.initBounds(0, 0, nc, nr);
-
-	    myWidth = SYSmax(myWidth, nc);
-	    myHeight = SYSmax(myHeight, nc);
 	}
     }
 }
@@ -202,7 +197,6 @@ DisplayLayout::layout(int width, int zoom)
 	adjustZoom(myHeight, zoom);
     }
 
-    // Initialize global offsets
     if (myVisualization == LINEAR)
     {
 	int r = 0;
@@ -221,6 +215,18 @@ DisplayLayout::layout(int width, int zoom)
     }
     else
     {
+	// Find an approximate image width based on the sum of the block
+	// areas
+	double area = 0;
+	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	{
+	    double nc = it->myBox.xmax();
+	    double nr = it->myBox.ymax();
+	    area += nc*nr;
+	}
+
+	myWidth = (int)sqrt(area);
+
 	int r = 0;
 	int c = 0;
 	int maxheight = 0;
