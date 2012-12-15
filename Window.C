@@ -299,8 +299,9 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
 	myStopWatch.start();
 	myDragging = true;
 	myVelocity = std::queue<Velocity>();
-	myMousePos = event->pos();
     }
+
+    myMousePos = event->pos();
 }
 
 void
@@ -318,7 +319,6 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 		myVelocity.pop();
 	    myVelocity.push(Velocity(dir.x(), dir.y(), time));
 	}
-	myMousePos = event->pos();
     }
     else
     {
@@ -336,6 +336,8 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	    myStatusBar->showMessage(message);
 #endif
     }
+
+    myMousePos = event->pos();
 
     update();
 }
@@ -366,6 +368,23 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
+static void
+zoomScroll(QScrollBar *scroll, int x, bool zoomout)
+{
+    int ox = x;
+    x += scroll->value();
+
+    if (zoomout)
+	x >>= 1;
+    else
+	x <<= 1;
+
+    x = SYSmax(x - ox, 0);
+
+    scroll->setMaximum(scroll->pageStep() + (scroll->maximum() << 1));
+    scroll->setValue(x);
+}
+
 void
 MemViewWidget::wheelEvent(QWheelEvent *event)
 {
@@ -392,6 +411,9 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 	    myLoader->clearZoomState();
 	    myZoomState = myLoader->getBaseState();
 	}
+
+	zoomScroll(myHScrollBar, myMousePos.x(), myZoom > zoom);
+	zoomScroll(myVScrollBar, myMousePos.y(), myZoom > zoom);
     }
 }
 
