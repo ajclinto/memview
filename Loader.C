@@ -1,10 +1,12 @@
 #include "Loader.h"
+#include "MemoryState.h"
+#include "StopWatch.h"
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include "MemoryState.h"
 
 #define	SHARED_NAME "/memview"
+#define	THREAD_LOADS
 
 Loader::Loader(MemoryState *state)
     : QThread(0)
@@ -170,21 +172,22 @@ Loader::openPipe(int argc, char *argv[])
 void
 Loader::run()
 {
+    myAbort = false;
     while (!myAbort)
     {
 	bool	rval = false;
 
 	if (myPendingClear)
 	{
-	    delete myZoomState;
-	    myZoomState = 0;
+	    myZoomState.reset();
 	    myPendingClear = false;
 	}
 	if (myPendingState)
 	{
-	    MemoryState *zoom = myZoomState;
+	    // Ensure that we clean up the zoom state
+	    MemoryStateHandle zoom(myZoomState);
 
-	    myZoomState = myPendingState;
+	    myZoomState.reset(myPendingState);
 	    myPendingState = 0;
 
 	    // This could take a while
@@ -193,8 +196,6 @@ Loader::run()
 		myZoomState->downsample(*zoom);
 	    else
 		myZoomState->downsample(*myState);
-
-	    delete zoom;
 	}
 
 	switch (mySource)
@@ -215,6 +216,10 @@ Loader::run()
 	if (!rval)
 	    myAbort = true;
     }
+
+#ifdef THREAD_LOADS
+    QThreadPool::globalInstance()->waitForDone();
+#endif
 }
 
 bool
@@ -289,17 +294,17 @@ Loader::loadFromPipe()
     if (!myPipe)
 	return false;
 
-    TraceBlock	block;
+    TraceBlockHandle block(new TraceBlock);
 
-    if (read(myPipeFD, &block, sizeof(TraceBlock)))
+    if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
     {
-	if (block.myEntries)
+	if (block->myEntries)
 	{
 	    if (!loadBlock(block))
 		return false;
 	}
 
-	return block.myEntries == theBlockSize;
+	return block->myEntries == theBlockSize;
     }
 
     return false;
@@ -318,7 +323,8 @@ Loader::loadFromSharedMemory()
 
     if (block.myEntries)
     {
-	if (!loadBlock(block))
+	TraceBlockHandle handle(new TraceBlock(block));
+	if (!loadBlock(handle))
 	    return false;
     }
 
@@ -337,13 +343,13 @@ Loader::loadFromTest()
     static const uint64 theSize = 1024*1024;
     static uint64 theCount = 0;
 
-    TraceBlock	block;
-    block.myEntries = 1024;
-    for (uint64 j = 0; j < block.myEntries; j++)
+    TraceBlockHandle	block(new TraceBlock);
+    block->myEntries = 1024;
+    for (uint64 j = 0; j < block->myEntries; j++)
     {
-	block.myAddr[j] = theCount*1024 + j;
-	block.myAddr[j] |= (uint64)theTypeRead << theTypeShift;
-	block.myAddr[j] |= (uint64)4 << theSizeShift;
+	block->myAddr[j] = theCount*1024 + j;
+	block->myAddr[j] |= (uint64)theTypeRead << theTypeShift;
+	block->myAddr[j] |= (uint64)4 << theSizeShift;
     }
     loadBlock(block);
 
@@ -354,42 +360,62 @@ Loader::loadFromTest()
     return true;
 }
 
-bool
-Loader::loadBlock(const TraceBlock &block)
-{
-    // Basic semantic checking to ensure we received valid data
-    int type = (block.myAddr[0] & theTypeMask) >> theTypeShift;
-    if (type > 7)
-    {
-	fprintf(stderr, "received invalid block (size %d)\n",
-		block.myEntries);
-	return false;
-    }
+template <typename HandleType>
+class UpdateState : public QRunnable {
+public:
+    UpdateState(HandleType &state, const TraceBlockHandle &block)
+	: myState(state)
+	, myBlock(block) {}
 
-    int count = block.myEntries;
-    for (int i = 0; i < count; i++)
+    virtual void run()
     {
-	unsigned long long addr = block.myAddr[i];
-	myState->updateAddress(
-		addr & theAddrMask,
-		addr >> theSizeShift,
-		(addr & theTypeMask) >> theTypeShift);
-    }
+	QMutexLocker lock(myState->writeLock());
 
-    myState->incrementTime();
-
-    if (myZoomState)
-    {
+	int count = myBlock->myEntries;
 	for (int i = 0; i < count; i++)
 	{
-	    unsigned long long addr = block.myAddr[i];
-	    myZoomState->updateAddress(
+	    unsigned long long addr = myBlock->myAddr[i];
+	    myState->updateAddress(
 		    addr & theAddrMask,
 		    addr >> theSizeShift,
 		    (addr & theTypeMask) >> theTypeShift);
 	}
-	myZoomState->incrementTime();
+	myState->incrementTime();
     }
+
+private:
+    HandleType	     myState;
+    TraceBlockHandle myBlock;
+};
+
+bool
+Loader::loadBlock(const TraceBlockHandle &block)
+{
+    // Basic semantic checking to ensure we received valid data
+    int type = (block->myAddr[0] & theTypeMask) >> theTypeShift;
+    if (type > 7)
+    {
+	fprintf(stderr, "received invalid block (size %d)\n",
+		block->myEntries);
+	return false;
+    }
+
+#ifdef THREAD_LOADS
+    auto pool = QThreadPool::globalInstance();
+    pool->start(new UpdateState<MemoryState *>(myState, block));
+
+    if (myZoomState)
+	pool->start(new UpdateState<MemoryStateHandle>(myZoomState, block));
+#else
+    UpdateState<MemoryState *> state(myState, block);
+    state.run();
+
+    if (myZoomState)
+    {
+	UpdateState<MemoryStateHandle> zoomstate(myZoomState, block);
+	zoomstate.run();
+    }
+#endif
 
     return true;
 }

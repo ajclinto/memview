@@ -415,6 +415,11 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 	    myZoomState = myLoader->getBaseState();
 	}
 
+	// If the loader isn't running, start it just to do the downres for
+	// us.
+	if (!myLoader->isRunning())
+	    myLoader->start();
+
 	if (myDisplay.getVisualization() != DisplayLayout::LINEAR)
 	    zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(), myZoom > zoom);
 	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(), myZoom > zoom);

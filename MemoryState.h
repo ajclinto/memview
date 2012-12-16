@@ -124,6 +124,7 @@ public:
     void	incrementTime();
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
+    QMutex	*writeLock() { return &myWriteLock; }
 
     // Print status information for a memory address
     void	printStatusInfo(QString &message, uint64 addr);
@@ -242,6 +243,7 @@ public:
 private:
     // Raw memory state
     StateArray	*myTable[theTopSize];
+    QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
 
     // The number of low-order bits to ignore.  This value determines the

@@ -2,12 +2,16 @@
 #define Loader_H
 
 #include <QtGui>
-#include <sys/types.h>
-#include <signal.h>
 #include "tool/mv_ipc.h"
 #include "Math.h"
+#include <memory>
+#include <sys/types.h>
+#include <signal.h>
 
 class MemoryState;
+
+typedef std::shared_ptr<MemoryState> MemoryStateHandle;
+typedef std::shared_ptr<TraceBlock> TraceBlockHandle;
 
 class Loader : public QThread {
 public:
@@ -32,13 +36,13 @@ private:
     bool	loadFromSharedMemory();
     bool	loadFromTest();
 
-    bool	loadBlock(const TraceBlock &block);
+    bool	loadBlock(const TraceBlockHandle &block);
 
 private:
-    MemoryState	*myState;
-    MemoryState	*myZoomState;
-    MemoryState	*myPendingState;
-    bool	 myPendingClear;
+    MemoryState		*myState;
+    MemoryStateHandle	 myZoomState;
+    MemoryState		*myPendingState;
+    bool		 myPendingClear;
 
     // Child process
     pid_t	 myChild;
