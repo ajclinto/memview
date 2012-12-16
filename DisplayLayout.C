@@ -25,20 +25,21 @@ public:
 };
 
 static void
-blockTraverse(int idx, int roff, int coff,
-	Traverser &traverser, int size, int level,
+blockTraverse(uint64 idx, uint64 size, int roff, int coff,
+	Traverser &traverser, int level,
 	bool hilbert, int rotate, bool flip)
 {
     // Only calls the traverser for full blocks
-    if (size >= (1 << (2*level)))
+    if (size >= (1ull << (2*level)))
     {
 	if (!traverser.visit(idx, roff, coff, level, hilbert, rotate, flip)
 		|| level == 0)
 	    return;
     }
 
-    int	s = 1 << (level-1);
-    int	off = s*s;
+    int s = 1 << (level-1);
+    uint64 off = s;
+    off *= off;
     int	rs[4], cs[4];
     int	map[4];
 
@@ -62,26 +63,31 @@ blockTraverse(int idx, int roff, int coff,
     rs[map[2]] = s; cs[map[2]] = s;
     rs[map[3]] = 0; cs[map[3]] = s;
 
-    blockTraverse(idx, roff + rs[0], coff + cs[0],
-	    traverser, SYSmin(size, off), level-1,
-	    hilbert, rotate, !flip);
-    if (size > off)
+    // It's assumed that idx is within the given block range.  Find the
+    // relative offset within this block
+    uint64 idx_rel = idx & (4*off-1);
+    uint64 range[2] = {0, off};
+
+    for (int i = 0; i < 4; i++)
     {
-	blockTraverse(idx+off, roff + rs[1], coff + cs[1],
-	    traverser, SYSmin(size-off, off), level-1,
-	    hilbert, rotate, flip);
-    }
-    if (size > 2*off)
-    {
-	blockTraverse(idx+2*off, roff + rs[2], coff + cs[2],
-	    traverser, SYSmin(size-2*off, off), level-1,
-	    hilbert, rotate, flip);
-    }
-    if (size > 3*off)
-    {
-	blockTraverse(idx+3*off, roff + rs[3], coff + cs[3],
-	    traverser, SYSmin(size-3*off, off), level-1,
-	    hilbert, rotate ^ 2, !flip);
+	uint64 start = SYSmax(idx_rel, range[0]);
+	uint64 end = SYSmin(idx_rel + size, range[1]);
+
+	if (start < range[1] && end > range[0])
+	{
+	    blockTraverse(
+		    start + (idx - idx_rel), // Convert to an absolute index
+		    end - start,	     // Convert to size
+		    roff + rs[i],
+		    coff + cs[i],
+		    traverser,
+		    level-1,
+		    hilbert,
+		    (i == 3) ? (rotate ^ 2) : rotate,
+		    flip ^ (i == 0 || i == 3));
+	}
+	range[0] = range[1];
+	range[1] += off;
     }
 }
 
@@ -150,7 +156,7 @@ DisplayLayout::update(MemoryState &state)
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
 	    BlockSizer  sizer;
-	    blockTraverse(0, 0, 0, sizer, it->mySize,
+	    blockTraverse(0, it->mySize, 0, 0, sizer,
 		    15 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 
@@ -308,7 +314,7 @@ public:
 		    BlockFill   fill(
 			    myHilbert[level][r][f],
 			    myIHilbert[level][r][f]);
-		    blockTraverse(0, 0, 0, fill, theLUTSize, level, true, r, f);
+		    blockTraverse(0, theLUTSize, 0, 0, fill, level, true, r, f);
 		}
 	    }
 	}
@@ -522,7 +528,7 @@ DisplayLayout::fillImage(
 		    it->myBox.ymin()-roff,
 		    it->myBox.xmin()-coff);
 
-	    blockTraverse(0, 0, 0, plot, it->mySize,
+	    blockTraverse(0, it->mySize, 0, 0, plot,
 		    15 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 	}
