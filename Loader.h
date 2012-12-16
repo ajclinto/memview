@@ -23,7 +23,7 @@ public:
     void	setZoomState(MemoryState *state)
 		{
 		    QMutexLocker lock(&myPendingLock);
-		    myPendingState = state;
+		    myPendingState.reset(state);
 		}
     void	clearZoomState()
 		{
@@ -49,7 +49,7 @@ private:
     MemoryStateHandle	 myZoomState;
 
     QMutex		 myPendingLock;
-    MemoryState		*myPendingState;
+    std::unique_ptr<MemoryState> myPendingState;
     bool		 myPendingClear;
 
     // Child process

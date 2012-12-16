@@ -70,10 +70,10 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
     int type = entry.type();
     switch (type & ~theTypeFree)
     {
-	case 0: typestr = "Read"; break;
-	case 1: typestr = "Written"; break;
-	case 2: typestr = "Instruction"; break;
-	case 3: typestr = "Allocated"; break;
+	case theTypeRead: typestr = "Read"; break;
+	case theTypeWrite: typestr = "Written"; break;
+	case theTypeInstr: typestr = "Instruction"; break;
+	case theTypeAlloc: typestr = "Allocated"; break;
     }
 
     if (typestr)

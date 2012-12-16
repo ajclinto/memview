@@ -12,7 +12,6 @@ Loader::Loader(MemoryState *state)
     : QThread(0)
     , myState(state)
     , myZoomState(0)
-    , myPendingState(0)
     , myPendingClear(false)
     , myChild(-1)
     , myPipeFD(0)
@@ -172,7 +171,7 @@ Loader::openPipe(int argc, char *argv[])
 void
 Loader::run()
 {
-    StopWatch timer;
+    //StopWatch timer;
     myAbort = false;
     while (!myAbort)
     {
@@ -183,10 +182,9 @@ Loader::run()
 
 	{
 	    QMutexLocker lock(&myPendingLock);
-	    pending = myPendingState;
+	    pending = myPendingState.release();
 	    pendingclear = pendingclear;
 	    myPendingClear = false;
-	    myPendingState = 0;
 	}
 
 	if (pendingclear)
