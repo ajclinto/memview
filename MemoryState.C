@@ -110,16 +110,13 @@ MemoryState::downsample(const MemoryState &state)
 
 	for (uint64 i = 0; i < page.size(); i += scale)
 	{
-	    State beststate;
-	    beststate.uval = 0;
-
+	    uint    &mystate = myTable[tidx]->myState[bidx].uval;
 	    State   *arr = page.stateArray();
-	    uint64 n = SYSmin(i+scale, page.size());
+	    uint64   n = SYSmin(i+scale, page.size());
 	    for (uint64 j = i; j < n; j++)
 	    {
-		beststate.uval = SYSmax(beststate.uval, arr[j].uval);
+		mystate = SYSmax(mystate, arr[j].uval);
 	    }
-	    myTable[tidx]->myState[bidx] = beststate;
 	    bidx++;
 	}
     }

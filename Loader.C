@@ -184,6 +184,13 @@ Loader::run()
 	}
 	if (myPendingState)
 	{
+	    // Threads might be writing to the state or zoom state.  Wait
+	    // for these to finish to we have a consistent state to
+	    // downsample.
+#ifdef THREAD_LOADS
+	    QThreadPool::globalInstance()->waitForDone();
+#endif
+
 	    // Ensure that we clean up the zoom state
 	    MemoryStateHandle zoom(myZoomState);
 
