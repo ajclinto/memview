@@ -241,8 +241,8 @@ Loader::loadFromLackey(int max_read)
 	}
 
 	uint64		addr;
-	int		size;
-	int		type;
+	uint64		size;
+	uint64		type;
 
 	char		*saveptr = 0;
 	char		*type_str;
@@ -374,7 +374,7 @@ public:
 	int count = myBlock->myEntries;
 	for (int i = 0; i < count; i++)
 	{
-	    unsigned long long addr = myBlock->myAddr[i];
+	    uint64 addr = myBlock->myAddr[i];
 	    myState->updateAddress(
 		    addr & theAddrMask,
 		    addr >> theSizeShift,

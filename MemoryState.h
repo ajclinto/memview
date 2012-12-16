@@ -15,15 +15,15 @@ public:
 	static const uint32	theStateTimeMask = ~theStateTypeMask;
 
     public:
-	void init(uint32 time, int type)
+	void init(uint32 time, uint32 type)
        	{ uval = type | (time << theStateShift); }
 
 	void setTime(uint32 time)
 	{ init(time, type()); }
 	void setFree() { uval |= theTypeFree; }
 
-	int type() const { return uval & theStateTypeMask; }
-	int time() const { return uval >> theStateShift; }
+	uint32 type() const { return uval & theStateTypeMask; }
+	uint32 time() const { return uval >> theStateShift; }
 
 	uint32	uval;
     };
@@ -76,13 +76,13 @@ public:
      MemoryState(int ignorebits);
     ~MemoryState();
 
-    void	updateAddress(uint64 addr, int size, int type)
+    void	updateAddress(uint64 addr, uint64 size, uint64 type)
 		{
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
-		    size = SYSmax(size, 1);
+		    size = SYSmax(size, 1ull);
 
-		    while (size)
+		    do
 		    {
 			StateArray	*&row = myTable[topIndex(addr)];
 			uint64		  idx = bottomIndex(addr);
@@ -119,7 +119,7 @@ public:
 				row->myDirty[idx>>theDisplayBits] = true;
 			    }
 			}
-		    }
+		    } while(size);
 		}
     void	incrementTime();
     uint32	getTime() const { return myTime; }
