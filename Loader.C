@@ -356,14 +356,14 @@ Loader::loadFromSharedMemory()
 bool
 Loader::loadFromTest()
 {
-    static const uint64 theSize = 1024*1024;
+    static const uint64 theSize = 32*1024;
     static uint64 theCount = 0;
 
     TraceBlockHandle	block(new TraceBlock);
-    block->myEntries = 1024;
+    block->myEntries = theBlockSize;
     for (uint64 j = 0; j < block->myEntries; j++)
     {
-	block->myAddr[j] = theCount*1024 + j;
+	block->myAddr[j] = theCount*theBlockSize + j;
 	block->myAddr[j] |= (uint64)theTypeRead << theTypeShift;
 	block->myAddr[j] |= (uint64)4 << theSizeShift;
     }
@@ -373,7 +373,7 @@ Loader::loadFromTest()
     if (theCount >= theSize)
 	theCount = 0;
 
-    return true;
+    return theCount > 0;
 }
 
 template <typename HandleType>
@@ -404,6 +404,18 @@ private:
     TraceBlockHandle myBlock;
 };
 
+#ifdef THREAD_LOADS
+static void
+addToPool(QThreadPool *pool, QRunnable *task)
+{
+    if (!pool->tryStart(task))
+    {
+	task->run();
+	delete task;
+    }
+}
+#endif
+
 bool
 Loader::loadBlock(const TraceBlockHandle &block)
 {
@@ -418,10 +430,14 @@ Loader::loadBlock(const TraceBlockHandle &block)
 
 #ifdef THREAD_LOADS
     auto pool = QThreadPool::globalInstance();
-    pool->start(new UpdateState<MemoryState *>(myState, block));
+    QRunnable *task = new UpdateState<MemoryState *>(myState, block);
+    addToPool(pool, task);
 
     if (myZoomState)
-	pool->start(new UpdateState<MemoryStateHandle>(myZoomState, block));
+    {
+	task = new UpdateState<MemoryStateHandle>(myZoomState, block);
+	addToPool(pool, task);
+    }
 #else
     UpdateState<MemoryState *> state(myState, block);
     state.run();
