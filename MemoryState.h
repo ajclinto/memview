@@ -16,10 +16,10 @@ public:
 
     public:
 	void init(uint32 time, int type)
-       	{ uval = type; uval |= time << theStateShift; }
+       	{ uval = type | (time << theStateShift); }
 
 	void setTime(uint32 time)
-	{ uval &= theStateTypeMask; uval |= time << theStateShift; }
+	{ init(time, type()); }
 	void setFree() { uval |= theTypeFree; }
 
 	int type() const { return uval & theStateTypeMask; }
