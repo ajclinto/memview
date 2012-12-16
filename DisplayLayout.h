@@ -59,6 +59,7 @@ private:
 	uint64	mySize;
 
 	Box	myBox;
+	uint64	myDisplayAddr;
 	int	myStartCol;
     };
 

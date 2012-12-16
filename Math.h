@@ -2,6 +2,7 @@
 #define Math_H
 
 #include <stdio.h>
+#include <limits.h>
 
 typedef unsigned char		uint8;
 typedef unsigned short		uint16;
@@ -37,13 +38,23 @@ inline void SYSswap(T &v1, T &v2)
 }
 
 struct Box {
-    void	initBounds(int xl, int yl, int xh, int yh)
+    void initBounds()
+    {
+	l[0] = INT_MAX; h[0] = -INT_MAX;
+	l[1] = INT_MAX; h[1] = -INT_MAX;
+    }
+    void initBounds(int xl, int yl, int xh, int yh)
     {
 	l[0] = xl; h[0] = xh;
 	l[1] = yl; h[1] = yh;
     }
+    void enlargeBounds(int xl, int yl, int xh, int yh)
+    {
+	l[0] = SYSmin(l[0], xl); h[0] = SYSmax(h[0], xh);
+	l[1] = SYSmin(l[1], yl); h[1] = SYSmax(h[1], yh);
+    }
 
-    bool	intersect(const Box &other)
+    bool intersect(const Box &other)
     {
 	for (int i = 0; i < 2; i++)
 	{
@@ -52,9 +63,9 @@ struct Box {
 	}
 	return isValid();
     }
-    bool	isValid() const { return h[0] > l[0] && h[1] > l[1]; }
+    bool isValid() const { return h[0] > l[0] && h[1] > l[1]; }
 
-    void	dump() const
+    void dump() const
     {
 	fprintf(stderr, "box: %d %d - %d %d\n", l[0], l[1], h[0], h[1]);
     }

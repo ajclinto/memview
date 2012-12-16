@@ -94,38 +94,37 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
 class BlockSizer : public Traverser {
 public:
     BlockSizer()
-	: myWidth(0)
-	, myHeight(0) {}
+    {
+	myBox.initBounds();
+    }
 
-    void reset() { myWidth = myHeight = 0; }
     virtual bool visit(int, int r, int c, int level, bool, int, bool)
     {
 	int bsize = 1 << level;
-	myHeight = SYSmax(myHeight, r + bsize);
-	myWidth = SYSmax(myWidth, c + bsize);
+	myBox.enlargeBounds(c, r, c+bsize, r+bsize);
 	return false;
     }
 
 public:
-    int	     myWidth;
-    int	     myHeight;
+    Box	myBox;
 };
 
-static void
-placeBlock(int &c, int &r, int bwidth, int bheight,
-	int &maxheight, int iwidth)
+static inline uint64
+blockAlign(uint64 daddr, uint64 addr, uint64 size)
 {
-    // Does the block fit horizontally?
-    if (c + bwidth > iwidth)
-    {
-	r += maxheight + theBlockSpacing;
-	c = 0;
-	maxheight = bheight;
-    }
+    uint64 asize = 1024;
+    while (asize < (size >> 1))
+	asize <<= 1;
+
+    addr &= (asize-1);
+
+    uint64 dalign = daddr & (asize-1);
+    if (addr >= dalign)
+	addr -= dalign;
     else
-    {
-	maxheight = SYSmax(maxheight, bheight);
-    }
+	addr += asize - dalign;
+
+    return daddr + addr;
 }
 
 void
@@ -150,20 +149,32 @@ DisplayLayout::update(MemoryState &state)
 	}
     }
 
-    // Initialize block sizes for block display
     if (myVisualization != LINEAR)
     {
+	// Initialize block display addresses
+	uint64 addr = 0;
+	uint64 psize = 0;
+
+	myWidth = 0;
+	myHeight = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
+	    // Align the new block based on its size and the size of the
+	    // previous block
+	    it->myDisplayAddr =
+		blockAlign(addr, it->myAddr, SYSmax(it->mySize, psize));
+
 	    BlockSizer  sizer;
-	    blockTraverse(0, it->mySize, 0, 0, sizer,
+	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, sizer,
 		    15 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 
-	    int nc = sizer.myWidth;
-	    int nr = sizer.myHeight;
+	    it->myBox = sizer.myBox;
+	    myWidth = SYSmax(myWidth, sizer.myBox.xmax());
+	    myHeight = SYSmax(myHeight, sizer.myBox.ymax());
 
-	    it->myBox.initBounds(0, 0, nc, nr);
+	    addr = it->myDisplayAddr + it->mySize;
+	    psize = it->mySize;
 	}
     }
 }
@@ -191,9 +202,12 @@ DisplayLayout::layout(int width, int zoom)
 	    end += a;
 	    end >>= zoom2;
 	    it->myAddr >>= zoom2;
+	    it->myDisplayAddr >>= zoom2;
 	    it->mySize = end - it->myAddr;
 
 	    // Update the block size
+	    it->myBox.l[0] >>= zoom;
+	    it->myBox.l[1] >>= zoom;
 	    adjustZoom(it->myBox.h[0], zoom);
 	    adjustZoom(it->myBox.h[1], zoom);
 	}
@@ -217,37 +231,6 @@ DisplayLayout::layout(int width, int zoom)
 	}
 	myWidth = width;
 	myHeight = r;
-    }
-    else
-    {
-	// Find an approximate image width based on the sum of the block
-	// areas
-	double area = 0;
-	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
-	{
-	    double nc = it->myBox.xmax();
-	    double nr = it->myBox.ymax();
-	    area += nc*nr;
-	}
-
-	myWidth = (int)sqrt(0.5F*area);
-
-	int r = 0;
-	int c = 0;
-	int maxheight = 0;
-	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
-	{
-	    int nc = it->myBox.xmax();
-	    int nr = it->myBox.ymax();
-
-	    placeBlock(c, r, nc, nr, maxheight, myWidth);
-
-	    it->myBox.initBounds(c, r, c+nc, r+nr);
-
-	    c += nc + theBlockSpacing;
-	    myWidth = SYSmax(myWidth, c);
-	}
-	myHeight = r + maxheight + theBlockSpacing;
     }
 }
 
@@ -389,10 +372,11 @@ template <typename T>
 class PlotImage : public Traverser {
 public:
     PlotImage(MemoryState &state,
-	    GLImage<T> &image, uint64 addr, int roff, int coff)
+	    GLImage<T> &image, uint64 addr, uint64 daddr, int roff, int coff)
 	: myState(state)
 	, myImage(image)
 	, myAddr(addr)
+	, myDisplayAddr(daddr)
 	, myRowOff(roff)
 	, myColOff(coff)
 	{}
@@ -421,7 +405,7 @@ public:
 	if (level <= theLUTLevels)
 	{
 	    uint64 off;
-	    auto page = myState.getPage(myAddr + idx, off);
+	    auto page = myState.getPage(myAddr + idx - myDisplayAddr, off);
 
 	    if (!page.exists())
 		return false;
@@ -458,6 +442,7 @@ private:
     MemoryState	&myState;
     GLImage<T> &myImage;
     uint64   myAddr;
+    uint64   myDisplayAddr;
     int	     myRowOff;
     int	     myColOff;
 };
@@ -524,11 +509,10 @@ DisplayLayout::fillImage(
 	}
 	else
 	{
-	    PlotImage<T> plot(state, image, it->myAddr,
-		    it->myBox.ymin()-roff,
-		    it->myBox.xmin()-coff);
+	    PlotImage<T> plot(state, image,
+		    it->myAddr, it->myDisplayAddr, -roff, -coff);
 
-	    blockTraverse(0, it->mySize, 0, 0, plot,
+	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, plot,
 		    15 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 	}
