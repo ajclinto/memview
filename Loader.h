@@ -21,9 +21,15 @@ public:
     bool	openPipe(int argc, char *argv[]);
 
     void	setZoomState(MemoryState *state)
-		{ myPendingState = state; }
+		{
+		    QMutexLocker lock(&myPendingLock);
+		    myPendingState = state;
+		}
     void	clearZoomState()
-		{ myPendingClear = true; }
+		{
+		    QMutexLocker lock(&myPendingLock);
+		    myPendingClear = true;
+		}
 
     MemoryState	*getBaseState() const { return myState; }
 
@@ -41,6 +47,8 @@ private:
 private:
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;
+
+    QMutex		 myPendingLock;
     MemoryState		*myPendingState;
     bool		 myPendingClear;
 

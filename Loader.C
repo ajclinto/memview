@@ -172,17 +172,27 @@ Loader::openPipe(int argc, char *argv[])
 void
 Loader::run()
 {
+    StopWatch timer;
     myAbort = false;
     while (!myAbort)
     {
 	bool	rval = false;
 
-	if (myPendingClear)
+	MemoryState	*pending = 0;
+	bool		 pendingclear = false;
+
 	{
-	    myZoomState.reset();
+	    QMutexLocker lock(&myPendingLock);
+	    pending = myPendingState;
+	    pendingclear = pendingclear;
 	    myPendingClear = false;
+	    myPendingState = 0;
 	}
-	if (myPendingState)
+
+	if (pendingclear)
+	    myZoomState.reset();
+
+	if (pending)
 	{
 	    // Threads might be writing to the state or zoom state.  Wait
 	    // for these to finish to we have a consistent state to
@@ -194,8 +204,7 @@ Loader::run()
 	    // Ensure that we clean up the zoom state
 	    MemoryStateHandle zoom(myZoomState);
 
-	    myZoomState.reset(myPendingState);
-	    myPendingState = 0;
+	    myZoomState.reset(pending);
 
 	    // This could take a while
 	    if (zoom && zoom->getIgnoreBits() <
