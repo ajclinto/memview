@@ -312,13 +312,8 @@ Loader::loadFromPipe()
 
     if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
     {
-	if (block->myEntries)
-	{
-	    if (!loadBlock(block))
-		return false;
-	}
-
-	return block->myEntries == theBlockSize;
+	if (block->myEntries && loadBlock(block))
+	    return block->myEntries == theBlockSize;
     }
 
     return false;
@@ -385,8 +380,8 @@ public:
     {
 	QMutexLocker lock(myState->writeLock());
 
-	int count = myBlock->myEntries;
-	for (int i = 0; i < count; i++)
+	uint32 count = myBlock->myEntries;
+	for (uint32 i = 0; i < count; i++)
 	{
 	    uint64 addr = myBlock->myAddr[i];
 	    myState->updateAddress(
@@ -418,10 +413,10 @@ bool
 Loader::loadBlock(const TraceBlockHandle &block)
 {
     // Basic semantic checking to ensure we received valid data
-    int type = (block->myAddr[0] & theTypeMask) >> theTypeShift;
-    if (type > 7)
+    uint64 type = (block->myAddr[0] & theTypeMask) >> theTypeShift;
+    if (block->myEntries > theBlockSize || type > 7)
     {
-	fprintf(stderr, "received invalid block (size %d)\n",
+	fprintf(stderr, "received invalid block (size %u)\n",
 		block->myEntries);
 	return false;
     }

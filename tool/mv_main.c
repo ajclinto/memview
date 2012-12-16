@@ -8,6 +8,7 @@
 #include "pub_tool_tooliface.h"
 #include "pub_tool_libcassert.h"
 #include "pub_tool_libcprint.h"
+#include "pub_tool_libcproc.h"
 #include "pub_tool_libcfile.h"
 #include "pub_tool_debuginfo.h"
 #include "pub_tool_libcbase.h"
@@ -782,6 +783,12 @@ static void mv_fini(Int exitcode)
     VG_(printf)("Total events: %lld\n", theTotalEvents);
 }
 
+static void mv_atfork_child(ThreadId tid)
+{
+    /* Can't have 2 processes writing to the same pipe. */
+    clo_pipe = 0;
+}
+
 static void mv_pre_clo_init(void)
 {
     VG_(details_name)            ("Memview");
@@ -811,6 +818,8 @@ static void mv_pre_clo_init(void)
 	    0 );
 
     malloc_list = VG_(HT_construct)("Memview's malloc list");
+
+    VG_(atfork)(NULL/*pre*/, NULL/*parent*/, mv_atfork_child/*child*/);
 }
 
 VG_DETERMINE_INTERFACE_VERSION(mv_pre_clo_init)
