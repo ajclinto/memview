@@ -113,7 +113,7 @@ static inline uint64
 blockAlign(uint64 daddr, uint64 addr, uint64 size)
 {
     uint64 asize = 1024;
-    while (asize < (size >> 1))
+    while (asize < (size >> 2))
 	asize <<= 1;
 
     addr &= (asize-1);
