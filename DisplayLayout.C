@@ -127,13 +127,26 @@ blockAlign(uint64 daddr, uint64 addr, uint64 size)
     return daddr + addr;
 }
 
+static void
+adjustZoom(int &val, int zoom)
+{
+    int a = (1 << zoom) - 1;
+    val = (val + a) >> zoom;
+}
+
 void
-DisplayLayout::update(MemoryState &state)
+DisplayLayout::update(
+	MemoryState &state,
+	MemoryState &zoomstate,
+	int width, int zoom)
 {
     //StopWatch	timer;
     myBlocks.clear();
 
-    for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
+    // Perform the block layout using the zoom state directly for linear
+    // visualization, since it provides a better packed result.
+    MemoryState &lstate = myVisualization != LINEAR ? state : zoomstate;
+    for (MemoryState::DisplayIterator it(lstate); !it.atEnd(); it.advance())
     {
 	auto page(it.page());
 	if (!myBlocks.size())
@@ -176,47 +189,36 @@ DisplayLayout::update(MemoryState &state)
 	    addr = it->myDisplayAddr + it->mySize;
 	    psize = it->mySize;
 	}
-    }
-}
 
-static void
-adjustZoom(int &val, int zoom)
-{
-    int a = (1 << zoom) - 1;
-    val = (val + a) >> zoom;
-}
-
-void
-DisplayLayout::layout(int width, int zoom)
-{
-    //StopWatch	timer;
-
-    if (zoom > 0)
-    {
-	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	if (zoom > 0)
 	{
-	    int zoom2 = 2*zoom;
-	    // Update the address range
-	    int a = (1 << zoom2) - 1;
-	    uint64 end = it->myAddr + it->mySize;
-	    end += a;
-	    end >>= zoom2;
-	    it->myAddr >>= zoom2;
-	    it->myDisplayAddr >>= zoom2;
-	    it->mySize = end - it->myAddr;
+	    // Zoom grows in increments in 4x for block display.  This
+	    // value will store the zoom on each axis.
+	    const int zoom2 = zoom >> 1;
 
-	    // Update the block size
-	    it->myBox.l[0] >>= zoom;
-	    it->myBox.l[1] >>= zoom;
-	    adjustZoom(it->myBox.h[0], zoom);
-	    adjustZoom(it->myBox.h[1], zoom);
+	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	    {
+		// Update the address range
+		int a = (1 << zoom) - 1;
+		uint64 end = it->myAddr + it->mySize;
+		end += a;
+		end >>= zoom;
+		it->myAddr >>= zoom;
+		it->myDisplayAddr >>= zoom;
+		it->mySize = end - it->myAddr;
+
+		// Update the block size
+		it->myBox.l[0] >>= zoom2;
+		it->myBox.l[1] >>= zoom2;
+		adjustZoom(it->myBox.h[0], zoom2);
+		adjustZoom(it->myBox.h[1], zoom2);
+	    }
+
+	    adjustZoom(myWidth, zoom2);
+	    adjustZoom(myHeight, zoom2);
 	}
-
-	adjustZoom(myWidth, zoom);
-	adjustZoom(myHeight, zoom);
     }
-
-    if (myVisualization == LINEAR)
+    else
     {
 	int r = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)

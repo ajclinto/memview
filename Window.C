@@ -125,6 +125,7 @@ void
 MemViewWidget::block()
 {
     myDisplay.setVisualization(DisplayLayout::BLOCK);
+    changeZoom(myZoom);
     update();
 }
 
@@ -132,6 +133,7 @@ void
 MemViewWidget::hilbert()
 {
     myDisplay.setVisualization(DisplayLayout::HILBERT);
+    changeZoom(myZoom);
     update();
 }
 
@@ -233,22 +235,20 @@ MemViewWidget::paintGL()
 
     myImage.setData((uint32 *)
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
-    myDisplay.update(*myState);
-    myDisplay.layout(myImage.width(), myZoom);
+#endif
+
+    myDisplay.update(*myState, *myZoomState, myImage.width(), myZoom);
     myDisplay.fillImage(myImage, *myZoomState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
+
+#ifdef USE_PBUFFER
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
 #else
-    myDisplay.update(*myState);
-    myDisplay.layout(myImage.width(), myZoom);
-    myDisplay.fillImage(myImage, *myZoomState,
-	    myHScrollBar->value(),
-	    myVScrollBar->value());
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, myImage.data());
@@ -391,23 +391,37 @@ zoomScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 void
 MemViewWidget::wheelEvent(QWheelEvent *event)
 {
-    int zoom = myZoom;
+    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
+    const int	inc = linear ? 1 : 2;
+
+    int	zoom = myZoom;
 
     if (event->delta() < 0)
-	myZoom++;
+	zoom += inc;
     else if (event->delta() > 0)
-	myZoom--;
+	zoom -= inc;
 
-    myZoom = SYSclamp(myZoom, 0, 14);
+    changeZoom(zoom);
+}
+
+void
+MemViewWidget::changeZoom(int zoom)
+{
+    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
+
+    // Zoom in increments of 2 for block display
+    if (!linear)
+	zoom &= ~1;
+
+    zoom = SYSclamp(zoom, 0, 28);
 
     if (zoom != myZoom)
     {
-	if (myZoom)
+	if (zoom)
 	{
-	    MemoryState *state = new MemoryState(
-		    myLoader->getBaseState()->getIgnoreBits()+2*myZoom);
-	    myLoader->setZoomState(state);
-	    myZoomState = state;
+	    myZoomState = new MemoryState(
+		    myLoader->getBaseState()->getIgnoreBits()+zoom);
+	    myLoader->setZoomState(myZoomState);
 	}
 	else
 	{
@@ -420,9 +434,13 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 	if (!myLoader->isRunning())
 	    myLoader->start();
 
-	if (myDisplay.getVisualization() != DisplayLayout::LINEAR)
-	    zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(), myZoom > zoom);
-	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(), myZoom > zoom);
+	if (!linear)
+	    zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(),
+		    zoom > myZoom);
+	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(),
+		zoom > myZoom);
+
+	myZoom = zoom;
     }
 }
 

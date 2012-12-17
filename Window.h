@@ -75,6 +75,8 @@ protected:
 
     void	timerEvent(QTimerEvent *event);
 
+    void	changeZoom(int zoom);
+
 private slots:
     void    linear();
     void    block();
