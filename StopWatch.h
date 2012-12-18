@@ -24,13 +24,13 @@ public:
 	myLap = cur;
 	return val;
     }
-    double stop()
+    double elapsed() const
     {
 	return time()-myStart;
     }
 
 private:
-    double time()
+    double time() const
     {
 	timespec	ts;
 	clock_gettime(CLOCK_REALTIME, &ts);

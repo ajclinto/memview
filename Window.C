@@ -340,16 +340,14 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-	double  time = myStopWatch.lap();
+	double  time = myStopWatch.elapsed();
 	QPoint  dir = zoomPos(myMousePos - event->pos(), myZoom);
 	myHScrollBar->setValue(myHScrollBar->value() + dir.x());
 	myVScrollBar->setValue(myVScrollBar->value() + dir.y());
-	if (time > 0)
-	{
-	    if (myVelocity.size() >= 5)
-		myVelocity.pop();
-	    myVelocity.push(Velocity(dir.x(), dir.y(), time));
-	}
+
+	if (myVelocity.size() >= 5)
+	    myVelocity.pop();
+	myVelocity.push(Velocity(dir.x(), dir.y(), time));
     }
     else
     {
@@ -374,6 +372,8 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     update();
 }
 
+static const double theDragDelay = 0.1;
+
 void
 MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
@@ -382,21 +382,27 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 	myDragging = false;
 
 	// Compute the average velocity.  We'll require at least 2 samples
-	// to avoid spikes.
-	int size = myVelocity.size();
+	// to avoid spikes.  Only consider samples within a specified time
+	// interval.
+	int	  size = myVelocity.size();
+	double    time = myStopWatch.elapsed() - theDragDelay;
+	Velocity  vel(0, 0, 0);
+	while (myVelocity.size())
+	{
+	    if (myVelocity.front().time > time)
+		vel += myVelocity.front();
+	    else
+		size--;
+	    myVelocity.pop();
+	}
+
 	if (size > 1)
 	{
-	    Velocity  vel(0, 0, 0);
-	    while (myVelocity.size())
-	    {
-		vel += myVelocity.front();
-		myVelocity.pop();
-	    }
-	    vel *= 1.0 / vel.time;
+	    vel *= 1.0 / theDragDelay;
 	    myVelocity.push(vel);
 	}
-	else
-	    myVelocity = std::queue<Velocity>();
+
+	myStopWatch.start();
     }
 }
 
