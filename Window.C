@@ -240,6 +240,19 @@ MemViewWidget::resizeImage(int zoom)
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
+// Scrolling margin, in pixels
+static const int theMargin = 64;
+
+static void
+setScrollMax(QScrollBar *scroll, int size, bool with_margin = true)
+{
+    int margin = with_margin ? theMargin : 0;
+    int nmax = SYSmax(size - scroll->pageStep() + margin, 0);
+
+    scroll->setMaximum(nmax);
+    scroll->setMinimum(-margin);
+}
+
 void
 MemViewWidget::paintGL()
 {
@@ -275,13 +288,9 @@ MemViewWidget::paintGL()
 
     myProgram->setUniformValue("theTime", myState->getTime());
 
-    int nmax;
-
-    nmax = SYSmax(myDisplay.height() - myVScrollBar->pageStep(), 0);
-    myVScrollBar->setMaximum(nmax);
-
-    nmax = SYSmax(myDisplay.width() - myHScrollBar->pageStep(), 0);
-    myHScrollBar->setMaximum(nmax);
+    setScrollMax(myVScrollBar, myDisplay.height());
+    setScrollMax(myHScrollBar, myDisplay.width(),
+	    myDisplay.getVisualization() != DisplayLayout::LINEAR);
 
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
@@ -431,9 +440,9 @@ minScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 	size <<= 1;
     }
 
-    x = SYSmax(x - ox, 0);
+    x -= ox;
 
-    scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
+    setScrollMax(scroll, size);
     scroll->setValue(x);
 }
 
@@ -443,14 +452,14 @@ magScroll(QScrollBar *scroll, int x, int size, bool zoomout)
     if (zoomout)
     {
 	x >>= 1;
-	x = SYSmax(scroll->value() - x, 0);
+	x = scroll->value() - x;
     }
     else
     {
 	x += scroll->value();
     }
 
-    scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
+    setScrollMax(scroll, size);
     scroll->setValue(x);
 }
 
@@ -464,17 +473,16 @@ magScrollLinear(QScrollBar *scroll, int x, int size, bool zoomout)
     {
 	x += scroll->value();
 	x >>= 1;
-	x = SYSmax(scroll->value() - x, 0);
+	x = scroll->value() - x;
 	size >>= 1;
-	scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
     }
     else
     {
 	x += scroll->value() << 1;
 	size <<= 1;
-	scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
     }
 
+    setScrollMax(scroll, size);
     scroll->setValue(x);
 }
 
