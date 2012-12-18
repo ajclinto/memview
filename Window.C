@@ -206,15 +206,33 @@ MemViewWidget::resizeGL(int width, int height)
     glViewport(0, 0, (GLint)width, (GLint)height);
 
     glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity ();
+    glLoadIdentity();
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
 
+    resizeImage(myZoom);
+}
+
+void
+MemViewWidget::resizeImage(int zoom)
+{
+    int w = width();
+    int h = height();
+
+    if (zoom < 0)
+    {
+	w >>= (-zoom) >> 1;
+	h >>= (-zoom) >> 1;
+    }
+
+    myVScrollBar->setPageStep(h);
+    myHScrollBar->setPageStep(w);
+
 #ifdef USE_PBUFFER
-    myImage.setSize(width, height);
+    myImage.setSize(w, h);
 #else
-    myImage.resize(width, height);
+    myImage.resize(w, h);
 #endif
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
@@ -237,7 +255,8 @@ MemViewWidget::paintGL()
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, *myZoomState, myImage.width(), myZoom);
+    myDisplay.update(*myState, *myZoomState,
+	    myImage.width(), SYSmax(myZoom, 0));
     myDisplay.fillImage(myImage, *myZoomState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
@@ -277,18 +296,21 @@ MemViewWidget::paintGL()
 void
 MemViewWidget::resizeEvent(QResizeEvent *event)
 {
-    if (size().width() != myImage.width() ||
-	size().height() != myImage.height())
+    QGLWidget::resizeEvent(event);
+    update();
+}
+
+QPoint
+MemViewWidget::zoomPos(QPoint pos, int zoom) const
+{
+    if (zoom < 0)
     {
-	int w = size().width();
-	int h = size().height();
-
-	myVScrollBar->setPageStep(h);
-	myHScrollBar->setPageStep(w);
-
-	QGLWidget::resizeEvent(event);
-	update();
+	pos.rx() *= myImage.width();
+	pos.rx() /= width();
+	pos.ry() *= myImage.height();
+	pos.ry() /= height();
     }
+    return pos;
 }
 
 void
@@ -310,7 +332,7 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() & Qt::LeftButton)
     {
 	double  time = myStopWatch.lap();
-	QPoint dir = myMousePos - event->pos();
+	QPoint  dir = zoomPos(myMousePos - event->pos(), myZoom);
 	myHScrollBar->setValue(myHScrollBar->value() + dir.x());
 	myVScrollBar->setValue(myVScrollBar->value() + dir.y());
 	if (time > 0)
@@ -323,9 +345,10 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     else
     {
 #if 1
+	QPoint  pos = zoomPos(event->pos(), myZoom);
 	uint64 qaddr = myDisplay.queryPixelAddress(*myZoomState,
-		myHScrollBar->value() + event->pos().x(),
-		myVScrollBar->value() + event->pos().y());
+		myHScrollBar->value() + pos.x(),
+		myVScrollBar->value() + pos.y());
 
 	QString	message;
 	myZoomState->printStatusInfo(message, qaddr);
@@ -368,8 +391,34 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
     }
 }
 
+void
+MemViewWidget::wheelEvent(QWheelEvent *event)
+{
+    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
+    const int	inc = linear ? 1 : 2;
+
+    int	zoom = myZoom;
+
+    if (event->delta() < 0)
+    {
+	if (zoom < 0)
+	    zoom += 2;
+	else
+	    zoom += inc;
+    }
+    else if (event->delta() > 0)
+    {
+	if (zoom <= 0)
+	    zoom -= 2;
+	else
+	    zoom -= inc;
+    }
+
+    changeZoom(zoom);
+}
+
 static void
-zoomScroll(QScrollBar *scroll, int x, int size, bool zoomout)
+minScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 {
     int ox = x;
     x += scroll->value();
@@ -388,20 +437,45 @@ zoomScroll(QScrollBar *scroll, int x, int size, bool zoomout)
     scroll->setValue(x);
 }
 
-void
-MemViewWidget::wheelEvent(QWheelEvent *event)
+static void
+magScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 {
-    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
-    const int	inc = linear ? 1 : 2;
+    if (zoomout)
+    {
+	x >>= 1;
+	x = SYSmax(scroll->value() - x, 0);
+    }
+    else
+    {
+	x += scroll->value();
+    }
 
-    int	zoom = myZoom;
+    scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
+    scroll->setValue(x);
+}
 
-    if (event->delta() < 0)
-	zoom += inc;
-    else if (event->delta() > 0)
-	zoom -= inc;
+static void
+magScrollLinear(QScrollBar *scroll, int x, int size, bool zoomout)
+{
+    // This is intended only to approximate the correct homing, since the
+    // full re-layout that occurs in linear mode can cause blocks to
+    // reposition arbitrarily.
+    if (zoomout)
+    {
+	x += scroll->value();
+	x >>= 1;
+	x = SYSmax(scroll->value() - x, 0);
+	size >>= 1;
+	scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
+    }
+    else
+    {
+	x += scroll->value() << 1;
+	size <<= 1;
+	scroll->setMaximum(SYSmax(size - scroll->pageStep(), 0));
+    }
 
-    changeZoom(zoom);
+    scroll->setValue(x);
 }
 
 void
@@ -413,11 +487,15 @@ MemViewWidget::changeZoom(int zoom)
     if (!linear)
 	zoom &= ~1;
 
-    zoom = SYSclamp(zoom, 0, 28);
+    // Zoom in increments of 2 for magnification
+    if (zoom < 0)
+	zoom = -((-zoom) & ~1);
+
+    zoom = SYSclamp(zoom, -16, 28);
 
     if (zoom != myZoom)
     {
-	if (zoom)
+	if (zoom > 0)
 	{
 	    myZoomState = new MemoryState(
 		    myLoader->getBaseState()->getIgnoreBits()+zoom);
@@ -429,16 +507,37 @@ MemViewWidget::changeZoom(int zoom)
 	    myZoomState = myLoader->getBaseState();
 	}
 
-	// If the loader isn't running, start it just to do the downres for
-	// us.
-	if (!myLoader->isRunning())
-	    myLoader->start();
+	const bool zoomout = zoom > myZoom;
+	QPoint zpos = myMousePos;
 
-	if (!linear)
-	    zoomScroll(myHScrollBar, myMousePos.x(), myDisplay.width(),
-		    zoom > myZoom);
-	zoomScroll(myVScrollBar, myMousePos.y(), myDisplay.height(),
-		zoom > myZoom);
+	if (zoom < 0 || myZoom < 0)
+	{
+	    // This makes a GL call
+	    resizeImage(zoom);
+
+	    // This needs to be computed based on the new zoom value
+	    zpos = zoomPos(zpos, zoom);
+	    if (!linear)
+	    {
+		magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
+		magScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+	    }
+	    else
+	    {
+		magScrollLinear(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+	    }
+	}
+	else
+	{
+	    // If the loader isn't running, start it just to do the downres
+	    // for us.
+	    if (!myLoader->isRunning())
+		myLoader->start();
+
+	    if (!linear)
+		minScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
+	    minScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+	}
 
 	myZoom = zoom;
     }

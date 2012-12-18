@@ -75,7 +75,9 @@ protected:
 
     void	timerEvent(QTimerEvent *event);
 
+    void	resizeImage(int zoom);
     void	changeZoom(int zoom);
+    QPoint	zoomPos(QPoint pos, int zoom) const;
 
 private slots:
     void    linear();
