@@ -34,25 +34,25 @@ public:
 
 private:
     static const int	theAllBits = 36;
-    static const uint64	theAllSize = 1L << theAllBits;
+    static const uint64	theAllSize = 1ull << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
 
     static const int	theTopBits = 18;
-    static const uint64	theTopSize = 1L << theTopBits;
+    static const uint64	theTopSize = 1ull << theTopBits;
     static const uint64	theTopMask = theTopSize-1;
 
     static const int	theBottomBits = theAllBits-theTopBits;
-    static const uint64	theBottomSize = 1L << theBottomBits;
+    static const uint64	theBottomSize = 1ull << theBottomBits;
     static const uint64	theBottomMask = theBottomSize-1;
 
     // For display - 32x32 is the basic block size
     static const int	theDisplayWidthBits = 6;
-    static const uint64	theDisplayWidth = 1<<theDisplayWidthBits;
+    static const uint64	theDisplayWidth = 1ull<<theDisplayWidthBits;
     static const int	theDisplayBits = theDisplayWidthBits<<1;
-    static const uint64	theDisplaySize = 1<<theDisplayBits;
+    static const uint64	theDisplaySize = 1ull<<theDisplayBits;
     static const uint64	theDisplayMask = theDisplaySize-1;
     static const uint64	theDisplayBlocksPerBottom =
-			    1<<(theBottomBits-theDisplayBits);
+			    1ull<<(theBottomBits-theDisplayBits);
 
     struct StateArray {
 	StateArray()
