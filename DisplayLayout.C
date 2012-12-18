@@ -251,7 +251,8 @@ getBlockCoord(int &r, int &c, int idx)
     }
 }
 
-static const int theLUTLevels = 5;
+// This should match MemoryState::theDisplayWidthBits for maximum efficiency
+static const int theLUTLevels = 6;
 static const int theLUTWidth = 1 << theLUTLevels;
 static const int theLUTMask = theLUTWidth - 1;
 static const int theLUTSize = 1 << (2*theLUTLevels);
