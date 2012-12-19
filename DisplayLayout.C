@@ -420,8 +420,6 @@ public:
 	    if (off + size > page.size())
 		return true;
 
-	    page.resetDirty();
-
 	    const int *lut = hilbert ?
 		theBlockLUT.getIHilbert(level, rotate, flip) :
 		theBlockLUT.getIBlock();

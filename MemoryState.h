@@ -54,24 +54,6 @@ private:
     static const uint64	theDisplayBlocksPerBottom =
 			    1ull<<(theBottomBits-theDisplayBits);
 
-    struct StateArray {
-	StateArray()
-	{
-	    memset(myState, 0, theBottomSize*sizeof(State));
-	    memset(myDirty, 0, theDisplayBlocksPerBottom*sizeof(bool));
-	    memset(myExists, 0, theDisplayBlocksPerBottom*sizeof(bool));
-	}
-
-	State	myState[theBottomSize];
-	bool	myDirty[theDisplayBlocksPerBottom];
-	bool	myExists[theDisplayBlocksPerBottom];
-    };
-
-    static uint64	topIndex(uint64 addr)
-			{ return (addr >> theBottomBits) & theTopMask; }
-    static uint64	bottomIndex(uint64 addr)
-			{ return addr & theBottomMask; }
-
 public:
      MemoryState(int ignorebits);
     ~MemoryState();
@@ -82,44 +64,21 @@ public:
 		    size >>= myIgnoreBits;
 		    size = SYSmax(size, 1ull);
 
-		    do
+		    uint64 last = addr + size;
+
+		    if (!(type & theTypeFree))
 		    {
-			StateArray	*&row = myTable[topIndex(addr)];
-			uint64		  idx = bottomIndex(addr);
+			for (; addr < last; addr++)
+			    myState[addr].init(myTime, type);
+		    }
+		    else
+		    {
+			for (; addr < last; addr++)
+			    myState[addr].setFree();
+		    }
 
-			if (!row)
-			    row = new StateArray;
-
-			uint64 last = idx + size;
-
-			size = 0;
-
-			// The address crossed a page boundary?
-			if (last > theBottomSize)
-			{
-			    // Update remaining size
-			    size = last - theBottomSize;
-			    last = theBottomSize;
-			    addr += theBottomSize-idx;
-			}
-
-			if (!(type & theTypeFree))
-			{
-			    for (; idx < last; idx++)
-			    {
-				row->myState[idx].init(myTime, type);
-				row->myDirty[idx>>theDisplayBits] = true;
-			    }
-			}
-			else
-			{
-			    for (; idx < last; idx++)
-			    {
-				row->myState[idx].setFree();
-				row->myDirty[idx>>theDisplayBits] = true;
-			    }
-			}
-		    } while(size);
+		    myExists[addr >> theDisplayBits] = true;
+		    myTopExists[addr >> theBottomBits] = true;
 		}
     void	incrementTime();
     uint32	getTime() const { return myTime; }
@@ -135,49 +94,31 @@ public:
     // Abstract access to a single display page
     class DisplayPage {
     public:
-	DisplayPage(StateArray *arr, uint64 top, uint64 bottom)
+	DisplayPage(State *arr, uint64 addr)
 	    : myArr(arr)
-	    , myTop(top)
-	    , myBottom(bottom) {}
+	    , myAddr(addr) {}
 
-	uint64	addr() const	{ return (myTop << theBottomBits) | myBottom; }
+	uint64	addr() const	{ return myAddr; }
 	uint64	size() const	{ return theDisplaySize; }
 
-	State	state(uint64 i) const { return myArr->myState[myBottom+i]; }
-	State	&state(uint64 i) { return myArr->myState[myBottom+i]; }
-	bool	exists() const
-		{
-		    uint64 didx = myBottom >> theDisplayBits;
-		    return myArr &&
-			(myArr->myExists[didx] ||
-			 myArr->myDirty[didx]);
-	       	}
+	State	state(uint64 i) const { return myArr[i]; }
+	State	&state(uint64 i) { return myArr[i]; }
+	bool	exists() const { return myArr; }
 
-	bool	resetDirty()
-		{
-		    uint64  didx = myBottom >> theDisplayBits;
-		    bool    dirty = myArr->myDirty[didx];
-
-		    myArr->myDirty[didx] = false;
-		    myArr->myExists[didx] = true;
-		    return dirty;
-		}
-
-	State	*stateArray()	{ return &myArr->myState[myBottom]; }
+	State	*stateArray()	{ return myArr; }
 
     private:
-	StateArray  *myArr;
-	uint64	     myTop;
-	uint64	     myBottom;
+	State	    *myArr;
+	uint64	     myAddr;
     };
 
     DisplayPage	getPage(uint64 addr, uint64 &off) const
     {
-	uint64 tidx = topIndex(addr);
-	uint64 bidx = bottomIndex(addr);
-	off = bidx & theDisplayMask;
-	bidx -= off;
-	return DisplayPage(myTable[tidx], tidx, bidx);
+	off = addr;
+	addr &= ~theDisplayMask;
+	off -= addr;
+	return DisplayPage(myExists[addr >> theDisplayBits] ?
+		&myState[addr] : 0, addr);
     }
 
     // A class to iterate over only non-zero state values.  The iterator
@@ -209,24 +150,24 @@ public:
 		}
 
 	DisplayPage page() const
-	{ return DisplayPage(table(myTop), myTop, myBottom); }
+	{
+	    uint64 addr = (myTop << theBottomBits) + myBottom;
+	    return DisplayPage(&myState.myState[addr], addr);
+	}
 
     private:
-	StateArray	*table(uint64 top) const
-			 { return myState.myTable[top]; }
-
 	void	skipEmpty()
 		{
 		    for (; myTop < theTopSize; myTop++)
 		    {
-			if (table(myTop))
+			if (myState.myTopExists[myTop])
 			{
 			    for (; myBottom < theBottomSize;
 				    myBottom += theDisplaySize)
 			    {
-				uint64 didx = myBottom >> theDisplayBits;
-				if (table(myTop)->myExists[didx] ||
-				    table(myTop)->myDirty[didx])
+				uint64 didx = ((myTop << theBottomBits) +
+				    myBottom) >> theDisplayBits;
+				if (myState.myExists[didx])
 				    return;
 			    }
 			}
@@ -242,7 +183,11 @@ public:
 
 private:
     // Raw memory state
-    StateArray	*myTable[theTopSize];
+    State	*myState;
+    bool	*myTopExists;
+    bool	*myExists;
+    size_t	 mySize;
+
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
 
