@@ -335,7 +335,7 @@ Loader::loadFromPipe()
     if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
     {
 	if (block->myEntries && loadBlock(block))
-	    return block->myEntries == theBlockSize;
+	    return true;
     }
 
     return false;
@@ -364,8 +364,8 @@ Loader::loadFromSharedMemory()
     if (myIdx == theBlockCount)
 	myIdx = 0;
 
-    // If it wasn't a full block, we're at the end of the stream.
-    return block.myEntries == theBlockSize;
+    // If it was empty, we're at the end of the stream.
+    return block.myEntries;
 }
 
 bool
@@ -438,8 +438,8 @@ Loader::loadBlock(const TraceBlockHandle &block)
     uint64 type = (block->myAddr[0] & theTypeMask) >> theTypeShift;
     if (block->myEntries > theBlockSize || type > 7)
     {
-	fprintf(stderr, "received invalid block (size %u)\n",
-		block->myEntries);
+	fprintf(stderr, "received invalid block (size %u, type %lld)\n",
+		block->myEntries, type);
 	return false;
     }
 

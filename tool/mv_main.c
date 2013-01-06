@@ -21,6 +21,8 @@
 #include "pub_tool_stacktrace.h"
 #include "coregrind/pub_core_aspacemgr.h"
 
+#define MV_REPLACE_MALLOC
+
 /*------------------------------------------------------------*/
 /*--- Command line options                                 ---*/
 /*------------------------------------------------------------*/
@@ -93,6 +95,14 @@ static void flush_data(void)
     {
 	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
     }
+#if 0
+    VG_(printf)("flush_data: %d\n", theBlock->myEntries);
+    int i;
+    for (i = 0; i < theBlock->myEntries; i++)
+    {
+	VG_(printf)("addr: %llx\n", theBlock->myAddr[i]);
+    }
+#endif
     theTotalEvents += theBlock->myEntries;
     theBlock->myEntries = 0;
 }
@@ -279,20 +289,49 @@ static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
     put_data(addr2, theShiftedRead, (uint64)size);
 }
 
-static void flushEvents(IRSB* sb)
-{
-    Int        i;
-   const HChar* helperName;
-    void*      helperAddr;
-    IRExpr**   argv;
-    IRDirty*   di;
-    Event*     ev;
-    Event*     ev2;
-    Int        regparms;
+/* assign value to tmp */
+static inline 
+void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
+   addStmtToIRSB( sb, IRStmt_WrTmp(tmp, expr) );
+}
 
+/* build various kinds of expressions */
+#define triop(_op, _arg1, _arg2, _arg3) \
+                                 assignNew(sb, IRExpr_Triop((_op),(_arg1),(_arg2),(_arg3)))
+#define binop(_op, _arg1, _arg2) assignNew(sb, IRExpr_Binop((_op),(_arg1),(_arg2)))
+#define unop(_op, _arg)          assignNew(sb, IRExpr_Unop((_op),(_arg)))
+#define load(_op, _ty, _arg)     assignNew(sb, IRExpr_Load((_op),(_ty),(_arg)))
+#define mkU8(_n)                 IRExpr_Const(IRConst_U8(_n))
+#define mkU16(_n)                IRExpr_Const(IRConst_U16(_n))
+#define mkU32(_n)                IRExpr_Const(IRConst_U32(_n))
+#define mkU64(_n)                IRExpr_Const(IRConst_U64(_n))
+#define mkV128(_n)               IRExpr_Const(IRConst_V128(_n))
+#define mkexpr(_tmp)             IRExpr_RdTmp((_tmp))
+
+static IRAtom* assignNew ( IRSB* sb, IRExpr* e )
+{
+   IRTemp   t;
+   IRType   ty = typeOfIRExpr(sb->tyenv, e);
+
+   t = newIRTemp(sb->tyenv, ty);
+   assign(sb, t, e);
+   return mkexpr(t);
+}
+
+static void flushEventsCB(IRSB* sb)
+{
+    IRDirty*   di;
+    Int        i;
     for (i = 0; i < events_used; i++) {
 
-	ev = &events[i];
+	Event*     ev = &events[i];
+
+	const HChar* helperName;
+	void*      helperAddr;
+	IRExpr**   argv;
+	Event*     ev2;
+	Int        regparms;
+
 	ev2 = i < events_used-1 ? &events[i+1] : NULL;
 
 	if (ev2 &&
@@ -386,11 +425,97 @@ static void flushEvents(IRSB* sb)
     events_used = 0;
 }
 
-// WARNING:  If you aren't interested in instruction reads, you can omit the
-// code that adds calls to trace_instr() in flushEvents().  However, you
-// must still call this function, addEvent_Ir() -- it is necessary to add
-// the Ir events to the events list so that merging of paired load/store
-// events into modify events works correctly.
+static void flushEventsIR(IRSB* sb)
+{
+    if (!events_used)
+	return;
+
+    /* What's the native endianness?  We need to know this. */
+    IREndness end;
+#  if defined(VG_BIGENDIAN)
+    end = Iend_BE;
+#  elif defined(VG_LITTLEENDIAN)
+    end = Iend_LE;
+#  else
+#    error "Unknown endianness"
+#  endif
+
+    // Conditionally call the flush method if there's not enough room for
+    // all the new events.  This may flush an incomplete block.
+    IRExpr *entries_addr = mkU64((ULong)&theBlock->myEntries);
+    IRExpr *entries = load(end, Ity_I32, entries_addr);
+
+    IRDirty*   di =
+	unsafeIRDirty_0_N(0,
+	    "flush_data", VG_(fnptr_to_fnentry)( flush_data ),
+	    mkIRExprVec_0() );
+
+    di->guard =
+	binop(Iop_CmpLE32S, mkU32(theBlockSize - events_used), entries);
+
+    addStmtToIRSB( sb, IRStmt_Dirty(di) );
+
+    // Reload entries since it might have been changed by the callback
+    entries = load(end, Ity_I32, entries_addr);
+
+    // Initialize the first address where we'll write trace information.
+    // This will be advanced in the loop.
+    uint64 addr_size = sizeof(uint64);
+    IRExpr *addr =
+	binop(Iop_Add64,
+		mkU64((ULong)theBlock->myAddr),
+		unop(Iop_32Uto64,
+		    binop(Iop_Mul32, entries, mkU32(addr_size))));
+
+    Int        i;
+    for (i = 0; i < events_used; i++) {
+
+	Event*     ev = &events[i];
+
+	uint64 type = 0;
+	switch (ev->ekind) {
+	    case Event_Ir:
+		type = theShiftedInstr;
+		break;
+	    case Event_Dr:
+		type = theShiftedRead;
+		break;
+	    case Event_Dw:
+	    case Event_Dm:
+		type = theShiftedWrite;
+		break;
+	    default:
+		tl_assert(0);
+	}
+
+	// Construct the address and store it
+	IRExpr *data =
+	    binop(Iop_Or64, ev->addr,
+		    mkU64(type | ((uint64)ev->size << theSizeShift)));
+
+	IRStmt *store = IRStmt_Store(end, addr, data);
+
+	addStmtToIRSB( sb, store );
+
+	// Advance to the next entry
+	addr = binop(Iop_Add64, addr, mkU64(addr_size));
+    }
+
+    // Store the new entry count
+    IRStmt *entries_store =
+	IRStmt_Store(end, entries_addr,
+		binop(Iop_Add32, entries, mkU32(events_used)));
+
+    addStmtToIRSB( sb, entries_store );
+
+    events_used = 0;
+}
+
+static void flushEvents(IRSB* sb)
+{
+    flushEventsIR(sb);
+}
+
 static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
 {
     Event* evt;
@@ -457,6 +582,7 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
 //--- malloc() et al replacement wrappers                  ---//
 //------------------------------------------------------------//
 
+#if defined(MV_REPLACE_MALLOC)
 // Nb: first two fields must match core's VgHashNode.
 typedef struct _HP_Chunk {
     struct _HP_Chunk	*next;
@@ -587,6 +713,7 @@ static SizeT mv_malloc_usable_size ( ThreadId tid, void* p )
     HP_Chunk* hc = VG_(HT_lookup)( malloc_list, (UWord)p );
     return ( hc ? hc->fullsize : 0 );
 }                                                            
+#endif
 
 /*------------------------------------------------------------*/
 /*--- Basic tool functions                                 ---*/
@@ -678,7 +805,6 @@ mv_instrument ( VgCallbackClosure* closure,
 
 	    case Ist_WrTmp:
 		{
-		    // Add a call to trace_load() if --trace-mem=yes.
 		    IRExpr* data = st->Ist.WrTmp.data;
 		    if (data->tag == Iex_Load) {
 			addEvent_Dr( sbOut, data->Iex.Load.addr,
@@ -804,6 +930,8 @@ static void mv_pre_clo_init(void)
     VG_(needs_command_line_options)(mv_process_cmd_line_option,
 	    mv_print_usage,
 	    mv_print_debug_usage);
+
+#if defined(MV_REPLACE_MALLOC)
     VG_(needs_malloc_replacement)  (mv_malloc,
 	    mv___builtin_new,
 	    mv___builtin_vec_new,
@@ -817,6 +945,7 @@ static void mv_pre_clo_init(void)
 	    0 );
 
     malloc_list = VG_(HT_construct)("Memview's malloc list");
+#endif
 
     VG_(atfork)(NULL/*pre*/, NULL/*parent*/, mv_atfork_child/*child*/);
 }
