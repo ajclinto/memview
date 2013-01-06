@@ -77,7 +77,7 @@ static void flush_data(void)
     if (clo_shared_mem)
     {
 	// Post the full block
-	theBlock->myRSem = 1;
+	__sync_bool_compare_and_swap(&theBlock->myRSem, 0, 1);
 
 	theIdx++;
 	if (theIdx == theBlockCount)
@@ -86,9 +86,8 @@ static void flush_data(void)
 	theBlock = &theSharedData->myBlocks[theIdx];
 
 	// Wait until we can write to the new theBlock
-	while (!theBlock->myWSem)
+	while (!__sync_bool_compare_and_swap(&theBlock->myWSem, 1, 0))
 	    ;
-	theBlock->myWSem = 0;
     }
     else if (clo_pipe)
     {

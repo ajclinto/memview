@@ -310,6 +310,28 @@ Loader::loadFromPipe()
 
     TraceBlockHandle block(new TraceBlock);
 
+    fd_set rfds;
+
+    FD_ZERO(&rfds);
+    FD_SET(myPipeFD, &rfds);
+
+    struct timeval tv;
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 100000;
+
+    // Waits for data to be ready or 0.1s
+    int retval = select(myPipeFD+1, &rfds, NULL, NULL, &tv);
+
+    if (retval == -1)
+    {
+	perror("select failed");
+	return false;
+    }
+
+    if (retval == 0)
+	return true;
+
     if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
     {
 	if (block->myEntries && loadBlock(block))
@@ -326,9 +348,8 @@ Loader::loadFromSharedMemory()
 	return false;
 
     TraceBlock	&block = mySharedData->myBlocks[myIdx];
-    while (!block.myRSem)
+    while (!__sync_bool_compare_and_swap(&block.myRSem, 1, 0))
 	;
-    block.myRSem = 0;
 
     if (block.myEntries)
     {
@@ -337,7 +358,8 @@ Loader::loadFromSharedMemory()
 	    return false;
     }
 
-    block.myWSem = 1;
+    __sync_bool_compare_and_swap(&block.myWSem, 0, 1);
+
     myIdx++;
     if (myIdx == theBlockCount)
 	myIdx = 0;
