@@ -240,13 +240,10 @@ MemViewWidget::resizeImage(int zoom)
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
-// Scrolling margin, in pixels
-static const int theMargin = 64;
-
 static void
 setScrollMax(QScrollBar *scroll, int size, bool with_margin = true)
 {
-    int margin = with_margin ? theMargin : 0;
+    int margin = with_margin ? (scroll->pageStep() >> 1) : 0;
     int nmax = SYSmax(size - scroll->pageStep() + margin, 0);
 
     scroll->setMaximum(nmax);
