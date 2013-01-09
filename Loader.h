@@ -57,7 +57,8 @@ private:
     int		 myPipeFD;
     FILE	*myPipe;
 
-    // Shared memory
+    // Shared memory.  This interface is only available as a template for
+    // future work.
     SharedData	*mySharedData;
     int		 myIdx;
 

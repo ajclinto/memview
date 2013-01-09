@@ -1,8 +1,26 @@
 #ifndef MV_IPC_H
 #define MV_IPC_H
 
+//
+// The unidirectional (tool to memview) pipe communication protocol is
+// simple.  First a message header is sent, followed by the data.  The size
+// of the data is specified in the header.
+//
+
+// Message types
+typedef enum {
+    MV_BLOCK,
+    MV_STACKTRACE
+} MessageType;
+
+typedef struct {
+    int	    mySize;
+    int	    myType;
+} Header;
+
+#define MV_STACKTRACE_BUFSIZE 4096
+
 #define theBlockSize	(1024*32)
-#define theBlockCount	4
 
 #define theAddrMask 0x001FFFFFFFFFFFFFul
 
@@ -15,7 +33,7 @@
 // Order is important here - we use a max() for downsampling, which will
 // cause reads to be preferred over writes when the event time matches.  If
 // you update these values, you will also need to update the shader.frag
-// code to handle it.
+// code.
 #define theTypeAlloc  0
 #define theTypeInstr  1
 #define theTypeWrite  2
@@ -31,13 +49,10 @@
 typedef struct {
     unsigned long long	myAddr[theBlockSize];
     unsigned int	myEntries;
-    volatile int	myWSem;
-    volatile int	myRSem;
 } TraceBlock;
 
-typedef struct {
-    TraceBlock	myBlocks[theBlockCount];
-} SharedData;
+// Template for future work
+typedef struct {} SharedData;
 
 #endif
 

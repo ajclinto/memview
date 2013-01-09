@@ -93,8 +93,6 @@ Loader::openPipe(int argc, char *argv[])
 	}
 
 	memset(mySharedData, 0, sizeof(SharedData));
-	for (int i = 0; i < theBlockCount; i++)
-	    mySharedData->myBlocks[i].myWSem = 1;
     }
 
     int		fd[2];
@@ -332,10 +330,26 @@ Loader::loadFromPipe()
     if (retval == 0)
 	return true;
 
-    if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
+    Header header;
+    if (!read(myPipeFD, &header, sizeof(Header)))
+	return false;
+
+    if (header.myType == MV_BLOCK)
     {
-	if (block->myEntries && loadBlock(block))
+	if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
+	{
+	    if (block->myEntries && loadBlock(block))
+		return true;
+	}
+    }
+    else if (header.myType == MV_STACKTRACE)
+    {
+	char	buf[MV_STACKTRACE_BUFSIZE];
+	if (read(myPipeFD, buf, header.mySize))
+	{
+	    fprintf(stderr, "%s\n", buf);
 	    return true;
+	}
     }
 
     return false;
@@ -344,28 +358,8 @@ Loader::loadFromPipe()
 bool
 Loader::loadFromSharedMemory()
 {
-    if (!mySharedData)
-	return false;
-
-    TraceBlock	&block = mySharedData->myBlocks[myIdx];
-    while (!__sync_bool_compare_and_swap(&block.myRSem, 1, 0))
-	;
-
-    if (block.myEntries)
-    {
-	TraceBlockHandle handle(new TraceBlock(block));
-	if (!loadBlock(handle))
-	    return false;
-    }
-
-    __sync_bool_compare_and_swap(&block.myWSem, 0, 1);
-
-    myIdx++;
-    if (myIdx == theBlockCount)
-	myIdx = 0;
-
-    // If it was empty, we're at the end of the stream.
-    return block.myEntries;
+    fprintf(stderr, "Shared memory currently unsupported\n");
+    return false;
 }
 
 bool

@@ -68,33 +68,69 @@ static TraceBlock	*theBlock = 0;
 static TraceBlock	 theBlockData;
 // Data for shm
 static SharedData	*theSharedData = 0;
-static int		 theIdx = 0;
 
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
+typedef struct {
+    HChar   buf[MV_STACKTRACE_BUFSIZE];
+    int	    size;
+} SizedBuffer;
+
+static SizedBuffer theStackTrace;
+
+static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
+{
+    SizedBuffer *sbuf = (SizedBuffer *)uu_opaque;
+    HChar	tmp[MV_STACKTRACE_BUFSIZE];
+
+    VG_(describe_IP)(ip, tmp, MV_STACKTRACE_BUFSIZE);
+
+    int available = MV_STACKTRACE_BUFSIZE - sbuf->size;
+    int len =
+	VG_(snprintf)(
+		&sbuf->buf[sbuf->size],
+		available,
+		"%s %s\n",
+		( n == 0 ? "at" : "by" ), tmp);
+
+    if (len >= available)
+	sbuf->size += available-1;
+    else
+	sbuf->size += len;
+}
+
 static void flush_data(void)
 {
-    //VG_(get_and_pp_StackTrace)(VG_(get_running_tid)(), 8);
     if (clo_shared_mem)
     {
-	// Post the full block
-	__sync_bool_compare_and_swap(&theBlock->myRSem, 0, 1);
-
-	theIdx++;
-	if (theIdx == theBlockCount)
-	    theIdx = 0;
-
-	theBlock = &theSharedData->myBlocks[theIdx];
-
-	// Wait until we can write to the new theBlock
-	while (!__sync_bool_compare_and_swap(&theBlock->myWSem, 1, 0))
-	    ;
     }
     else if (clo_pipe)
     {
+	Header	header;
+	header.myType = MV_BLOCK;
+
+	VG_(write)(clo_pipe, &header, sizeof(Header));
 	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
+
+	Addr ips[8];
+	UInt n_ips = VG_(get_StackTrace)(
+		VG_(get_running_tid)(),
+		ips, 8,
+		NULL/*array to dump SP values in*/,
+		NULL/*array to dump FP values in*/,
+		0/*first_ip_delta*/);
+
+	theStackTrace.size = 0;
+	VG_(apply_StackTrace)(appendIpDesc, &theStackTrace, ips, n_ips);
+
+	header.myType = MV_STACKTRACE;
+	header.mySize = theStackTrace.size+1; // Include terminating '\0'
+
+	VG_(write)(clo_pipe, &header, sizeof(Header));
+	VG_(write)(clo_pipe, theStackTrace.buf, header.mySize);
     }
+
 #if 0
     VG_(printf)("flush_data: %d\n", theBlock->myEntries);
     int i;
@@ -103,6 +139,7 @@ static void flush_data(void)
 	VG_(printf)("addr: %llx\n", theBlock->myAddr[i]);
     }
 #endif
+
     theTotalEvents += theBlock->myEntries;
     theBlock->myEntries = 0;
 }
@@ -289,12 +326,6 @@ static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
     put_data(addr2, theShiftedRead, (uint64)size);
 }
 
-/* assign value to tmp */
-static inline 
-void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
-   addStmtToIRSB( sb, IRStmt_WrTmp(tmp, expr) );
-}
-
 /* build various kinds of expressions */
 #define triop(_op, _arg1, _arg2, _arg3) \
                                  assignNew(sb, IRExpr_Triop((_op),(_arg1),(_arg2),(_arg3)))
@@ -307,6 +338,12 @@ void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
 #define mkU64(_n)                IRExpr_Const(IRConst_U64(_n))
 #define mkV128(_n)               IRExpr_Const(IRConst_V128(_n))
 #define mkexpr(_tmp)             IRExpr_RdTmp((_tmp))
+
+/* assign value to tmp */
+static inline 
+void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
+   addStmtToIRSB( sb, IRStmt_WrTmp(tmp, expr) );
+}
 
 static IRAtom* assignNew ( IRSB* sb, IRExpr* e )
 {
@@ -742,7 +779,8 @@ static void mv_post_clo_init(void)
 	theSharedData = (SharedData *)(Addr)sr_Res(res);
 	VG_(dmsg)("got memory %p\n", theSharedData);
 
-	theBlock = &theSharedData->myBlocks[0];
+	VG_(umsg)("shared memory interface not implemented\n");
+	VG_(exit)(1);
     }
     else
     {
