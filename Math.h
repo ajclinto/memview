@@ -8,6 +8,7 @@ typedef unsigned char		uint8;
 typedef unsigned short		uint16;
 typedef unsigned		uint32;
 typedef unsigned long long	uint64;
+typedef signed long long	int64;
 
 template <typename T>
 inline T SYSmax(T a, T b)
@@ -35,6 +36,11 @@ inline void SYSswap(T &v1, T &v2)
     T	tmp(v1);
     v1 = v2;
     v2 = tmp;
+}
+template <typename T>
+inline T SYSabs(T a)
+{
+    return a >= 0 ? a : -a;
 }
 
 struct Box {

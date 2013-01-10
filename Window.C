@@ -104,9 +104,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 	myLoader->start();
     }
 
-    myPrevTime = MemoryState::theStale;
-
-    startTimer(30);
+    myFastTimer = startTimer(30);
 
     myPaintInterval.start();
 }
@@ -303,6 +301,39 @@ MemViewWidget::paintGL()
     update();
 }
 
+bool
+MemViewWidget::event(QEvent *event)
+{
+    if (event->type() == QEvent::ToolTip)
+    {
+        QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
+
+	QPoint  pos = zoomPos(helpEvent->pos(), myZoom);
+	uint64	qaddr = myDisplay.queryPixelAddress(*myZoomState,
+		myHScrollBar->value() + pos.x(),
+		myVScrollBar->value() + pos.y());
+
+	uint64 off;
+	auto page = myZoomState->getPage(qaddr, off);
+
+	if (qaddr && page.state(off).time())
+	{
+	    qaddr <<= myZoomState->getIgnoreBits();
+
+	    const char *trace = myStackTrace->findClosestStackTrace(qaddr);
+	    if (trace)
+		QToolTip::showText(helpEvent->globalPos(), trace);
+	    else
+		QToolTip::hideText();
+	}
+	else
+	    QToolTip::hideText();
+
+        return true;
+    }
+    return QWidget::event(event);
+}
+
 void
 MemViewWidget::resizeEvent(QResizeEvent *event)
 {
@@ -349,23 +380,6 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 	if (myVelocity.size() >= 5)
 	    myVelocity.pop();
 	myVelocity.push(Velocity(dir.x(), dir.y(), time));
-    }
-    else
-    {
-#if 1
-	QPoint  pos = zoomPos(event->pos(), myZoom);
-	uint64 qaddr = myDisplay.queryPixelAddress(*myZoomState,
-		myHScrollBar->value() + pos.x(),
-		myVScrollBar->value() + pos.y());
-
-	QString	message;
-	myZoomState->printStatusInfo(message, qaddr);
-
-	if (message.isEmpty())
-	    myStatusBar->clearMessage();
-	else
-	    myStatusBar->showMessage(message);
-#endif
     }
 
     myMousePos = event->pos();
@@ -512,14 +526,13 @@ MemViewWidget::changeZoom(int zoom)
     {
 	if (zoom > 0)
 	{
-	    myZoomState = new MemoryState(
-		    myLoader->getBaseState()->getIgnoreBits()+zoom);
+	    myZoomState = new MemoryState(myState->getIgnoreBits()+zoom);
 	    myLoader->setZoomState(myZoomState);
 	}
 	else
 	{
 	    myLoader->clearZoomState();
-	    myZoomState = myLoader->getBaseState();
+	    myZoomState = myState;
 	}
 
 	const bool zoomout = zoom > myZoom;
@@ -577,6 +590,7 @@ shortenDrag(double &val, double delta)
 void
 MemViewWidget::timerEvent(QTimerEvent *)
 {
+    // Fast timer
     if (!myDragging && myVelocity.size())
     {
 	Velocity   &vel = myVelocity.front();
@@ -598,10 +612,18 @@ MemViewWidget::timerEvent(QTimerEvent *)
 	}
     }
 
-    if (myState->getTime() != myPrevTime)
-    {
-	update();
-	myPrevTime = myState->getTime();
-    }
+    // This frequent status update seems to be fairly costly
+    QPoint  pos = zoomPos(myMousePos, myZoom);
+    uint64 qaddr = myDisplay.queryPixelAddress(*myZoomState,
+	    myHScrollBar->value() + pos.x(),
+	    myVScrollBar->value() + pos.y());
+
+    QString	message;
+    myZoomState->printStatusInfo(message, qaddr);
+
+    if (message.isEmpty())
+	myStatusBar->clearMessage();
+    else
+	myStatusBar->showMessage(message);
 }
 

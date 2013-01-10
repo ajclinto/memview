@@ -67,6 +67,9 @@ protected:
     void	initializeGL();
     void	resizeGL(int width, int height);
     void	paintGL();
+
+    bool	event(QEvent *event);
+
     void	resizeEvent(QResizeEvent *event);
 
     void	mousePressEvent(QMouseEvent *event);
@@ -100,8 +103,8 @@ private:
     MemoryState		*myZoomState;
     StackTraceMap	*myStackTrace;
     Loader		*myLoader;
-    uint32		 myPrevTime;
     int			 myZoom;
+    int			 myFastTimer;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}

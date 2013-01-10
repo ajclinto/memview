@@ -6,5 +6,5 @@ StackTraceMap::StackTraceMap()
 
 StackTraceMap::~StackTraceMap()
 {
-    fprintf(stderr, "%d traces\n", (int)myMap.size());
+    //fprintf(stderr, "%d traces\n", (int)myMap.size());
 }
