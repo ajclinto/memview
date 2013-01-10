@@ -13,5 +13,5 @@ QMAKE_CFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3
 QMAKE_CXXFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3 -std=c++11
 
 # Input
-HEADERS += Window.h MemoryState.h Loader.h DisplayLayout.h
-SOURCES += main.C window.C MemoryState.C Loader.C DisplayLayout.C
+HEADERS += Window.h MemoryState.h Loader.h DisplayLayout.h StackTraceMap.h
+SOURCES += main.C window.C MemoryState.C Loader.C DisplayLayout.C StackTraceMap.C

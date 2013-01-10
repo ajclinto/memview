@@ -1,6 +1,7 @@
 #include "Window.h"
 #include "Color.h"
 #include "MemoryState.h"
+#include "StackTraceMap.h"
 #include "Loader.h"
 #include <fstream>
 
@@ -94,7 +95,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 
     myState = new MemoryState(ignorebits);
     myZoomState = myState;
-    myLoader = new Loader(myState);
+    myStackTrace = new StackTraceMap;
+    myLoader = new Loader(myState, myStackTrace);
 
     if (myLoader->openPipe(argc, argv))
     {
@@ -112,6 +114,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 MemViewWidget::~MemViewWidget()
 {
     delete myLoader;
+    delete myState;
+    delete myStackTrace;
 }
 
 void

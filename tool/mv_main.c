@@ -72,47 +72,59 @@ static SharedData	*theSharedData = 0;
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
-typedef struct {
-    HChar   buf[MV_STACKTRACE_BUFSIZE];
-    int	    size;
-} SizedBuffer;
-
-static SizedBuffer theStackTrace;
+static StackInfo theStackTrace;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
-    SizedBuffer *sbuf = (SizedBuffer *)uu_opaque;
-    HChar	tmp[MV_STACKTRACE_BUFSIZE];
+    StackInfo	*sbuf = (StackInfo *)uu_opaque;
+    HChar	 tmp[MV_STACKTRACE_BUFSIZE];
 
     VG_(describe_IP)(ip, tmp, MV_STACKTRACE_BUFSIZE);
 
-    int available = MV_STACKTRACE_BUFSIZE - sbuf->size;
+    int available = MV_STACKTRACE_BUFSIZE - sbuf->mySize;
     int len =
 	VG_(snprintf)(
-		&sbuf->buf[sbuf->size],
+		&sbuf->myBuf[sbuf->mySize],
 		available,
 		"%s %s\n",
 		( n == 0 ? "at" : "by" ), tmp);
 
     if (len >= available)
-	sbuf->size += available-1;
+	sbuf->mySize += available-1;
     else
-	sbuf->size += len;
+	sbuf->mySize += len;
 }
 
 static void flush_data(void)
 {
     if (clo_shared_mem)
     {
+	// Not implemented
     }
     else if (clo_pipe)
     {
 	Header	header;
-	header.myType = MV_BLOCK;
 
-	VG_(write)(clo_pipe, &header, sizeof(Header));
-	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
+	//
+	// Stack traces are retained until the next block is flushed.  This
+	// is to allow the stack trace to correspond with the first address
+	// in the subsequent data block.
+	//
 
+	// Send the pending stack trace
+	if (theStackTrace.mySize)
+	{
+	    header.myType = MV_STACKTRACE;
+	    header.mySize = theStackTrace.mySize+1; // Include terminating '\0'
+	    header.mySize += sizeof(uint64);
+
+	    theStackTrace.myAddr = theBlockData.myAddr[0];
+
+	    VG_(write)(clo_pipe, &header, sizeof(Header));
+	    VG_(write)(clo_pipe, &theStackTrace, header.mySize);
+	}
+
+	// Prepare the next stack trace
 	Addr ips[8];
 	UInt n_ips = VG_(get_StackTrace)(
 		VG_(get_running_tid)(),
@@ -121,14 +133,15 @@ static void flush_data(void)
 		NULL/*array to dump FP values in*/,
 		0/*first_ip_delta*/);
 
-	theStackTrace.size = 0;
+	theStackTrace.mySize = 0;
 	VG_(apply_StackTrace)(appendIpDesc, &theStackTrace, ips, n_ips);
 
-	header.myType = MV_STACKTRACE;
-	header.mySize = theStackTrace.size+1; // Include terminating '\0'
+	// Send the block
+	header.myType = MV_BLOCK;
 
 	VG_(write)(clo_pipe, &header, sizeof(Header));
-	VG_(write)(clo_pipe, theStackTrace.buf, header.mySize);
+	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
+
     }
 
 #if 0

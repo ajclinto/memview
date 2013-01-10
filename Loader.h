@@ -9,13 +9,14 @@
 #include <signal.h>
 
 class MemoryState;
+class StackTraceMap;
 
 typedef std::shared_ptr<MemoryState> MemoryStateHandle;
 typedef std::shared_ptr<TraceBlock> TraceBlockHandle;
 
 class Loader : public QThread {
 public:
-     Loader(MemoryState *state);
+     Loader(MemoryState *state, StackTraceMap *stack);
     ~Loader();
 
     bool	openPipe(int argc, char *argv[]);
@@ -47,6 +48,7 @@ private:
 private:
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;
+    StackTraceMap	*myStackTrace;
 
     QMutex		 myPendingLock;
     std::unique_ptr<MemoryState> myPendingState;

@@ -6,6 +6,9 @@
 #include "GLImage.h"
 #include "tool/mv_ipc.h"
 
+// Storage for the entire memory state.  This is specifically designed to
+// operate without any locking or atomics for the single writer / many
+// reader case.
 class MemoryState {
 public:
     class State {

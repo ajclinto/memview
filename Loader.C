@@ -1,5 +1,6 @@
 #include "Loader.h"
 #include "MemoryState.h"
+#include "StackTraceMap.h"
 #include "StopWatch.h"
 #include <sys/mman.h>
 #include <fcntl.h>
@@ -8,10 +9,11 @@
 #define	SHARED_NAME "/memview"
 #define	THREAD_LOADS
 
-Loader::Loader(MemoryState *state)
+Loader::Loader(MemoryState *state, StackTraceMap *stack)
     : QThread(0)
     , myState(state)
     , myZoomState(0)
+    , myStackTrace(stack)
     , myPendingClear(false)
     , myChild(-1)
     , myPipeFD(0)
@@ -300,6 +302,14 @@ Loader::loadFromLackey(int max_read)
     return max_read;
 }
 
+static inline void
+decodeAddr(uint64 &addr, uint64 &size, uint64 &type)
+{
+    size = addr >> theSizeShift,
+    type = (addr & theTypeMask) >> theTypeShift;
+    addr &= theAddrMask;
+}
+
 bool
 Loader::loadFromPipe()
 {
@@ -344,10 +354,12 @@ Loader::loadFromPipe()
     }
     else if (header.myType == MV_STACKTRACE)
     {
-	char	buf[MV_STACKTRACE_BUFSIZE];
-	if (read(myPipeFD, buf, header.mySize))
+	StackInfo stack;
+	if (read(myPipeFD, &stack, header.mySize))
 	{
-	    fprintf(stderr, "%s\n", buf);
+	    uint64 size, type;
+	    decodeAddr(stack.myAddr, size, type);
+	    myStackTrace->insert(stack.myAddr, stack.myBuf);
 	    return true;
 	}
     }
@@ -400,10 +412,9 @@ public:
 	for (uint32 i = 0; i < count; i++)
 	{
 	    uint64 addr = myBlock->myAddr[i];
-	    myState->updateAddress(
-		    addr & theAddrMask,
-		    addr >> theSizeShift,
-		    (addr & theTypeMask) >> theTypeShift);
+	    uint64 size, type;
+	    decodeAddr(addr, size, type);
+	    myState->updateAddress(addr, size, type);
 	}
 	myState->incrementTime();
     }

@@ -14,6 +14,7 @@
 class MemViewWidget;
 class MemViewScroll;
 class Loader;
+class StackTraceMap;
 
 class Window : public QMainWindow {
     Q_OBJECT
@@ -97,6 +98,7 @@ private:
     DisplayLayout	 myDisplay;
     MemoryState		*myState;
     MemoryState		*myZoomState;
+    StackTraceMap	*myStackTrace;
     Loader		*myLoader;
     uint32		 myPrevTime;
     int			 myZoom;

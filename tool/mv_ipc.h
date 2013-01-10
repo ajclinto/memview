@@ -14,11 +14,17 @@ typedef enum {
 } MessageType;
 
 typedef struct {
-    int	    mySize;
-    int	    myType;
+    int			    mySize;
+    int			    myType;
 } Header;
 
 #define MV_STACKTRACE_BUFSIZE 4096
+
+typedef struct {
+    unsigned long long	myAddr;
+    char		myBuf[MV_STACKTRACE_BUFSIZE];
+    int			mySize;
+} StackInfo;
 
 #define theBlockSize	(1024*32)
 
