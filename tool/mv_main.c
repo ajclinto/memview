@@ -86,7 +86,8 @@ static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 	VG_(snprintf)(
 		&sbuf->myBuf[sbuf->mySize],
 		available,
-		"%s %s\n",
+		"%s%s %s",
+		( sbuf->mySize ? "\n" : ""),
 		( n == 0 ? "at" : "by" ), tmp);
 
     if (len >= available)
