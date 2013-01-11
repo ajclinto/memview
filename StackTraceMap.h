@@ -1,6 +1,7 @@
 #ifndef StackTraceMap_H
 #define StackTraceMap_H
 
+#include <QMutex>
 #include "Math.h"
 #include <unordered_set>
 #include <map>
@@ -13,11 +14,13 @@ public:
 
     void    insert(uint64 addr, const char *stack)
     {
+	QMutexLocker lock(&myLock);
 	myMap[addr] = stack;
     }
 
     const char	*findClosestStackTrace(uint64 addr)
     {
+	QMutexLocker lock(&myLock);
 	// Finds the element above and below the query address, and returns
 	// the closer of the two.
 	auto hi = myMap.lower_bound(addr);
@@ -39,6 +42,7 @@ public:
 
 private:
     std::map<uint64, std::string>  myMap;
+    QMutex			   myLock;
 };
 
 #endif
