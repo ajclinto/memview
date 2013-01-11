@@ -29,10 +29,8 @@ public:
 	    auto lo = --hi;
 	    if (lo != myMap.end())
 	    {
-		return SYSabs((int64)addr - (int64)hi->first) <
-		       SYSabs((int64)addr - (int64)lo->first) ?
-		       hi->second.c_str() :
-		       lo->second.c_str();
+		return (hi->first - addr) <= (addr - lo->first) ?
+		    hi->second.c_str() : lo->second.c_str();
 	    }
 	    return hi->second.c_str();
 	}
