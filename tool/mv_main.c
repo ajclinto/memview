@@ -19,9 +19,10 @@
 #include "pub_tool_hashtable.h"
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_stacktrace.h"
+#include "pub_tool_threadstate.h"
 #include "coregrind/pub_core_aspacemgr.h"
 
-#define MV_REPLACE_MALLOC
+#define MV_WRAP_MALLOC
 
 /*------------------------------------------------------------*/
 /*--- Command line options                                 ---*/
@@ -630,140 +631,85 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
 }
 
 //------------------------------------------------------------//
-//--- malloc() et al replacement wrappers                  ---//
+//--- malloc() et al wrapper wrappers                  ---//
 //------------------------------------------------------------//
 
-#if defined(MV_REPLACE_MALLOC)
+#if defined(MV_WRAP_MALLOC)
+
 // Nb: first two fields must match core's VgHashNode.
 typedef struct _HP_Chunk {
     struct _HP_Chunk	*next;
     Addr		 data;
     SizeT		 size;
-    SizeT		 fullsize;
 } HP_Chunk;
 
 static VgHashTable malloc_list  = NULL;   // HP_Chunks
 
-static __inline__
-void* alloc_block ( ThreadId tid, SizeT req_szB, SizeT req_alignB,
-	Bool is_zeroed )
+//#define NO_IMPL
+
+static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
 {
-    HP_Chunk	*hc;
-    void	*p;
+#ifndef NO_IMPL
+    if (!p)
+	return;
 
-    if ((SSizeT)req_szB < 0) return NULL;
-    //VG_(printf)("salloc: %d\n", req_szB);
-
-    // Allocate and zero if necessary.
-    p = VG_(cli_malloc)( req_alignB, req_szB );
-    if (!p) {
-	return NULL;
-    }
-    if (is_zeroed) VG_(memset)(p, 0, req_szB);
+    HP_Chunk	*hc = VG_(HT_lookup)(malloc_list, (UWord)p);
 
     // Add to the hash table
-    hc = (HP_Chunk *)VG_(malloc)("mv_malloc", sizeof(HP_Chunk));
-    hc->data = (Addr)p;
-    hc->size = req_szB;
-    hc->fullsize = VG_(malloc_usable_size)(p);
-
-    VG_(HT_add_node)(malloc_list, hc);
-
-    put_wdata((Addr)p, theShiftedAlloc, req_szB);
-
-    //VG_(printf)("ealloc: %d\n", req_szB);
-    return p;
-}
-
-static __inline__
-void release_block ( void* p )
-{
-    //VG_(printf)("sfree: %p\n", p);
-    HP_Chunk* hc = VG_(HT_remove)(malloc_list, (UWord)p);
-
-    put_wdata((Addr)p, theShiftedFree, hc->size);
-
-    VG_(free)(hc);
-    VG_(cli_free)(p);
-    //VG_(printf)("efree: %p\n", p);
-}
-
-static __inline__
-void* realloc_block ( ThreadId tid, void* p_old, SizeT new_req_szB )
-{
-    void        *p_new;
-    HP_Chunk	*hc = VG_(HT_lookup)(malloc_list, (UWord)p_old);
-
     if (!hc)
-	return NULL;
-   
-    if (new_req_szB > hc->fullsize)
     {
-	p_new = alloc_block(tid, new_req_szB, VG_(clo_alignment), False);
-	if (!p_new)
-	    return NULL;
-	VG_(memcpy)(p_new, p_old, hc->size);
-	release_block(p_old);
+	hc = (HP_Chunk *)VG_(malloc)("mv_malloc", sizeof(HP_Chunk));
+	hc->data = (Addr)p;
+	hc->size = szB;
+
+	VG_(HT_add_node)(malloc_list, hc);
+
+	put_wdata((Addr)p, theShiftedAlloc, szB);
     }
-    else
-    {
-	p_new = p_old;
-	hc->size = new_req_szB;
-    }
-
-    return p_new;
-}
-
-static void* mv_malloc ( ThreadId tid, SizeT szB )
-{
-    return alloc_block( tid, szB, VG_(clo_alignment), /*is_zeroed*/False );
-}
-
-static void* mv___builtin_new ( ThreadId tid, SizeT szB )
-{
-    return alloc_block( tid, szB, VG_(clo_alignment), /*is_zeroed*/False );
-}
-
-static void* mv___builtin_vec_new ( ThreadId tid, SizeT szB )
-{
-    return alloc_block( tid, szB, VG_(clo_alignment), /*is_zeroed*/False );
-}
-
-static void* mv_calloc ( ThreadId tid, SizeT m, SizeT szB )
-{
-    return alloc_block( tid, m*szB, VG_(clo_alignment), /*is_zeroed*/True );
-}
-
-static void *mv_memalign ( ThreadId tid, SizeT alignB, SizeT szB )
-{
-    return alloc_block( tid, szB, alignB, False );
+#endif
 }
 
 static void mv_free ( ThreadId tid __attribute__((unused)), void* p )
 {
-    release_block(p);
+#ifndef NO_IMPL
+    HP_Chunk* hc = VG_(HT_remove)(malloc_list, (UWord)p);
+
+    if (hc)
+    {
+	put_wdata((Addr)p, theShiftedFree, hc->size);
+
+	VG_(free)(hc);
+    }
+#endif
 }
 
-static void mv___builtin_delete ( ThreadId tid, void* p )
+static void mv_realloc ( ThreadId tid, void* p_new, void* p_old, SizeT new_szB )
 {
-    release_block(p);
+#ifndef NO_IMPL
+    if (p_new != p_old)
+    {
+	mv_free(tid, p_old);
+	mv_malloc(tid, p_new, new_szB);
+    }
+    else
+    {
+	HP_Chunk	*hc = VG_(HT_lookup)(malloc_list, (UWord)p_old);
+
+	if (!hc)
+	    return;
+   
+	if (new_szB > hc->size)
+	    put_wdata((Addr)p_new + hc->size,
+		    theShiftedAlloc, new_szB - hc->size);
+	else if (new_szB < hc->size)
+	    put_wdata((Addr)p_new + new_szB,
+		    theShiftedFree, hc->size - new_szB);
+
+	hc->size = new_szB;
+    }
+#endif
 }
 
-static void mv___builtin_vec_delete ( ThreadId tid, void* p )
-{
-    release_block(p);
-}
-
-static void* mv_realloc ( ThreadId tid, void* p_old, SizeT new_szB )
-{
-    return realloc_block(tid, p_old, new_szB);
-}
-
-static SizeT mv_malloc_usable_size ( ThreadId tid, void* p )
-{                                                            
-    HP_Chunk* hc = VG_(HT_lookup)( malloc_list, (UWord)p );
-    return ( hc ? hc->fullsize : 0 );
-}                                                            
 #endif
 
 /*------------------------------------------------------------*/
@@ -983,18 +929,11 @@ static void mv_pre_clo_init(void)
 	    mv_print_usage,
 	    mv_print_debug_usage);
 
-#if defined(MV_REPLACE_MALLOC)
-    VG_(needs_malloc_replacement)  (mv_malloc,
-	    mv___builtin_new,
-	    mv___builtin_vec_new,
-	    mv_memalign,
-	    mv_calloc,
+#if defined(MV_WRAP_MALLOC)
+    VG_(needs_malloc_wrap)(
+	    mv_malloc,
 	    mv_free,
-	    mv___builtin_delete,
-	    mv___builtin_vec_delete,
-	    mv_realloc,
-	    mv_malloc_usable_size,
-	    0 );
+	    mv_realloc);
 
     malloc_list = VG_(HT_construct)("Memview's malloc list");
 #endif

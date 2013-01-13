@@ -194,12 +194,6 @@ MemViewWidget::initializeGL()
     myProgram->addShader(vshader);
     myProgram->addShader(fshader);
     myProgram->link();
-
-    myProgram->bind();
-
-    myProgram->setUniformValue("theState", 0);
-    myProgram->setUniformValue("theStale", MemoryState::theStale);
-    myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
 }
 
 void
@@ -285,6 +279,12 @@ MemViewWidget::paintGL()
 	    GL_UNSIGNED_INT, myImage.data());
 #endif
 
+    myProgram->bind();
+
+    myProgram->setUniformValue("theState", 0);
+    myProgram->setUniformValue("theStale", MemoryState::theStale);
+    myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
+
     myProgram->setUniformValue("theTime", myState->getTime());
 
     setScrollMax(myVScrollBar, myDisplay.height());
@@ -297,6 +297,8 @@ MemViewWidget::paintGL()
     glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
     glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
     glEnd();
+
+    myProgram->release();
 
     update();
 }
