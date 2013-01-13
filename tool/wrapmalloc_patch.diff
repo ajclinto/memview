@@ -1,41 +1,12 @@
-Index: include/pub_tool_tooliface.h
-===================================================================
---- include/pub_tool_tooliface.h	(revision 13221)
-+++ include/pub_tool_tooliface.h	(working copy)
-@@ -459,6 +459,12 @@
-    SizeT client_malloc_redzone_szB
- );
- 
-+extern void VG_(needs_malloc_wrap)(
-+   void (*pmalloc)  ( ThreadId tid, void* p, SizeT n ),
-+   void (*pfree)    ( ThreadId tid, void* p ),
-+   void (*prealloc) ( ThreadId tid, void* new_p, void* old_p, SizeT new_size )
-+);
-+
- /* Can the tool do XML output?  This is a slight misnomer, because the tool
-  * is not requesting the core to do anything, rather saying "I can handle
-  * it". */
-Index: coregrind/pub_core_clreq.h
-===================================================================
---- coregrind/pub_core_clreq.h	(revision 13221)
-+++ coregrind/pub_core_clreq.h	(working copy)
-@@ -46,6 +46,7 @@
- 
-       /* Get the tool's malloc-wrapping functions */
-       VG_USERREQ__GET_MALLOCFUNCS   = 0x3030,
-+      VG_USERREQ__GET_MALLOCWRAPS   = 0x3031,
- 
-       /* Internal equivalent of VALGRIND_PRINTF_VALIST_BY_REF . */
-       VG_USERREQ__INTERNAL_PRINTF_VALIST_BY_REF = 0x3103,
 Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 ===================================================================
 --- coregrind/m_replacemalloc/vg_wrap_malloc.c	(revision 0)
 +++ coregrind/m_replacemalloc/vg_wrap_malloc.c	(working copy)
-@@ -0,0 +1,783 @@
+@@ -0,0 +1,780 @@
 +
 +/*--------------------------------------------------------------------*/
 +/*--- Replacements for malloc() et al, which run on the simulated  ---*/
-+/*--- CPU.                                     vg_replace_malloc.c ---*/
++/*--- CPU.                                     vg_wrap_malloc.c ---*/
 +/*--------------------------------------------------------------------*/
 +
 +/*
@@ -74,7 +45,7 @@ Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 +   that wishes to know about calls to malloc().  The tool must define all
 +   the functions that will be called via 'info'.
 +
-+   It is called vg_replace_malloc.c because this filename appears in stack
++   It is called vg_wrap_malloc.c because this filename appears in stack
 +   traces, so we want the name to be (hopefully!) meaningful to users.
 +
 +   IMPORTANT: this file must not contain any floating point code, nor
@@ -101,13 +72,12 @@ Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 +                                    //   VALGRIND_NON_SIMD_CALL[12]
 +#include "pub_core_debuginfo.h"     // needed for pub_core_redir.h :(
 +#include "pub_core_mallocfree.h"    // for VG_MIN_MALLOC_SZB, VG_AR_CLIENT
-+#include "pub_core_redir.h"         // for VG_REPLACE_FUNCTION_*
++#include "pub_core_redir.h"         // for VG_WRAP_FUNCTION_*
 +#include "pub_core_replacemalloc.h"
 +
-+// The C++ allocators generally seem to call the libc variants, so it is
-+// costly to wrap these as well.  If you do want to wrap new/delete, make
-+// sure that your callbacks can handle both the new and corresponding
-+// malloc() call.
++// The C++ allocators generally call the libc variants, so it is costly to
++// wrap these as well.  If you do want to wrap new/delete, make sure that
++// your callbacks can handle both the new and corresponding malloc() call.
 +//#define WRAP_NEW
 +
 +/* Assignment of behavioural equivalence class tags: 1NNNP is intended
@@ -196,7 +166,7 @@ Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 +   None of these functions are called directly - they are not meant to
 +   be found by the dynamic linker.  But ALL client calls to malloc()
 +   and friends wind up here eventually.  They get called because
-+   vg_replace_malloc installs a bunch of code redirects which causes
++   vg_wrap_malloc installs a bunch of code redirects which causes
 +   Valgrind to use these functions rather than the ones they're
 +   replacing.
 +*/
@@ -428,9 +398,7 @@ Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 +
 +/*---------------------- free ----------------------*/
 +
-+/* Generate a replacement for 'fnname' in object 'soname', which calls
-+   'vg_replacement' to free previously allocated memory.
-+*/
++/* Generate a replacement for 'fnname' in object 'soname' */
 +#define ZONEFREE(soname, fnname) \
 +   \
 +   void VG_WRAP_FUNCTION_EZU(10040,soname,fnname) (void *zone, void *p); \
@@ -798,7 +766,7 @@ Index: coregrind/m_replacemalloc/vg_wrap_malloc.c
 +   //   condition, both DRD and Helgrind would report this race.
 +   // 
 +   //   By the way, although the init() function in
-+   //   coregrind/m_replacemalloc/vg_replace_malloc.c has been declared
++   //   coregrind/m_replacemalloc/vg_wrap_malloc.c has been declared
 +   //   __attribute__((constructor)), it is not safe to remove the variable
 +   //   init_done. This is because it is possible that malloc() and hence
 +   //   init() gets called before shared library initialization finished.
@@ -882,30 +850,6 @@ Index: coregrind/m_tooliface.c
  void VG_(needs_xml_output)( void )
  {
     VG_(needs).xml_output = True;
-Index: coregrind/pub_core_tooliface.h
-===================================================================
---- coregrind/pub_core_tooliface.h	(revision 13221)
-+++ coregrind/pub_core_tooliface.h	(working copy)
-@@ -90,6 +90,7 @@
-       Bool sanity_checks;
-       Bool var_info;
-       Bool malloc_replacement;
-+      Bool malloc_wrap;
-       Bool xml_output;
-       Bool final_IR_tidy_pass;
-    } 
-@@ -159,6 +160,11 @@
-    SizeT (*tool_malloc_usable_size)  (ThreadId, void*);
-    SizeT tool_client_redzone_szB;
- 
-+   // VG_(needs).malloc_wrap
-+   void (*tool_wrapmalloc)              (ThreadId, void*, SizeT);
-+   void (*tool_wrapfree)                (ThreadId, void*);
-+   void (*tool_wraprealloc)             (ThreadId, void*, void*, SizeT);
-+
-    // VG_(needs).final_IR_tidy_pass
-    IRSB* (*tool_final_IR_tidy_pass)  (IRSB*);
- 
 Index: coregrind/Makefile.am
 ===================================================================
 --- coregrind/Makefile.am	(revision 13221)
@@ -941,6 +885,42 @@ Index: coregrind/Makefile.am
  # vgpreload_core-<platform>.a
  #----------------------------------------------------------------------------
  
+Index: coregrind/pub_core_tooliface.h
+===================================================================
+--- coregrind/pub_core_tooliface.h	(revision 13221)
++++ coregrind/pub_core_tooliface.h	(working copy)
+@@ -90,6 +90,7 @@
+       Bool sanity_checks;
+       Bool var_info;
+       Bool malloc_replacement;
++      Bool malloc_wrap;
+       Bool xml_output;
+       Bool final_IR_tidy_pass;
+    } 
+@@ -159,6 +160,11 @@
+    SizeT (*tool_malloc_usable_size)  (ThreadId, void*);
+    SizeT tool_client_redzone_szB;
+ 
++   // VG_(needs).malloc_wrap
++   void (*tool_wrapmalloc)              (ThreadId, void*, SizeT);
++   void (*tool_wrapfree)                (ThreadId, void*);
++   void (*tool_wraprealloc)             (ThreadId, void*, void*, SizeT);
++
+    // VG_(needs).final_IR_tidy_pass
+    IRSB* (*tool_final_IR_tidy_pass)  (IRSB*);
+ 
+Index: coregrind/pub_core_clreq.h
+===================================================================
+--- coregrind/pub_core_clreq.h	(revision 13221)
++++ coregrind/pub_core_clreq.h	(working copy)
+@@ -46,6 +46,7 @@
+ 
+       /* Get the tool's malloc-wrapping functions */
+       VG_USERREQ__GET_MALLOCFUNCS   = 0x3030,
++      VG_USERREQ__GET_MALLOCWRAPS   = 0x3031,
+ 
+       /* Internal equivalent of VALGRIND_PRINTF_VALIST_BY_REF . */
+       VG_USERREQ__INTERNAL_PRINTF_VALIST_BY_REF = 0x3103,
 Index: Makefile.tool.am
 ===================================================================
 --- Makefile.tool.am	(revision 13221)
@@ -1020,3 +1000,20 @@ Index: Makefile.tool.am
  #----------------------------------------------------------------------------
  # General stuff
  #----------------------------------------------------------------------------
+Index: include/pub_tool_tooliface.h
+===================================================================
+--- include/pub_tool_tooliface.h	(revision 13221)
++++ include/pub_tool_tooliface.h	(working copy)
+@@ -459,6 +459,12 @@
+    SizeT client_malloc_redzone_szB
+ );
+ 
++extern void VG_(needs_malloc_wrap)(
++   void (*pmalloc)  ( ThreadId tid, void* p, SizeT n ),
++   void (*pfree)    ( ThreadId tid, void* p ),
++   void (*prealloc) ( ThreadId tid, void* new_p, void* old_p, SizeT new_size )
++);
++
+ /* Can the tool do XML output?  This is a slight misnomer, because the tool
+  * is not requesting the core to do anything, rather saying "I can handle
+  * it". */
