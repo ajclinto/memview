@@ -24,13 +24,28 @@
 
 #include "Window.h"
 
+static void
+usage()
+{
+    fprintf(stderr, "Usage: memview [--ignore-bits=n] [valgrind-options] your-program [your-program-options]\n");
+    fprintf(stderr, "\t--ignore-bits=n\n"
+	"\t\tDrop the n least significant bits in memory addresses.\n"
+	"\t\tThis option can be used to optimize memory use. [2]\n");
+    fprintf(stderr, "\t--tool=[memview|lackey]\n"
+	"\t\tBy default, memview will use the 'memview' valgrind\n"
+	"\t\ttool.  If you have an unpatched valgrind, you can force the\n"
+	"\t\tuse of 'lackey' with this option - however performance will be\n"
+	"\t\tpoor.  Stack traces and memory allocations are unsupported\n"
+	"\t\twith lackey.\n");
+}
+
 int main(int argc, char *argv[])
 {
     QApplication	app(argc, argv);
 
     if (argc <= 1)
     {
-	fprintf(stderr, "Usage: memview [--ignore-bits=n] [your-program] [your-program-options]\n");
+	usage();
 	return 1;
     }
 

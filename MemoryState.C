@@ -121,7 +121,7 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
     if (typestr)
     {
 	if (type & MV_TypeFree)
-	    tmp.sprintf("\t(%s - Deallocated)", typestr);
+	    tmp.sprintf("\t(%s, Deallocated)", typestr);
 	else
 	    tmp.sprintf("\t(%s)", typestr);
 	message.append(tmp);
