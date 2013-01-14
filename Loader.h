@@ -26,7 +26,7 @@
 #define Loader_H
 
 #include <QtGui>
-#include "tool/mv_ipc.h"
+#include "tool/memview/mv_ipc.h"
 #include "Math.h"
 #include <memory>
 #include <sys/types.h>

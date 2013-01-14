@@ -1,0 +1,27 @@
+Index: Makefile.am
+===================================================================
+--- Makefile.am	(revision 13221)
++++ Makefile.am	(working copy)
+@@ -10,7 +10,8 @@
+ 		lackey \
+ 		none \
+ 		helgrind \
+-		drd
++		drd \
++		memview
+ 
+ EXP_TOOLS = 	exp-sgcheck \
+ 		exp-bbv \
+Index: configure.in
+===================================================================
+--- configure.in	(revision 13221)
++++ configure.in	(working copy)
+@@ -2536,6 +2536,8 @@
+    exp-bbv/tests/arm-linux/Makefile
+    exp-dhat/Makefile
+    exp-dhat/tests/Makefile
++   memview/Makefile
++   memview/tests/Makefile
+ ])
+ AC_CONFIG_FILES([coregrind/link_tool_exe_linux],
+                 [chmod +x coregrind/link_tool_exe_linux])
