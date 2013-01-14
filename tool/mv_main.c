@@ -1,7 +1,33 @@
 
 /*--------------------------------------------------------------------*/
-/*--- A tool to output memory traces                     mv_main.c ---*/
+/*--- Memview: A tool to export real-time memory trace information ---*/
+/*--- via IPC.                                                     ---*/
+/*---                                                    mv_main.c ---*/
 /*--------------------------------------------------------------------*/
+
+/*
+   This file is part of Memview.
+
+   Copyright (C) 2000-2012 Julian Seward 
+      jseward@acm.org
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
 
 #include "mv_ipc.h"
 #include "pub_tool_basics.h"
@@ -22,6 +48,9 @@
 #include "pub_tool_threadstate.h"
 #include "coregrind/pub_core_aspacemgr.h"
 
+// This define enables the malloc() wrapping callbacks in the tool runtime.
+// To disable wrapping entirely you also need to remove the
+// vgpreload_memview-*.so file.
 #define MV_WRAP_MALLOC
 
 /*------------------------------------------------------------*/
@@ -46,7 +75,7 @@ static Bool mv_process_cmd_line_option(const HChar* arg)
 static void mv_print_usage(void)
 {  
     VG_(printf)(
-	    "    --pipe=<fd>                pipe to fd [2]\n"
+	    "    --pipe=<fd>                pipe to fd [0]\n"
 	    "    --shared-mem=<file>        shared memory output file [""]\n"
 	    "    --trace-instrs=yes         trace instruction memory [no]\n"
 	    );
@@ -54,31 +83,29 @@ static void mv_print_usage(void)
 
 static void mv_print_debug_usage(void)
 {  
-    VG_(printf)(
-	    "    (none)\n"
-	    );
+    VG_(printf)("    (none)\n");
 }
 
 /*------------------------------------------------------------*/
 /*--- Memory Trace IPC					      */
 /*------------------------------------------------------------*/
 
-static TraceBlock	*theBlock = 0;
+static MV_TraceBlock	*theBlock = 0;
 
 // Data for pipe
-static TraceBlock	 theBlockData;
+static MV_TraceBlock	 theBlockData;
 // Data for shm
-static SharedData	*theSharedData = 0;
+static MV_SharedData	*theSharedData = 0;
 
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
-static StackInfo theStackTrace;
+static MV_StackInfo theStackTrace;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
-    StackInfo	*sbuf = (StackInfo *)uu_opaque;
-    HChar	 tmp[MV_STACKTRACE_BUFSIZE];
+    MV_StackInfo	*sbuf = (MV_StackInfo *)uu_opaque;
+    HChar		 tmp[MV_STACKTRACE_BUFSIZE];
 
     VG_(describe_IP)(ip, tmp, MV_STACKTRACE_BUFSIZE);
 
@@ -105,7 +132,7 @@ static void flush_data(void)
     }
     else if (clo_pipe)
     {
-	Header	header;
+	MV_Header	header;
 
 	//
 	// Stack traces are retained until the next block is flushed.  This
@@ -122,15 +149,16 @@ static void flush_data(void)
 
 	    theStackTrace.myAddr = theBlockData.myAddr[0];
 
-	    VG_(write)(clo_pipe, &header, sizeof(Header));
+	    VG_(write)(clo_pipe, &header, sizeof(MV_Header));
 	    VG_(write)(clo_pipe, &theStackTrace, header.mySize);
 	}
 
 	// Prepare the next stack trace
-	Addr ips[8];
+	Int ncallers = VG_(clo_backtrace_size);
+	Addr ips[ncallers];
 	UInt n_ips = VG_(get_StackTrace)(
 		VG_(get_running_tid)(),
-		ips, 8,
+		ips, ncallers,
 		NULL/*array to dump SP values in*/,
 		NULL/*array to dump FP values in*/,
 		0/*first_ip_delta*/);
@@ -141,7 +169,7 @@ static void flush_data(void)
 	// Send the block
 	header.myType = MV_BLOCK;
 
-	VG_(write)(clo_pipe, &header, sizeof(Header));
+	VG_(write)(clo_pipe, &header, sizeof(MV_Header));
 	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
 
     }
@@ -161,24 +189,24 @@ static void flush_data(void)
 
 static inline void put_data(Addr addr, uint64 type, uint64 size)
 {
-    if (theBlock->myEntries >= theBlockSize)
+    if (theBlock->myEntries >= MV_BlockSize)
 	flush_data();
 
 #if 0
     if (theBlock->myEntries > 0)
     {
 	uint64 last = theBlock->myAddr[theBlock->myEntries-1];
-	uint64 lasttype = (last & theTypeMask) >> theTypeShift;
-	uint64 lastsize = last >> theSizeShift;
+	uint64 lasttype = (last & MV_TypeMask) >> MV_TypeShift;
+	uint64 lastsize = last >> MV_SizeShift;
 	uint64 totalsize = lastsize + size;
 	if (type == lasttype && totalsize <= 128)
 	{
-	    uint64 lastaddr = last & theAddrMask;
+	    uint64 lastaddr = last & MV_AddrMask;
 	    // Sequential
 	    if (addr == lastaddr + lastsize)
 	    {
-		last &= ~theSizeMask;
-		last |= totalsize << theSizeShift;
+		last &= ~MV_SizeMask;
+		last |= totalsize << MV_SizeShift;
 		theBlock->myAddr[theBlock->myEntries-1] = last;
 		return;
 	    }
@@ -187,7 +215,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 	    {
 		last = addr;
 		last |= type;
-		last |= totalsize << theSizeShift;
+		last |= totalsize << MV_SizeShift;
 		theBlock->myAddr[theBlock->myEntries-1] = last;
 		return;
 	    }
@@ -196,8 +224,8 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 	    {
 		if (size > lastsize)
 		{
-		    last &= ~theSizeMask;
-		    last |= size << theSizeShift;
+		    last &= ~MV_SizeMask;
+		    last |= size << MV_SizeShift;
 		    theBlock->myAddr[theBlock->myEntries-1] = last;
 		}
 		return;
@@ -208,7 +236,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 
     uint64 data = addr;
     data |= type;
-    data |= size << theSizeShift;
+    data |= size << MV_SizeShift;
 
     theBlock->myAddr[theBlock->myEntries] = data;
     theBlock->myEntries++;
@@ -287,58 +315,58 @@ static Int   canCreateModify = 0;
 
 static VG_REGPARM(2) void trace_instr(Addr addr, SizeT size)
 {
-    put_data(addr, theShiftedInstr, (uint64)size);
+    put_data(addr, MV_ShiftedInstr, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2instr(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedInstr, (uint64)size);
-    put_data(addr2, theShiftedInstr, (uint64)size);
+    put_data(addr, MV_ShiftedInstr, (uint64)size);
+    put_data(addr2, MV_ShiftedInstr, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_load(Addr addr, SizeT size)
 {
-    put_data(addr, theShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2load(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedRead, (uint64)size);
-    put_data(addr2, theShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint64)size);
+    put_data(addr2, MV_ShiftedRead, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_store(Addr addr, SizeT size)
 {
-    put_data(addr, theShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2store(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedWrite, (uint64)size);
-    put_data(addr2, theShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint64)size);
+    put_data(addr2, MV_ShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(2) void trace_modify(Addr addr, SizeT size)
 {
-    put_data(addr, theShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_2modify(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedWrite, (uint64)size);
-    put_data(addr2, theShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint64)size);
+    put_data(addr2, MV_ShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_loadstore(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedRead, (uint64)size);
-    put_data(addr2, theShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint64)size);
+    put_data(addr2, MV_ShiftedWrite, (uint64)size);
 }
 
 static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, theShiftedWrite, (uint64)size);
-    put_data(addr2, theShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint64)size);
+    put_data(addr2, MV_ShiftedRead, (uint64)size);
 }
 
 /* build various kinds of expressions */
@@ -503,7 +531,7 @@ static void flushEventsIR(IRSB* sb)
 	    mkIRExprVec_0() );
 
     di->guard =
-	binop(Iop_CmpLE32S, mkU32(theBlockSize - events_used), entries);
+	binop(Iop_CmpLE32S, mkU32(MV_BlockSize - events_used), entries);
 
     addStmtToIRSB( sb, IRStmt_Dirty(di) );
 
@@ -527,14 +555,14 @@ static void flushEventsIR(IRSB* sb)
 	uint64 type = 0;
 	switch (ev->ekind) {
 	    case Event_Ir:
-		type = theShiftedInstr;
+		type = MV_ShiftedInstr;
 		break;
 	    case Event_Dr:
-		type = theShiftedRead;
+		type = MV_ShiftedRead;
 		break;
 	    case Event_Dw:
 	    case Event_Dm:
-		type = theShiftedWrite;
+		type = MV_ShiftedWrite;
 		break;
 	    default:
 		tl_assert(0);
@@ -543,7 +571,7 @@ static void flushEventsIR(IRSB* sb)
 	// Construct the address and store it
 	IRExpr *data =
 	    binop(Iop_Or64, ev->addr,
-		    mkU64(type | ((uint64)ev->size << theSizeShift)));
+		    mkU64(type | ((uint64)ev->size << MV_SizeShift)));
 
 	IRStmt *store = IRStmt_Store(end, addr, data);
 
@@ -664,7 +692,7 @@ static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
 
 	VG_(HT_add_node)(malloc_list, hc);
 
-	put_wdata((Addr)p, theShiftedAlloc, szB);
+	put_wdata((Addr)p, MV_ShiftedAlloc, szB);
     }
 #endif
 }
@@ -676,7 +704,7 @@ static void mv_free ( ThreadId tid __attribute__((unused)), void* p )
 
     if (hc)
     {
-	put_wdata((Addr)p, theShiftedFree, hc->size);
+	put_wdata((Addr)p, MV_ShiftedFree, hc->size);
 
 	VG_(free)(hc);
     }
@@ -700,10 +728,10 @@ static void mv_realloc ( ThreadId tid, void* p_new, void* p_old, SizeT new_szB )
    
 	if (new_szB > hc->size)
 	    put_wdata((Addr)p_new + hc->size,
-		    theShiftedAlloc, new_szB - hc->size);
+		    MV_ShiftedAlloc, new_szB - hc->size);
 	else if (new_szB < hc->size)
 	    put_wdata((Addr)p_new + new_szB,
-		    theShiftedFree, hc->size - new_szB);
+		    MV_ShiftedFree, hc->size - new_szB);
 
 	hc->size = new_szB;
     }
@@ -728,7 +756,7 @@ static void mv_post_clo_init(void)
 	}
 
 	SysRes	res = VG_(am_shared_mmap_file_float_valgrind)
-	    (sizeof(SharedData), VKI_PROT_READ|VKI_PROT_WRITE,
+	    (sizeof(MV_SharedData), VKI_PROT_READ|VKI_PROT_WRITE,
 	     sr_Res(o), (Off64T)0);
 	if (sr_isError(res))
 	{
@@ -736,7 +764,7 @@ static void mv_post_clo_init(void)
 	    VG_(exit)(1);
 	}
 
-	theSharedData = (SharedData *)(Addr)sr_Res(res);
+	theSharedData = (MV_SharedData *)(Addr)sr_Res(res);
 	VG_(dmsg)("got memory %p\n", theSharedData);
 
 	VG_(umsg)("shared memory interface not implemented\n");

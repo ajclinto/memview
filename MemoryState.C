@@ -1,3 +1,27 @@
+/*
+   This file is part of memview, a real-time memory trace visualization
+   application.
+
+   Copyright (C) 2013 Andrew Clinton
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
 #include "MemoryState.h"
 #include "StopWatch.h"
 #include "Color.h"
@@ -84,19 +108,19 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
     const char	*typestr = 0;
 
     int type = entry.type();
-    switch (type & ~theTypeFree)
+    switch (type & ~MV_TypeFree)
     {
-	case theTypeRead: typestr = "Read"; break;
-	case theTypeWrite: typestr = "Written"; break;
-	case theTypeInstr: typestr = "Instruction"; break;
-	case theTypeAlloc: typestr = "Allocated"; break;
+	case MV_TypeRead: typestr = "Read"; break;
+	case MV_TypeWrite: typestr = "Written"; break;
+	case MV_TypeInstr: typestr = "Instruction"; break;
+	case MV_TypeAlloc: typestr = "Allocated"; break;
     }
 
     if (typestr)
     {
 	tmp.sprintf("\t%12s: %d", typestr, entry.time());
 	message.append(tmp);
-	if (type & theTypeFree)
+	if (type & MV_TypeFree)
 	    message.append(" (freed)");
     }
 }

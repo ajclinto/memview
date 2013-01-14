@@ -1,3 +1,27 @@
+/*
+   This file is part of memview, a real-time memory trace visualization
+   application.
+
+   Copyright (C) 2013 Andrew Clinton
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
 #include "Loader.h"
 #include "MemoryState.h"
 #include "StackTraceMap.h"
@@ -80,13 +104,13 @@ Loader::openPipe(int argc, char *argv[])
 	}
 
 
-	if (ftruncate(shm_fd, sizeof(SharedData)) == -1)
+	if (ftruncate(shm_fd, sizeof(MV_SharedData)) == -1)
 	{
 	    fprintf(stderr, "ftruncate failed\n");
 	    return false;
 	}
 
-	mySharedData = (SharedData *)mmap(NULL, sizeof(SharedData),
+	mySharedData = (MV_SharedData *)mmap(NULL, sizeof(MV_SharedData),
 		PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 	if (mySharedData == MAP_FAILED)
 	{
@@ -94,7 +118,7 @@ Loader::openPipe(int argc, char *argv[])
 	    return false;
 	}
 
-	memset(mySharedData, 0, sizeof(SharedData));
+	memset(mySharedData, 0, sizeof(MV_SharedData));
     }
 
     int		fd[2];
@@ -218,7 +242,7 @@ Loader::run()
 		rval = loadFromTest();
 		break;
 	    case LACKEY:
-		rval = loadFromLackey(theBlockSize);
+		rval = loadFromLackey(MV_BlockSize);
 		break;
 	    case MEMVIEW_PIPE:
 		rval = loadFromPipe();
@@ -270,10 +294,10 @@ Loader::loadFromLackey(int max_read)
 
 	switch (type_str[0])
 	{
-	    case 'L': type = theTypeRead; break;
+	    case 'L': type = MV_TypeRead; break;
 	    case 'S':
-	    case 'M': type = theTypeWrite; break;
-	    case 'I': type = theTypeInstr; break;
+	    case 'M': type = MV_TypeWrite; break;
+	    case 'I': type = MV_TypeInstr; break;
 	    default: continue;
 	}
 
@@ -305,9 +329,9 @@ Loader::loadFromLackey(int max_read)
 static inline void
 decodeAddr(uint64 &addr, uint64 &size, uint64 &type)
 {
-    size = addr >> theSizeShift,
-    type = (addr & theTypeMask) >> theTypeShift;
-    addr &= theAddrMask;
+    size = addr >> MV_SizeShift,
+    type = (addr & MV_TypeMask) >> MV_TypeShift;
+    addr &= MV_AddrMask;
 }
 
 bool
@@ -316,7 +340,7 @@ Loader::loadFromPipe()
     if (!myPipe)
 	return false;
 
-    TraceBlockHandle block(new TraceBlock);
+    TraceBlockHandle block(new MV_TraceBlock);
 
     fd_set rfds;
 
@@ -340,13 +364,13 @@ Loader::loadFromPipe()
     if (retval == 0)
 	return true;
 
-    Header header;
-    if (!read(myPipeFD, &header, sizeof(Header)))
+    MV_Header header;
+    if (!read(myPipeFD, &header, sizeof(MV_Header)))
 	return false;
 
     if (header.myType == MV_BLOCK)
     {
-	if (read(myPipeFD, block.get(), sizeof(TraceBlock)))
+	if (read(myPipeFD, block.get(), sizeof(MV_TraceBlock)))
 	{
 	    if (block->myEntries && loadBlock(block))
 		return true;
@@ -354,7 +378,7 @@ Loader::loadFromPipe()
     }
     else if (header.myType == MV_STACKTRACE)
     {
-	StackInfo stack;
+	MV_StackInfo stack;
 	if (read(myPipeFD, &stack, header.mySize))
 	{
 	    uint64 size, type;
@@ -380,13 +404,13 @@ Loader::loadFromTest()
     static const uint64 theSize = 32*1024;
     static uint64 theCount = 0;
 
-    TraceBlockHandle	block(new TraceBlock);
-    block->myEntries = theBlockSize;
+    TraceBlockHandle	block(new MV_TraceBlock);
+    block->myEntries = MV_BlockSize;
     for (uint64 j = 0; j < block->myEntries; j++)
     {
-	block->myAddr[j] = theCount*theBlockSize + j;
-	block->myAddr[j] |= (uint64)theTypeRead << theTypeShift;
-	block->myAddr[j] |= (uint64)4 << theSizeShift;
+	block->myAddr[j] = theCount*MV_BlockSize + j;
+	block->myAddr[j] |= (uint64)MV_TypeRead << MV_TypeShift;
+	block->myAddr[j] |= (uint64)4 << MV_SizeShift;
     }
     loadBlock(block);
 
@@ -440,8 +464,8 @@ bool
 Loader::loadBlock(const TraceBlockHandle &block)
 {
     // Basic semantic checking to ensure we received valid data
-    uint64 type = (block->myAddr[0] & theTypeMask) >> theTypeShift;
-    if (block->myEntries > theBlockSize || type > 7)
+    uint64 type = (block->myAddr[0] & MV_TypeMask) >> MV_TypeShift;
+    if (block->myEntries > MV_BlockSize || type > 7)
     {
 	fprintf(stderr, "received invalid block (size %u, type %lld)\n",
 		block->myEntries, type);

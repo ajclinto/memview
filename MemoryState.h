@@ -1,3 +1,27 @@
+/*
+   This file is part of memview, a real-time memory trace visualization
+   application.
+
+   Copyright (C) 2013 Andrew Clinton
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU General Public License as
+   published by the Free Software Foundation; either version 2 of the
+   License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+   02111-1307, USA.
+
+   The GNU General Public License is contained in the file COPYING.
+*/
+
 #ifndef MemoryState_H
 #define MemoryState_H
 
@@ -23,7 +47,7 @@ public:
 
 	void setTime(uint32 time)
 	{ init(time, type()); }
-	void setFree() { uval |= theTypeFree; }
+	void setFree() { uval |= MV_TypeFree; }
 
 	uint32 type() const { return uval & theStateTypeMask; }
 	uint32 time() const { return uval >> theStateShift; }
@@ -69,7 +93,7 @@ public:
 
 		    uint64 last = addr + size;
 
-		    if (!(type & theTypeFree))
+		    if (!(type & MV_TypeFree))
 		    {
 			for (; addr < last; addr++)
 			    myState[addr].init(myTime, type);
