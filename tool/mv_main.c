@@ -48,9 +48,9 @@
 #include "pub_tool_threadstate.h"
 #include "coregrind/pub_core_aspacemgr.h"
 
-// This define enables the malloc() wrapping callbacks in the tool runtime.
-// To disable wrapping entirely you also need to remove the
-// vgpreload_memview-*.so file.
+/* This define enables the malloc() wrapping callbacks in the tool runtime.
+   To disable wrapping entirely you also need to remove the
+   vgpreload_memview-*.so file. */
 #define MV_WRAP_MALLOC
 
 /*------------------------------------------------------------*/
@@ -67,6 +67,8 @@ static Bool mv_process_cmd_line_option(const HChar* arg)
     else if VG_STR_CLO(arg, "--shared-mem",	clo_shared_mem) {}
     else if VG_BOOL_CLO(arg, "--trace-instrs",	clo_trace_instrs) {}
     else
+	// Malloc wrapping supports --trace-malloc but not other malloc
+	// replacement options.
 	return VG_(replacement_malloc_process_cmd_line_option)(arg);
 
     return True;
@@ -76,7 +78,7 @@ static void mv_print_usage(void)
 {  
     VG_(printf)(
 	    "    --pipe=<fd>                pipe to fd [0]\n"
-	    "    --shared-mem=<file>        shared memory output file [""]\n"
+//	    "    --shared-mem=<file>        shared memory output file [""]\n"
 	    "    --trace-instrs=yes         trace instruction memory [no]\n"
 	    );
 }
@@ -100,7 +102,7 @@ static MV_SharedData	*theSharedData = 0;
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
-static MV_StackInfo theStackTrace;
+static MV_StackInfo	 theStackTrace;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
@@ -192,6 +194,9 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
     if (theBlock->myEntries >= MV_BlockSize)
 	flush_data();
 
+    // This code was written in the hope that it might improve performance
+    // by reducing the amount of data sent on the pipe.  Unfortunately, it
+    // actually decreased performance.
 #if 0
     if (theBlock->myEntries > 0)
     {
@@ -234,6 +239,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
     }
 #endif
 
+    // This same encoding is created with VEX IR in flushEventsIR().
     uint64 data = addr;
     data |= type;
     data |= size << MV_SizeShift;
@@ -255,7 +261,7 @@ static inline void put_wdata(Addr addr, uint64 type, SizeT size)
 }
 
 /*------------------------------------------------------------*/
-/*--- Stuff for --trace-mem                                ---*/
+/*--- instrumentation (based on lackey)                    ---*/
 /*------------------------------------------------------------*/
 
 #define MAX_DSIZE    512
@@ -369,35 +375,10 @@ static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
     put_data(addr2, MV_ShiftedRead, (uint64)size);
 }
 
-/* build various kinds of expressions */
-#define triop(_op, _arg1, _arg2, _arg3) \
-                                 assignNew(sb, IRExpr_Triop((_op),(_arg1),(_arg2),(_arg3)))
-#define binop(_op, _arg1, _arg2) assignNew(sb, IRExpr_Binop((_op),(_arg1),(_arg2)))
-#define unop(_op, _arg)          assignNew(sb, IRExpr_Unop((_op),(_arg)))
-#define load(_op, _ty, _arg)     assignNew(sb, IRExpr_Load((_op),(_ty),(_arg)))
-#define mkU8(_n)                 IRExpr_Const(IRConst_U8(_n))
-#define mkU16(_n)                IRExpr_Const(IRConst_U16(_n))
-#define mkU32(_n)                IRExpr_Const(IRConst_U32(_n))
-#define mkU64(_n)                IRExpr_Const(IRConst_U64(_n))
-#define mkV128(_n)               IRExpr_Const(IRConst_V128(_n))
-#define mkexpr(_tmp)             IRExpr_RdTmp((_tmp))
-
-/* assign value to tmp */
-static inline 
-void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
-   addStmtToIRSB( sb, IRStmt_WrTmp(tmp, expr) );
-}
-
-static IRAtom* assignNew ( IRSB* sb, IRExpr* e )
-{
-   IRTemp   t;
-   IRType   ty = typeOfIRExpr(sb->tyenv, e);
-
-   t = newIRTemp(sb->tyenv, ty);
-   assign(sb, t, e);
-   return mkexpr(t);
-}
-
+/* This version of flushEvents (currently unused) is similar to the one in
+   lackey with the primary difference that it groups together pairs of
+   events for a single callback.  This helps to reduce the total amount of
+   function call overhead. */
 static void flushEventsCB(IRSB* sb)
 {
     IRDirty*   di;
@@ -505,6 +486,43 @@ static void flushEventsCB(IRSB* sb)
     events_used = 0;
 }
 
+/* Code copied from memcheck and modified to aid the creation of flat IR
+   from a function tree. Why can't we create tree IR during
+   instrumentation? */
+
+#define triop(_op, _arg1, _arg2, _arg3) \
+                                 assignNew(sb, IRExpr_Triop((_op),(_arg1),(_arg2),(_arg3)))
+#define binop(_op, _arg1, _arg2) assignNew(sb, IRExpr_Binop((_op),(_arg1),(_arg2)))
+#define unop(_op, _arg)          assignNew(sb, IRExpr_Unop((_op),(_arg)))
+#define load(_op, _ty, _arg)     assignNew(sb, IRExpr_Load((_op),(_ty),(_arg)))
+#define mkU8(_n)                 IRExpr_Const(IRConst_U8(_n))
+#define mkU16(_n)                IRExpr_Const(IRConst_U16(_n))
+#define mkU32(_n)                IRExpr_Const(IRConst_U32(_n))
+#define mkU64(_n)                IRExpr_Const(IRConst_U64(_n))
+#define mkV128(_n)               IRExpr_Const(IRConst_V128(_n))
+#define mkexpr(_tmp)             IRExpr_RdTmp((_tmp))
+
+/* assign value to tmp */
+static inline 
+void assign ( IRSB* sb, IRTemp tmp, IRExpr* expr ) {
+   addStmtToIRSB( sb, IRStmt_WrTmp(tmp, expr) );
+}
+
+static IRAtom* assignNew ( IRSB* sb, IRExpr* e )
+{
+   IRTemp   t;
+   IRType   ty = typeOfIRExpr(sb->tyenv, e);
+
+   t = newIRTemp(sb->tyenv, ty);
+   assign(sb, t, e);
+   return mkexpr(t);
+}
+
+/* This version of flushEvents avoids callbacks entirely, except when the
+   number of outstanding events is enough to be flushed - in which case a
+   call to flush_data() is made.  In all other cases, events are handled by
+   creating IR to encode and store the memory access information to the
+   array of outstanding events.  */
 static void flushEventsIR(IRSB* sb)
 {
     if (!events_used)
@@ -659,7 +677,7 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
 }
 
 //------------------------------------------------------------//
-//--- malloc() et al wrapper wrappers                  ---//
+//--- malloc() et al wrapper wrappers                      ---//
 //------------------------------------------------------------//
 
 #if defined(MV_WRAP_MALLOC)
@@ -673,11 +691,9 @@ typedef struct _HP_Chunk {
 
 static VgHashTable malloc_list  = NULL;   // HP_Chunks
 
-//#define NO_IMPL
 
 static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
 {
-#ifndef NO_IMPL
     if (!p)
 	return;
 
@@ -694,12 +710,10 @@ static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
 
 	put_wdata((Addr)p, MV_ShiftedAlloc, szB);
     }
-#endif
 }
 
 static void mv_free ( ThreadId tid __attribute__((unused)), void* p )
 {
-#ifndef NO_IMPL
     HP_Chunk* hc = VG_(HT_remove)(malloc_list, (UWord)p);
 
     if (hc)
@@ -708,12 +722,10 @@ static void mv_free ( ThreadId tid __attribute__((unused)), void* p )
 
 	VG_(free)(hc);
     }
-#endif
 }
 
 static void mv_realloc ( ThreadId tid, void* p_new, void* p_old, SizeT new_szB )
 {
-#ifndef NO_IMPL
     if (p_new != p_old)
     {
 	mv_free(tid, p_old);
@@ -735,7 +747,6 @@ static void mv_realloc ( ThreadId tid, void* p_new, void* p_old, SizeT new_szB )
 
 	hc->size = new_szB;
     }
-#endif
 }
 
 #endif
@@ -776,6 +787,7 @@ static void mv_post_clo_init(void)
     }
 }
 
+/* This is copied mostly verbatim from lackey */
 static IRSB*
 mv_instrument ( VgCallbackClosure* closure,
 	IRSB* sbIn, 
@@ -936,7 +948,10 @@ static void mv_fini(Int exitcode)
 
 static void mv_atfork_child(ThreadId tid)
 {
-    /* Can't have 2 processes writing to the same pipe. */
+    /* Can't have 2 processes writing to the same pipe, so arbitrarily
+       choose to continue tracing only the parent. Perhaps this should use
+       the --trace-children option to decide whether the parent or child
+       should continue writing to the pipe? */
     clo_pipe = 0;
 }
 
