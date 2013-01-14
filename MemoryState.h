@@ -107,7 +107,7 @@ public:
 		    myExists[addr >> theDisplayBits] = true;
 		    myTopExists[addr >> theBottomBits] = true;
 		}
-    void	incrementTime();
+    void	incrementTime(uint64 events);
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
     QMutex	*writeLock() { return &myWriteLock; }
@@ -217,6 +217,7 @@ private:
 
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
+    uint64	 myTotalEvents;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.

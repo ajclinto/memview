@@ -318,7 +318,7 @@ Loader::loadFromLackey(int max_read)
     }
 
     if (max_read)
-	myState->incrementTime();
+	myState->incrementTime(max_read);
 
     if (buf)
 	free(buf);
@@ -440,7 +440,7 @@ public:
 	    decodeAddr(addr, size, type);
 	    myState->updateAddress(addr, size, type);
 	}
-	myState->incrementTime();
+	myState->incrementTime(count);
     }
 
 private:

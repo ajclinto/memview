@@ -33,6 +33,7 @@
 
 MemoryState::MemoryState(int ignorebits)
     : myTime(2)
+    , myTotalEvents(0)
     , myIgnoreBits(ignorebits)
 {
     // Map a massive memory buffer to store the state.  This will only
@@ -59,9 +60,10 @@ MemoryState::~MemoryState()
 }
 
 void
-MemoryState::incrementTime()
+MemoryState::incrementTime(uint64 events)
 {
     myTime++;
+    myTotalEvents += events;
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)
@@ -88,7 +90,7 @@ MemoryState::incrementTime()
 void
 MemoryState::printStatusInfo(QString &message, uint64 addr)
 {
-    message.sprintf("Batch: %4d", myTime);
+    message.sprintf("Total Events: %lld", myTotalEvents);
 
     if (!addr)
 	return;
@@ -118,10 +120,11 @@ MemoryState::printStatusInfo(QString &message, uint64 addr)
 
     if (typestr)
     {
-	tmp.sprintf("\t%12s: %d", typestr, entry.time());
-	message.append(tmp);
 	if (type & MV_TypeFree)
-	    message.append(" (freed)");
+	    tmp.sprintf("\t(%s - Deallocated)", typestr);
+	else
+	    tmp.sprintf("\t(%s)", typestr);
+	message.append(tmp);
     }
 }
 
@@ -133,6 +136,7 @@ MemoryState::downsample(const MemoryState &state)
 
     // Copy time first for the display to work correctly
     myTime = state.myTime;
+    myTotalEvents = state.myTotalEvents;
 
     for (DisplayIterator it(const_cast<MemoryState &>(state));
 	    !it.atEnd(); it.advance())
