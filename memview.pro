@@ -9,8 +9,10 @@ TARGET =
 DEPENDPATH += .
 INCLUDEPATH += .
 
+LIBS += -lrt
+
 QMAKE_CFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3
-QMAKE_CXXFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3 -std=c++11
+QMAKE_CXXFLAGS_RELEASE = -DGL_GLEXT_PROTOTYPES -g -O3 -std=c++0x
 
 # Input
 HEADERS += Window.h MemoryState.h Loader.h DisplayLayout.h StackTraceMap.h
