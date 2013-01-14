@@ -1,0 +1,4 @@
+*.o
+Makefile
+memview
+moc_Window.cpp
