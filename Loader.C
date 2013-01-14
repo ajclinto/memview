@@ -315,10 +315,16 @@ Loader::loadFromLackey(int max_read)
 	    continue;
 
 	myState->updateAddress(addr, size, type);
+	if (myZoomState)
+	    myZoomState->updateAddress(addr, size, type);
     }
 
     if (max_read)
+    {
 	myState->incrementTime(max_read);
+	if (myZoomState)
+	    myZoomState->incrementTime(max_read);
+    }
 
     if (buf)
 	free(buf);

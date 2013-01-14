@@ -28,7 +28,7 @@
 #include <QtGui>
 #include "Math.h"
 #include "GLImage.h"
-#include "tool/memview/mv_ipc.h"
+#include "valgrind/memview/mv_ipc.h"
 
 // Storage for the entire memory state.  This is specifically designed to
 // operate without any locking or atomics for the single writer / many
