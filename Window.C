@@ -105,6 +105,18 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myPaintInterval(false)
     , myDragging(false)
 {
+    // Extract the path to the executable
+    myPath = argv[0];
+    size_t pos = myPath.rfind('/');
+    if (pos != std::string::npos)
+	myPath.resize(pos+1);
+    else
+	myPath = "";
+
+    // Skip the program name
+    argc -= 1;
+    argv += 1;
+
     // We need mouse events even when no buttons are held down, for status
     // bar updates
     setMouseTracking(true);
@@ -204,13 +216,17 @@ MemViewWidget::initializeGL()
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, type);
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, type);
 
+    std::string shader_path;
+
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
-    const char *vsrc = loadTextFile("shader.vert");
+    shader_path = myPath + "shader.vert";
+    const char *vsrc = loadTextFile(shader_path.c_str());
     vshader->compileSourceCode(vsrc);
     delete [] vsrc;
 
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    const char *fsrc = loadTextFile("shader.frag");
+    shader_path = myPath + "shader.frag";
+    const char *fsrc = loadTextFile(shader_path.c_str());
     fshader->compileSourceCode(fsrc);
     delete [] fsrc;
 

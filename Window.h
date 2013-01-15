@@ -117,6 +117,7 @@ private:
     QScrollBar		*myVScrollBar;
     QScrollBar		*myHScrollBar;
     QStatusBar		*myStatusBar;
+    std::string		 myPath;
 
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;

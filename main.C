@@ -49,8 +49,7 @@ int main(int argc, char *argv[])
 	return 1;
     }
 
-    // Skip the program name
-    Window	window(argc-1, argv+1);
+    Window	window(argc, argv);
 
     window.show();
     return app.exec();
