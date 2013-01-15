@@ -44,7 +44,7 @@ static const int	theBlockSpacing = 1;
 class Traverser {
 public:
     // Return false if you don't want any further traversal
-    virtual bool	visit(int idx, int r, int c, int level,
+    virtual bool	visit(uint64 idx, int r, int c, int level,
 			      bool hilbert, int rotate, bool flip) = 0;
 };
 
@@ -122,7 +122,7 @@ public:
 	myBox.initBounds();
     }
 
-    virtual bool visit(int, int r, int c, int level, bool, int, bool)
+    virtual bool visit(uint64, int r, int c, int level, bool, int, bool)
     {
 	int bsize = 1 << level;
 	myBox.enlargeBounds(c, r, c+bsize, r+bsize);
@@ -286,7 +286,7 @@ public:
     BlockFill(int *data, int *idata)
 	: myData(data), myIData(idata) {}
 
-    virtual bool visit(int idx, int r, int c, int level, bool, int, bool)
+    virtual bool visit(uint64 idx, int r, int c, int level, bool, int, bool)
     {
 	if (level == 0)
 	{
@@ -408,7 +408,7 @@ public:
 	, myColOff(coff)
 	{}
 
-    virtual bool visit(int idx, int r, int c, int level,
+    virtual bool visit(uint64 idx, int r, int c, int level,
 		       bool hilbert, int rotate, bool flip)
     {
 	int bsize = 1 << level;
