@@ -36,7 +36,6 @@
 Loader::Loader(MemoryState *state, StackTraceMap *stack)
     : QThread(0)
     , myState(state)
-    , myZoomState(0)
     , myStackTrace(stack)
     , myPendingClear(false)
     , myChild(-1)
