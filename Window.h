@@ -51,15 +51,18 @@ private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
 
-    static const int	 theVisCount = 3;
-
     QMenu		*myVisMenu;
+
+    static const int	 theVisCount = 3;
     QActionGroup	*myVisGroup;
     QAction		*myVis[theVisCount];
 
+    static const int	 theLayoutCount = 2;
+    QActionGroup	*myLayoutGroup;
+    QAction		*myLayout[theLayoutCount];
+
     MemViewWidget	*myMemView;
     MemViewScroll	*myScrollArea;
-    QGridLayout		*myLayout;
 };
 
 // A scroll area to contain the memory view.  We'll pass off control over
@@ -111,6 +114,9 @@ private slots:
     void    linear();
     void    block();
     void    hilbert();
+
+    void    compact();
+    void    full();
 
 private:
     GLImage<uint32>	 myImage;

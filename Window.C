@@ -43,6 +43,8 @@ Window::Window(int argc, char *argv[])
     myFileMenu->addSeparator();
     myFileMenu->addAction(myQuit);
 
+    myVisMenu = menuBar()->addMenu(tr("&Visualization"));
+
     static const char	*theVisNames[theVisCount] = {
 	"&Linear",
 	"&Recursive Block",
@@ -50,7 +52,6 @@ Window::Window(int argc, char *argv[])
     };
 
     myVisGroup = new QActionGroup(this);
-    myVisMenu = menuBar()->addMenu(tr("&Visualization"));
     for (int i = 0; i < theVisCount; i++)
     {
 	myVis[i] = new QAction(tr(theVisNames[i]), myVisGroup);
@@ -58,6 +59,22 @@ Window::Window(int argc, char *argv[])
 	myVisMenu->addAction(myVis[i]);
     }
     myVis[2]->setChecked(true);
+
+    myVisMenu->addSeparator();
+
+    static const char	*theLayoutNames[theLayoutCount] = {
+	"&Full Size",
+	"&Compact"
+    };
+
+    myLayoutGroup = new QActionGroup(this);
+    for (int i = 0; i < theLayoutCount; i++)
+    {
+	myLayout[i] = new QAction(tr(theLayoutNames[i]), myLayoutGroup);
+	myLayout[i]->setCheckable(true);
+	myVisMenu->addAction(myLayout[i]);
+    }
+    myLayout[1]->setChecked(true);
 
     myScrollArea = new MemViewScroll(this);
 
@@ -72,6 +89,9 @@ Window::Window(int argc, char *argv[])
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
     connect(myVis[2], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
+
+    connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(full()));
+    connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(compact()));
 
     setWindowTitle("Memview");
 
@@ -171,6 +191,22 @@ void
 MemViewWidget::hilbert()
 {
     myDisplay.setVisualization(DisplayLayout::HILBERT);
+    changeZoom(myZoom);
+    update();
+}
+
+void
+MemViewWidget::compact()
+{
+    myDisplay.setCompact(true);
+    changeZoom(myZoom);
+    update();
+}
+
+void
+MemViewWidget::full()
+{
+    myDisplay.setCompact(false);
     changeZoom(myZoom);
     update();
 }
@@ -301,8 +337,7 @@ MemViewWidget::paintGL()
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, *myZoomState,
-	    myImage.width(), SYSmax(myZoom, 0));
+    myDisplay.update(*myState, myImage.width(), SYSmax(myZoom, 0));
     myDisplay.fillImage(myImage, *myZoomState,
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
@@ -529,19 +564,16 @@ magScroll(QScrollBar *scroll, int x, int size, bool zoomout)
 static void
 magScrollLinear(QScrollBar *scroll, int x, int size, bool zoomout)
 {
-    // This is intended only to approximate the correct homing, since the
-    // full re-layout that occurs in linear mode can cause blocks to
-    // reposition arbitrarily.
+    // This is only approximate, since the zoom may not be an exact power
+    // of 2.
     if (zoomout)
     {
-	x += scroll->value();
-	x >>= 1;
-	x = scroll->value() - x;
+	x = (((x >> 1) + scroll->value()) >> 1) - x;
 	size >>= 1;
     }
     else
     {
-	x += scroll->value() << 1;
+	x = (((x << 1) + scroll->value()) << 1) - x;
 	size <<= 1;
     }
 

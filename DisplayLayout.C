@@ -31,6 +31,7 @@
 
 DisplayLayout::DisplayLayout()
     : myVisualization(HILBERT)
+    , myCompact(true)
 {
 }
 
@@ -161,16 +162,12 @@ adjustZoom(int &val, int zoom)
 void
 DisplayLayout::update(
 	MemoryState &state,
-	MemoryState &zoomstate,
 	int width, int zoom)
 {
     //StopWatch	timer;
     myBlocks.clear();
 
-    // Perform the block layout using the zoom state directly for linear
-    // visualization, since it provides a better packed result.
-    MemoryState &lstate = myVisualization != LINEAR ? state : zoomstate;
-    for (MemoryState::DisplayIterator it(lstate); !it.atEnd(); it.advance())
+    for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
     {
 	auto page(it.page());
 	if (!myBlocks.size())
@@ -198,8 +195,11 @@ DisplayLayout::update(
 	{
 	    // Align the new block based on its size and the size of the
 	    // previous block
-	    it->myDisplayAddr =
-		blockAlign(addr, it->myAddr, SYSmax(it->mySize, psize));
+	    if (myCompact)
+		it->myDisplayAddr =
+		    blockAlign(addr, it->myAddr, SYSmax(it->mySize, psize));
+	    else
+		it->myDisplayAddr = it->myAddr;
 
 	    BlockSizer  sizer;
 	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, sizer,
@@ -247,6 +247,19 @@ DisplayLayout::update(
 	int r = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
+	    if (zoom > 0)
+	    {
+		int a = (1 << zoom) - 1;
+		uint64 end = it->myAddr + it->mySize;
+		end += a;
+		end >>= zoom;
+		it->myAddr >>= zoom;
+		it->mySize = end - it->myAddr;
+	    }
+
+	    if (!myCompact)
+		r = it->myAddr / width;
+
 	    int c = it->myAddr % width;
 	    int nr = 1 + (c + it->mySize - 1) / width;
 

@@ -47,9 +47,11 @@ public:
     void	    setVisualization(Visualization vis)
 		    { myVisualization = vis; }
 
+    void	    setCompact(bool compact)
+		    { myCompact = compact; }
+
     // Build the block display layout from state
     void	    update(MemoryState &state,
-			   MemoryState &zoomstate,
 			   int width, int zoom);
 
     // Get the resolution of the full layout
@@ -91,6 +93,7 @@ private:
     std::vector<DisplayBlock>	myBlocks;
     int				myWidth;
     int				myHeight;
+    bool			myCompact;
 };
 
 #endif
