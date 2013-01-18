@@ -46,9 +46,9 @@ Window::Window(int argc, char *argv[])
     myVisMenu = menuBar()->addMenu(tr("&Visualization"));
 
     static const char	*theVisNames[theVisCount] = {
-	"&Linear",
+	"&Hilbert Curve",
 	"&Recursive Block",
-	"&Hilbert Curve"
+	"&Linear",
     };
 
     myVisGroup = new QActionGroup(this);
@@ -58,13 +58,13 @@ Window::Window(int argc, char *argv[])
 	myVis[i]->setCheckable(true);
 	myVisMenu->addAction(myVis[i]);
     }
-    myVis[2]->setChecked(true);
+    myVis[0]->setChecked(true);
 
     myVisMenu->addSeparator();
 
     static const char	*theLayoutNames[theLayoutCount] = {
+	"&Compact",
 	"&Full Size",
-	"&Compact"
     };
 
     myLayoutGroup = new QActionGroup(this);
@@ -74,7 +74,7 @@ Window::Window(int argc, char *argv[])
 	myLayout[i]->setCheckable(true);
 	myVisMenu->addAction(myLayout[i]);
     }
-    myLayout[1]->setChecked(true);
+    myLayout[0]->setChecked(true);
 
     myScrollArea = new MemViewScroll(this);
 
@@ -86,12 +86,12 @@ Window::Window(int argc, char *argv[])
 	    myScrollArea->horizontalScrollBar(),
 	    statusBar());
 
-    connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(linear()));
+    connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
-    connect(myVis[2], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
+    connect(myVis[2], SIGNAL(triggered()), myMemView, SLOT(linear()));
 
-    connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(full()));
-    connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(compact()));
+    connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(compact()));
+    connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(full()));
 
     setWindowTitle("Memview");
 
