@@ -33,7 +33,6 @@
 
 MemoryState::MemoryState(int ignorebits)
     : myTime(2)
-    , myTotalEvents(0)
     , myIgnoreBits(ignorebits)
 {
     // Map a massive memory buffer to store the state.  This will only
@@ -87,10 +86,8 @@ MemoryState::incrementTime()
 }
 
 void
-MemoryState::printStatusInfo(QString &message, uint64 addr)
+MemoryState::appendAddressInfo(QString &message, uint64 addr)
 {
-    message.sprintf("Total Events: %lld", myTotalEvents);
-
     if (!addr)
 	return;
 
@@ -135,7 +132,6 @@ MemoryState::downsample(const MemoryState &state)
 
     // Copy time first for the display to work correctly
     myTime = state.myTime;
-    myTotalEvents = state.myTotalEvents;
 
     for (DisplayIterator it(const_cast<MemoryState &>(state));
 	    !it.atEnd(); it.advance())

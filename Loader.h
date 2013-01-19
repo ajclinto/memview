@@ -58,6 +58,9 @@ public:
 
     MemoryState	*getBaseState() const { return myState; }
 
+    uint64	getTotalEvents() const { return myTotalEvents; }
+    bool	isComplete() const { return myAbort; }
+
 protected:
     void	run();
 
@@ -75,6 +78,7 @@ private:
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;
     StackTraceMap	*myStackTrace;
+    uint64		 myTotalEvents;
 
     QMutex		 myPendingLock;
     std::unique_ptr<MemoryState> myPendingState;

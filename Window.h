@@ -134,8 +134,11 @@ private:
     MemoryState		*myZoomState;
     StackTraceMap	*myStackTrace;
     Loader		*myLoader;
+    QString		 myEventInfo;
+    uint64		 myPrevEvents;
     int			 myZoom;
     int			 myFastTimer;
+    int			 mySlowTimer;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}
@@ -165,6 +168,7 @@ private:
 
     StopWatch	 myStopWatch;
     StopWatch	 myPaintInterval;
+    StopWatch	 myEventTimer;
     QPoint	 myMousePos;
     std::queue<Velocity> myVelocity;
     bool	 myDragging;

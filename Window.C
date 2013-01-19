@@ -120,9 +120,11 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myStatusBar(status)
     , myTexture(0)
     , myPixelBuffer(0)
+    , myPrevEvents(0)
     , myZoom(0)
     , myStopWatch(false)
     , myPaintInterval(false)
+    , myEventTimer(false)
     , myDragging(false)
 {
     // Extract the path to the executable
@@ -161,8 +163,10 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     }
 
     myFastTimer = startTimer(30);
+    mySlowTimer = startTimer(500);
 
     myPaintInterval.start();
+    myEventTimer.start();
 }
 
 MemViewWidget::~MemViewWidget()
@@ -662,28 +666,50 @@ shortenDrag(double &val, double delta)
 }
 
 void
-MemViewWidget::timerEvent(QTimerEvent *)
+MemViewWidget::timerEvent(QTimerEvent *event)
 {
     // Fast timer
-    if (!myDragging && myVelocity.size())
+    if (event->timerId() == myFastTimer)
     {
-	Velocity   &vel = myVelocity.front();
-	double	    time = myStopWatch.lap();
-	int	    drag[2];
-
-	drag[0] = (int)(vel.x * time + 0.5F);
-	drag[1] = (int)(vel.y * time + 0.5F);
-
-	shortenDrag(vel.x, time);
-	shortenDrag(vel.y, time);
-
-	myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
-	myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
-
-	if (drag[0] || drag[1])
+	if (!myDragging && myVelocity.size())
 	{
-	    update();
+	    Velocity   &vel = myVelocity.front();
+	    double	time = myStopWatch.lap();
+	    int		drag[2];
+
+	    drag[0] = (int)(vel.x * time + 0.5F);
+	    drag[1] = (int)(vel.y * time + 0.5F);
+
+	    shortenDrag(vel.x, time);
+	    shortenDrag(vel.y, time);
+
+	    myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
+	    myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
+
+	    if (drag[0] || drag[1])
+	    {
+		update();
+	    }
 	}
+    }
+    else if (event->timerId() == mySlowTimer)
+    {
+	uint64	total_events = myLoader->getTotalEvents();
+
+	myEventInfo.sprintf("%lld events", total_events);
+
+	if (!myLoader->isComplete())
+	{
+	    double	time = myEventTimer.lap();
+	    QString	rate;
+
+	    rate.sprintf(" (%.1fMev/s)", 
+		    (total_events - myPrevEvents) / (1000000.0 * time));
+	    myEventInfo.append(rate);
+
+	    myPrevEvents = total_events;
+	}
+
     }
 
     // This frequent status update seems to be fairly costly
@@ -692,8 +718,9 @@ MemViewWidget::timerEvent(QTimerEvent *)
 	    myHScrollBar->value() + pos.x(),
 	    myVScrollBar->value() + pos.y());
 
-    QString	message;
-    myZoomState->printStatusInfo(message, qaddr);
+    QString	message(myEventInfo);
+
+    myZoomState->appendAddressInfo(message, qaddr);
 
     if (message.isEmpty())
 	myStatusBar->clearMessage();

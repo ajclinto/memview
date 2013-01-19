@@ -37,6 +37,7 @@ Loader::Loader(MemoryState *state, StackTraceMap *stack)
     : QThread(0)
     , myState(state)
     , myStackTrace(stack)
+    , myTotalEvents(0)
     , myPendingClear(false)
     , myChild(-1)
     , myPipeFD(0)
@@ -323,12 +324,7 @@ Loader::loadFromLackey(int max_read)
 	    myZoomState->updateAddress(addr, size, type);
     }
 
-    if (max_read)
-    {
-	myState->incrementEvents(max_read);
-	if (myZoomState)
-	    myZoomState->incrementEvents(max_read);
-    }
+    myTotalEvents += max_read;
 
     if (buf)
 	free(buf);
@@ -450,7 +446,6 @@ public:
 	    decodeAddr(addr, size, type);
 	    myState->updateAddress(addr, size, type);
 	}
-	myState->incrementEvents(count);
     }
 
 private:
@@ -502,6 +497,8 @@ Loader::loadBlock(const TraceBlockHandle &block)
 	zoomstate.run();
     }
 #endif
+
+    myTotalEvents += block->myEntries;
 
     return true;
 }

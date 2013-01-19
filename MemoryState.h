@@ -108,13 +108,12 @@ public:
 		    myTopExists[addr >> theBottomBits] = true;
 		}
     void	incrementTime();
-    void	incrementEvents(uint64 events) { myTotalEvents += events; }
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
     QMutex	*writeLock() { return &myWriteLock; }
 
     // Print status information for a memory address
-    void	printStatusInfo(QString &message, uint64 addr);
+    void	appendAddressInfo(QString &message, uint64 addr);
 
     // Build a mipmap from another memory state
     void	downsample(const MemoryState &state);
@@ -218,7 +217,6 @@ private:
 
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
-    uint64	 myTotalEvents;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
