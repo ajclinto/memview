@@ -722,6 +722,22 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 
     myZoomState->appendAddressInfo(message, qaddr);
 
+    // Append the zoom level.  Add spaces to right-justify it.
+    int		width = myStatusBar->width();
+    QString	zoominfo;
+
+    if (myZoom > 0)
+	zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1 << myZoom)));
+    else
+	zoominfo.sprintf("\t\t%dx", 1 << (-myZoom >> 1));
+
+    int	nspaces = width / myStatusBar->fontMetrics().width(' ');
+    nspaces -= message.size();
+
+    zoominfo = zoominfo.rightJustified(nspaces);
+
+    message.append(zoominfo);
+
     if (message.isEmpty())
 	myStatusBar->clearMessage();
     else
