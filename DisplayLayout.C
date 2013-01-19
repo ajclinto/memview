@@ -63,8 +63,8 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
     }
 
     int s = 1 << (level-1);
-    uint64 off = s;
-    off *= off;
+    uint64 off = 1ull << 2*(level-1);
+
     int	rs[4], cs[4];
     int	map[4];
 
@@ -203,7 +203,7 @@ DisplayLayout::update(
 
 	    BlockSizer  sizer;
 	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, sizer,
-		    15 - state.getIgnoreBits()/2,
+		    31 - (state.getIgnoreBits() >> 1),
 		    myVisualization == HILBERT, 0, false);
 
 	    it->myBox = sizer.myBox;
@@ -551,7 +551,7 @@ DisplayLayout::fillImage(
 		    it->myAddr, it->myDisplayAddr, -roff, -coff);
 
 	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, plot,
-		    15 - state.getIgnoreBits()/2,
+		    31 - state.getIgnoreBits()/2,
 		    myVisualization == HILBERT, 0, false);
 	}
     }
