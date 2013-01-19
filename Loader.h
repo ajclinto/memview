@@ -69,6 +69,8 @@ private:
 
     bool	loadBlock(const TraceBlockHandle &block);
 
+    void	timerEvent(QTimerEvent *event);
+
 private:
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;

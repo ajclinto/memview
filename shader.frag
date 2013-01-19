@@ -27,8 +27,8 @@ vec3 lum1(vec3 val)
 
 vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 {
-    float lcutoff = 0.5;
-    float hcutoff = 0.9;
+    float lcutoff = 0.6;
+    float hcutoff = 0.95;
     vec3 vals[4];
 
     vals[0] = lo * 0.02;

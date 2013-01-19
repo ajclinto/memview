@@ -60,10 +60,9 @@ MemoryState::~MemoryState()
 }
 
 void
-MemoryState::incrementTime(uint64 events)
+MemoryState::incrementTime()
 {
     myTime++;
-    myTotalEvents += events;
 
     // The time wrapped
     if (myTime == theFullLife || myTime == theHalfLife)

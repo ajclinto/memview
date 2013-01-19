@@ -107,7 +107,8 @@ public:
 		    myExists[addr >> theDisplayBits] = true;
 		    myTopExists[addr >> theBottomBits] = true;
 		}
-    void	incrementTime(uint64 events);
+    void	incrementTime();
+    void	incrementEvents(uint64 events) { myTotalEvents += events; }
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
     QMutex	*writeLock() { return &myWriteLock; }

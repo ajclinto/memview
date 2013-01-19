@@ -188,6 +188,11 @@ Loader::openPipe(int argc, char *argv[])
     myPipeFD = fd[0];
     myPipe = fdopen(myPipeFD, "r");
 
+    // Start a timer to increment the access time counter.  This timer runs
+    // faster than the display timer since it's with this higher resolution
+    // it's possible to see gradation in access times within the timestep.
+    startTimer(10);
+
     return true;
 }
 
@@ -320,9 +325,9 @@ Loader::loadFromLackey(int max_read)
 
     if (max_read)
     {
-	myState->incrementTime(max_read);
+	myState->incrementEvents(max_read);
 	if (myZoomState)
-	    myZoomState->incrementTime(max_read);
+	    myZoomState->incrementEvents(max_read);
     }
 
     if (buf)
@@ -445,7 +450,7 @@ public:
 	    decodeAddr(addr, size, type);
 	    myState->updateAddress(addr, size, type);
 	}
-	myState->incrementTime(count);
+	myState->incrementEvents(count);
     }
 
 private:
@@ -499,5 +504,18 @@ Loader::loadBlock(const TraceBlockHandle &block)
 #endif
 
     return true;
+}
+
+void
+Loader::timerEvent(QTimerEvent *)
+{
+    if (myZoomState)
+    {
+	QMutexLocker lock(myZoomState->writeLock());
+	myZoomState->incrementTime();
+    }
+
+    QMutexLocker lock(myState->writeLock());
+    myState->incrementTime();
 }
 
