@@ -723,7 +723,7 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     myZoomState->appendAddressInfo(message, qaddr);
 
     // Append the zoom level.  Add spaces to right-justify it.
-    int		width = myStatusBar->width();
+    int		width = myStatusBar->width() - myStatusBar->height();
     QString	zoominfo;
 
     if (myZoom > 0)
