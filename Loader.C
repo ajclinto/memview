@@ -200,10 +200,15 @@ Loader::openPipe(int argc, char *argv[])
 bool
 Loader::waitForInput(int timeout_ms)
 {
-    fd_set rfds;
+    fd_set	rfds;
+    int		max_fd = 0;
 
     FD_ZERO(&rfds);
-    FD_SET(myPipeFD, &rfds);
+    if (myPipe)
+    {
+	FD_SET(myPipeFD, &rfds);
+	max_fd = myPipeFD + 1;
+    }
 
     struct timeval tv;
 
@@ -211,7 +216,7 @@ Loader::waitForInput(int timeout_ms)
     tv.tv_usec = 1000*timeout_ms;
 
     // Waits for data to be ready or 0.1s
-    int retval = select(myPipeFD+1, &rfds, NULL, NULL, &tv);
+    int retval = select(max_fd, &rfds, NULL, NULL, &tv);
 
     if (retval == -1)
     {
