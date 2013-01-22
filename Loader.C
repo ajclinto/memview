@@ -270,7 +270,7 @@ Loader::run()
 	}
 
 	const int   timeout_ms = 50;
-	bool	    rval = false;
+	bool	    rval = true;
 	switch (mySource)
 	{
 	    case NONE:
