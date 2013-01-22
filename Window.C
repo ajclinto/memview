@@ -598,7 +598,7 @@ MemViewWidget::changeZoom(int zoom)
     if (zoom < 0)
 	zoom = -((-zoom) & ~1);
 
-    zoom = SYSclamp(zoom, -16, 28);
+    zoom = SYSclamp(zoom, -16, 30);
 
     if (zoom != myZoom)
     {
@@ -635,11 +635,6 @@ MemViewWidget::changeZoom(int zoom)
 	}
 	else
 	{
-	    // If the loader isn't running, start it just to do the downres
-	    // for us.
-	    if (!myLoader->isRunning())
-		myLoader->start();
-
 	    if (!linear)
 		minScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
 	    minScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);

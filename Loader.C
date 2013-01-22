@@ -44,9 +44,13 @@ Loader::Loader(MemoryState *state, StackTraceMap *stack)
     , myPipe(0)
     , mySharedData(0)
     , myIdx(0)
-    , mySource(MEMVIEW_PIPE)
+    , mySource(NONE)
     , myAbort(false)
 {
+    // Start a timer to increment the access time counter.  This timer runs
+    // faster than the display timer since with this higher resolution it's
+    // possible to see gradation in access times within a single frame.
+    startTimer(10);
 }
 
 Loader::~Loader()
@@ -74,6 +78,7 @@ Loader::openPipe(int argc, char *argv[])
 
     // Check if we have a --tool argument.  This can override whether to
     // use lackey or the memview tool.
+    mySource = MEMVIEW_PIPE;
     if (tool)
     {
 	if (!strcmp(tool, "lackey"))
@@ -189,23 +194,41 @@ Loader::openPipe(int argc, char *argv[])
     myPipeFD = fd[0];
     myPipe = fdopen(myPipeFD, "r");
 
-    // Start a timer to increment the access time counter.  This timer runs
-    // faster than the display timer since it's with this higher resolution
-    // it's possible to see gradation in access times within the timestep.
-    startTimer(10);
-
     return true;
+}
+
+bool
+Loader::waitForInput(int timeout_ms)
+{
+    fd_set rfds;
+
+    FD_ZERO(&rfds);
+    FD_SET(myPipeFD, &rfds);
+
+    struct timeval tv;
+
+    tv.tv_sec = 0;
+    tv.tv_usec = 1000*timeout_ms;
+
+    // Waits for data to be ready or 0.1s
+    int retval = select(myPipeFD+1, &rfds, NULL, NULL, &tv);
+
+    if (retval == -1)
+    {
+	perror("select failed");
+	return false;
+    }
+
+    // Return true when there's input available
+    return retval > 0;
 }
 
 void
 Loader::run()
 {
     //StopWatch timer;
-    myAbort = false;
     while (!myAbort)
     {
-	bool	rval = false;
-
 	MemoryState	*pending = 0;
 	bool		 pendingclear = false;
 
@@ -222,7 +245,7 @@ Loader::run()
 	if (pending)
 	{
 	    // Threads might be writing to the state or zoom state.  Wait
-	    // for these to finish to we have a consistent state to
+	    // for these to finish so we have a consistent state to
 	    // downsample.
 #ifdef THREAD_LOADS
 	    QThreadPool::globalInstance()->waitForDone();
@@ -241,23 +264,32 @@ Loader::run()
 		myZoomState->downsample(*myState);
 	}
 
+	const int   timeout_ms = 50;
+	bool	    rval = false;
 	switch (mySource)
 	{
+	    case NONE:
+		waitForInput(timeout_ms);
+		break;
 	    case TEST:
 		rval = loadFromTest();
 		break;
 	    case LACKEY:
-		rval = loadFromLackey(MV_BlockSize);
+		if (waitForInput(timeout_ms))
+		    rval = loadFromLackey(MV_BlockSize);
 		break;
 	    case MEMVIEW_PIPE:
-		rval = loadFromPipe();
+		if (waitForInput(timeout_ms))
+		    rval = loadFromPipe();
 		break;
 	    case MEMVIEW_SHM:
 		rval = loadFromSharedMemory();
 		break;
 	}
+
+	// Input has completed.  We'll still loop to handle zoom requests
 	if (!rval)
-	    myAbort = true;
+	    mySource = NONE;
     }
 
 #ifdef THREAD_LOADS
@@ -348,28 +380,6 @@ Loader::loadFromPipe()
 
     TraceBlockHandle block(new MV_TraceBlock);
 
-    fd_set rfds;
-
-    FD_ZERO(&rfds);
-    FD_SET(myPipeFD, &rfds);
-
-    struct timeval tv;
-
-    tv.tv_sec = 0;
-    tv.tv_usec = 100000;
-
-    // Waits for data to be ready or 0.1s
-    int retval = select(myPipeFD+1, &rfds, NULL, NULL, &tv);
-
-    if (retval == -1)
-    {
-	perror("select failed");
-	return false;
-    }
-
-    if (retval == 0)
-	return true;
-
     MV_Header header;
     if (!read(myPipeFD, &header, sizeof(MV_Header)))
 	return false;
@@ -418,6 +428,9 @@ Loader::loadFromTest()
     static const uint64 theSize = 32*1024;
     static uint64 theCount = 0;
 
+    if (theCount >= theSize)
+	return false;
+
     TraceBlockHandle	block(new MV_TraceBlock);
     block->myEntries = MV_BlockSize;
     for (uint64 j = 0; j < block->myEntries; j++)
@@ -429,10 +442,7 @@ Loader::loadFromTest()
     loadBlock(block);
 
     theCount++;
-    if (theCount >= theSize)
-	theCount = 0;
-
-    return theCount > 0;
+    return true;
 }
 
 template <typename HandleType>

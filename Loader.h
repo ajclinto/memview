@@ -65,6 +65,7 @@ protected:
     void	run();
 
 private:
+    bool	waitForInput(int timeout_ms);
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
     bool	loadFromSharedMemory();
@@ -96,6 +97,7 @@ private:
 
     // What are we loading from?
     enum LoadSource {
+	NONE,
 	LACKEY,
 	MEMVIEW_PIPE,
 	MEMVIEW_SHM,
