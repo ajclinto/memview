@@ -115,9 +115,6 @@ public:
     // Print status information for a memory address
     void	appendAddressInfo(QString &message, uint64 addr);
 
-    // Build a mipmap from another memory state
-    void	downsample(const MemoryState &state);
-
     // Abstract access to a single display page
     class DisplayPage {
     public:
@@ -132,7 +129,8 @@ public:
 	State	&state(uint64 i) { return myArr[i]; }
 	bool	exists() const { return myArr; }
 
-	State	*stateArray()	{ return myArr; }
+	State		*stateArray()		{ return myArr; }
+	const State	*stateArray() const	{ return myArr; }
 
     private:
 	State	    *myArr;
@@ -147,6 +145,10 @@ public:
 	return DisplayPage(myExists[addr >> theDisplayBits] ?
 		&myState[addr] : 0, addr);
     }
+
+    // Build a mipmap from another memory state
+    void	downsample(const MemoryState &state);
+    void	downsamplePage(const DisplayPage &page, int shift);
 
     // A class to iterate over only non-zero state values.  The iterator
     // increments in chunks of size theDisplaySize.

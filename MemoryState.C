@@ -124,36 +124,82 @@ MemoryState::appendAddressInfo(QString &message, uint64 addr)
     }
 }
 
+class Downsample : public QRunnable {
+public:
+    Downsample(MemoryState &dst, int shift)
+	: myDst(dst)
+	, myShift(shift)
+    {
+    }
+
+    void push(const MemoryState::DisplayPage src)
+    {
+	mySrc.push_back(src);
+    }
+    size_t size() const { return mySrc.size(); }
+
+    virtual void run()
+    {
+	for (auto it = mySrc.begin(); it != mySrc.end(); ++it)
+	    myDst.downsamplePage(*it, myShift);
+    }
+
+private:
+    MemoryState			&myDst;
+    std::vector<MemoryState::DisplayPage>	 mySrc;
+    int				 myShift;
+};
+
 void
 MemoryState::downsample(const MemoryState &state)
 {
+    StopWatch timer;
     const int shift = myIgnoreBits - state.myIgnoreBits;
-    const uint64 scale = 1 << shift;
 
     // Copy time first for the display to work correctly
     myTime = state.myTime;
 
+    Downsample *task = 0;
+    uint64	bunch_size = 16;
     for (DisplayIterator it(const_cast<MemoryState &>(state));
 	    !it.atEnd(); it.advance())
     {
-	DisplayPage page(it.page());
-
-	uint64  myaddr = page.addr() >> shift;
-
-	myTopExists[myaddr >> theBottomBits] = true;
-	myExists[myaddr >> theDisplayBits] = true;
-
-	for (uint64 i = 0; i < page.size(); i += scale)
+	// Split up source pages into tasks.  This isn't strictly
+	// thread-safe when 1 << shift is greater than bunch_size, but the
+	// errors aren't usually visible.
+	if (!task)
+	    task = new Downsample(*this, shift);
+	task->push(it.page());
+	if (task->size() >= bunch_size)
 	{
-	    uint    &mystate = myState[myaddr].uval;
-	    State   *arr = page.stateArray();
-	    uint64   n = SYSmin(i+scale, page.size());
-	    for (uint64 j = i; j < n; j++)
-	    {
-		mystate = SYSmax(mystate, arr[j].uval);
-	    }
-	    myaddr++;
+	    QThreadPool::globalInstance()->start(task);
+	    task = 0;
 	}
     }
+    if (task)
+	QThreadPool::globalInstance()->start(task);
+
+    QThreadPool::globalInstance()->waitForDone();
 }
 
+void
+MemoryState::downsamplePage(const DisplayPage &page, int shift)
+{
+    const   uint64 scale = 1 << shift;
+    uint64  myaddr = page.addr() >> shift;
+
+    myTopExists[myaddr >> theBottomBits] = true;
+    myExists[myaddr >> theDisplayBits] = true;
+
+    for (uint64 i = 0; i < page.size(); i += scale)
+    {
+	uint    &mystate = myState[myaddr].uval;
+	const State   *arr = page.stateArray();
+	uint64   n = SYSmin(i+scale, page.size());
+	for (uint64 j = i; j < n; j++)
+	{
+	    mystate = SYSmax(mystate, arr[j].uval);
+	}
+	myaddr++;
+    }
+}
