@@ -34,21 +34,38 @@
 // Message types
 typedef enum {
     MV_BLOCK,
-    MV_STACKTRACE
+    MV_STACKTRACE,
+    MV_MMAP
 } MV_MessageType;
 
 typedef struct {
-    int			    mySize;
-    int			    myType;
+    int		    mySize;
+    MV_MessageType  myType;
 } MV_Header;
 
-#define MV_STACKTRACE_BUFSIZE 4096
+#define MV_STR_BUFSIZE 4096
 
 typedef struct {
     unsigned long long	myAddr;
-    char		myBuf[MV_STACKTRACE_BUFSIZE];
+    char		myBuf[MV_STR_BUFSIZE];
     int			mySize;
 } MV_StackInfo;
+
+typedef enum {
+    MV_CODE,
+    MV_DATA,
+    MV_HEAP,
+    MV_STACK,
+    MV_SHM,
+    MV_UNMAP
+} MV_MMapType;
+
+typedef struct {
+    unsigned long long	myStart;
+    unsigned long long	myEnd;
+    MV_MMapType		myType;
+    int			myThread;
+} MV_MMapInfo;
 
 #define MV_BlockSize	(1024*32)
 

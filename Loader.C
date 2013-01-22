@@ -393,6 +393,14 @@ Loader::loadFromPipe()
 	    return true;
 	}
     }
+    else if (header.myType == MV_MMAP)
+    {
+	MV_MMapInfo info;
+	char	    buf[MV_STR_BUFSIZE];
+	if (read(myPipeFD, &info, sizeof(MV_MMapInfo)))
+	    if (read(myPipeFD, buf, header.mySize-sizeof(MV_MMapInfo)))
+		return true;
+    }
 
     return false;
 }

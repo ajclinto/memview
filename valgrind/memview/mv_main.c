@@ -46,8 +46,9 @@
 #include "pub_tool_mallocfree.h"
 #include "pub_tool_stacktrace.h"
 #include "pub_tool_threadstate.h"
+#include "pub_tool_aspacehl.h"
+#include "pub_tool_aspacemgr.h"
 #include "coregrind/pub_core_aspacemgr.h"
-
 /* This define enables the malloc() wrapping callbacks in the tool runtime.
    To disable wrapping entirely you also need to remove the
    vgpreload_memview-*.so file. */
@@ -107,11 +108,11 @@ static MV_StackInfo	 theStackTrace;
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
     MV_StackInfo	*sbuf = (MV_StackInfo *)uu_opaque;
-    HChar		 tmp[MV_STACKTRACE_BUFSIZE];
+    HChar		 tmp[MV_STR_BUFSIZE];
 
-    VG_(describe_IP)(ip, tmp, MV_STACKTRACE_BUFSIZE);
+    VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE);
 
-    int available = MV_STACKTRACE_BUFSIZE - sbuf->mySize;
+    int available = MV_STR_BUFSIZE - sbuf->mySize;
     int len =
 	VG_(snprintf)(
 		&sbuf->myBuf[sbuf->mySize],
@@ -955,6 +956,113 @@ static void mv_atfork_child(ThreadId tid)
     clo_pipe = 0;
 }
 
+static void
+mv_mmap_info(Addr a, SizeT len, MV_MMapType type, const HChar *filename)
+{
+    if (!clo_pipe)
+	return;
+
+    // Flush outstanding events to ensure consistent ordering.  Avoid
+    // calling this with 0 entries.
+    if (theBlock->myEntries)
+	flush_data();
+
+    MV_Header	header;
+    MV_MMapInfo	info;
+
+    header.myType = MV_MMAP;
+    header.mySize = sizeof(MV_MMapInfo);
+
+    info.myStart = a;
+    info.myEnd = a + len;
+    info.myType = type;
+    info.myThread = 0;
+
+    if (!filename)
+	filename = "\0";
+
+    int slen = VG_(strlen)(filename)+1; // Include terminating '\0'
+    header.mySize += slen;
+
+    VG_(write)(clo_pipe, &header, sizeof(MV_Header));
+    VG_(write)(clo_pipe, &info, sizeof(MV_MMapInfo));
+    VG_(write)(clo_pipe, filename, slen);
+}
+
+static void mv_new_mem_mmap(Addr a, SizeT len,
+	Bool rr, Bool ww, Bool xx,
+	ULong di_handle)
+{
+    const NSegment  *info = VG_(am_find_nsegment)(a);
+    HChar	    *filename = 0;
+    MV_MMapType	     type = MV_HEAP;
+
+    switch (info->kind)
+    {
+	case SkAnonC: type = MV_HEAP; break;
+	case SkShmC: type = MV_SHM; break;
+	case SkFileC:
+	    if (info->hasX && !info->hasW)
+		type = MV_CODE;
+	    else
+		type = MV_DATA;
+	    filename = VG_(am_get_filename)(info);
+	    break;
+	case SkFree:
+	case SkAnonV:
+	case SkFileV:
+	case SkResvn:
+	    // Uninteresting events
+	    return;
+    }
+
+    mv_mmap_info(a, len, type, filename);
+}
+
+static void mv_copy_mem_remap(Addr from, Addr to, SizeT len)
+{
+    // TODO
+}
+
+static void mv_die_mem_munmap(Addr a, SizeT len)
+{
+    mv_mmap_info(a, len, MV_UNMAP, 0);
+}
+
+static void mv_new_mem_stack_signal(Addr a, SizeT len, ThreadId tid)
+{
+    mv_mmap_info(a, len, MV_STACK, 0);
+}
+
+static void mv_die_mem_stack_signal(Addr a, SizeT len)
+{
+    mv_mmap_info(a, len, MV_UNMAP, 0);
+}
+
+static void mv_new_mem_brk(Addr a, SizeT len, ThreadId tid)
+{
+    mv_mmap_info(a, len, MV_HEAP, 0);
+}
+
+static void mv_die_mem_brk(Addr a, SizeT len)
+{
+    mv_mmap_info(a, len, MV_UNMAP, 0);
+}
+
+static void mv_thread_start(ThreadId tid)
+{
+    // TODO: This overlaps with the initial stack mmap.  Though it would be
+    // nice to see the full range of the stack.
+#if 0
+    Addr start = VG_(thread_get_stack_max)(tid);
+    Addr end = start - VG_(thread_get_stack_size)(tid);
+#endif
+}
+
+static void mv_thread_exit(ThreadId tid)
+{
+}
+
 static void mv_pre_clo_init(void)
 {
     VG_(details_name)            ("Memview");
@@ -971,6 +1079,18 @@ static void mv_pre_clo_init(void)
     VG_(needs_command_line_options)(mv_process_cmd_line_option,
 	    mv_print_usage,
 	    mv_print_debug_usage);
+
+    VG_(track_new_mem_startup)(mv_new_mem_mmap);
+    VG_(track_new_mem_mmap)(mv_new_mem_mmap);
+    VG_(track_die_mem_munmap)(mv_die_mem_munmap);
+    VG_(track_copy_mem_remap)(mv_copy_mem_remap);
+    VG_(track_new_mem_stack_signal)(mv_new_mem_stack_signal);
+    VG_(track_die_mem_stack_signal)(mv_die_mem_stack_signal);
+    VG_(track_new_mem_brk)(mv_new_mem_brk);
+    VG_(track_die_mem_brk)(mv_die_mem_brk);
+
+    VG_(track_pre_thread_first_insn)(mv_thread_start);
+    VG_(track_pre_thread_ll_exit)(mv_thread_exit);
 
 #if defined(MV_WRAP_MALLOC)
     VG_(needs_malloc_wrap)(
