@@ -43,7 +43,7 @@ Window::Window(int argc, char *argv[])
     myFileMenu->addSeparator();
     myFileMenu->addAction(myQuit);
 
-    myVisMenu = menuBar()->addMenu(tr("&Visualization"));
+    myLayoutMenu = menuBar()->addMenu(tr("&Layout"));
 
     static const char	*theVisNames[theVisCount] = {
 	"&Hilbert Curve",
@@ -56,11 +56,11 @@ Window::Window(int argc, char *argv[])
     {
 	myVis[i] = new QAction(tr(theVisNames[i]), myVisGroup);
 	myVis[i]->setCheckable(true);
-	myVisMenu->addAction(myVis[i]);
+	myLayoutMenu->addAction(myVis[i]);
     }
     myVis[0]->setChecked(true);
 
-    myVisMenu->addSeparator();
+    myLayoutMenu->addSeparator();
 
     static const char	*theLayoutNames[theLayoutCount] = {
 	"&Compact",
@@ -72,7 +72,7 @@ Window::Window(int argc, char *argv[])
     {
 	myLayout[i] = new QAction(tr(theLayoutNames[i]), myLayoutGroup);
 	myLayout[i]->setCheckable(true);
-	myVisMenu->addAction(myLayout[i]);
+	myLayoutMenu->addAction(myLayout[i]);
     }
     myLayout[0]->setChecked(true);
 
@@ -92,6 +92,25 @@ Window::Window(int argc, char *argv[])
 
     connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(compact()));
     connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(full()));
+
+    myDisplayMenu = menuBar()->addMenu(tr("&Display"));
+
+    static const char	*theDisplayNames[theDisplayCount] = {
+	"&Last Access Type",
+	"&Thread Id",
+    };
+
+    myDisplayGroup = new QActionGroup(this);
+    for (int i = 0; i < theDisplayCount; i++)
+    {
+	myDisplay[i] = new QAction(tr(theDisplayNames[i]), myDisplayGroup);
+	myDisplay[i]->setCheckable(true);
+	myDisplayMenu->addAction(myDisplay[i]);
+    }
+    myDisplay[0]->setChecked(true);
+
+    connect(myDisplay[0], SIGNAL(triggered()), myMemView, SLOT(rwdisplay()));
+    connect(myDisplay[1], SIGNAL(triggered()), myMemView, SLOT(threaddisplay()));
 
     setWindowTitle("Memview");
 
@@ -122,6 +141,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myPixelBuffer(0)
     , myPrevEvents(0)
     , myZoom(0)
+    , myDisplayMode(0)
     , myStopWatch(false)
     , myPaintInterval(false)
     , myEventTimer(false)
@@ -214,6 +234,9 @@ MemViewWidget::full()
     changeZoom(myZoom);
     update();
 }
+
+void MemViewWidget::rwdisplay() { myDisplayMode = 0; }
+void MemViewWidget::threaddisplay() { myDisplayMode = 1; }
 
 // Load a file into a buffer.  The buffer is owned by the caller, and
 // should be freed with delete[].
@@ -363,6 +386,7 @@ MemViewWidget::paintGL()
     myProgram->setUniformValue("theState", 0);
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
+    myProgram->setUniformValue("theDisplayMode", myDisplayMode);
 
     myProgram->setUniformValue("theTime", myState->getTime());
 

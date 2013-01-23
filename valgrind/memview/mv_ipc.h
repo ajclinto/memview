@@ -69,17 +69,26 @@ typedef struct {
 
 #define MV_BlockSize	(1024*32)
 
-#define MV_AddrMask 0x001FFFFFFFFFFFFFul
+// 43 bits are reserved for address space.  This exceeds the current limit
+// in memview of 36 bits.
+#define MV_AddrMask 0x000007FFFFFFFFFFul
 
-#define MV_SizeMask 0xFF00000000000000ul
-#define MV_SizeShift 56
+// Thread and type are stored consecutively since during updates these
+// don't need to be separated (and so are treated as a single 13-bit
+// quantity).  The type is stored in the bottom 3 bits.
 
-#define MV_TypeMask 0x00E0000000000000ul
-#define MV_TypeShift 53
+#define MV_ThreadMask 0xFFC0000000000000ul
+#define MV_ThreadShift 54
+
+#define MV_TypeMask 0x0038000000000000ul
+#define MV_TypeShift 51
+
+#define MV_SizeMask 0x0007F80000000000ul
+#define MV_SizeShift 43
 
 // Order is important here - we use a max() for downsampling, which will
 // cause reads to be preferred over writes when MV_ event time matches.  If
-// you update MV_se values, you will also need to update MV_ shader.frag
+// you update these values, you will also need to update MV_ shader.frag
 // code.
 #define MV_TypeAlloc  0
 #define MV_TypeInstr  1
@@ -91,7 +100,7 @@ typedef struct {
 #define MV_ShiftedInstr  ((unsigned long long)MV_TypeInstr << MV_TypeShift)
 #define MV_ShiftedWrite  ((unsigned long long)MV_TypeWrite << MV_TypeShift)
 #define MV_ShiftedRead   ((unsigned long long)MV_TypeRead << MV_TypeShift)
-#define MV_ShiftedFree   ((unsigned long long)7 << MV_TypeShift)
+#define MV_ShiftedFree   ((unsigned long long)MV_TypeFree << MV_TypeShift)
 
 typedef struct {
     unsigned long long	myAddr[MV_BlockSize];

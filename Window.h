@@ -51,7 +51,7 @@ private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
 
-    QMenu		*myVisMenu;
+    QMenu		*myLayoutMenu;
 
     static const int	 theVisCount = 3;
     QActionGroup	*myVisGroup;
@@ -60,6 +60,12 @@ private:
     static const int	 theLayoutCount = 2;
     QActionGroup	*myLayoutGroup;
     QAction		*myLayout[theLayoutCount];
+
+    QMenu		*myDisplayMenu;
+
+    static const int	 theDisplayCount = 2;
+    QActionGroup	*myDisplayGroup;
+    QAction		*myDisplay[theDisplayCount];
 
     MemViewWidget	*myMemView;
     MemViewScroll	*myScrollArea;
@@ -118,6 +124,9 @@ private slots:
     void    compact();
     void    full();
 
+    void    rwdisplay();
+    void    threaddisplay();
+
 private:
     GLImage<uint32>	 myImage;
     QScrollBar		*myVScrollBar;
@@ -139,6 +148,7 @@ private:
     int			 myZoom;
     int			 myFastTimer;
     int			 mySlowTimer;
+    int			 myDisplayMode;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}

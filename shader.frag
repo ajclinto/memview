@@ -10,6 +10,8 @@ uniform int theTime;
 uniform int theStale;
 uniform int theHalfLife;
 
+uniform int theDisplayMode;
+
 float rand(vec2 co)
 {
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
@@ -56,27 +58,42 @@ void main(void)
 
     uint type = val & 3u;
     bool freed = (val & 4u) > 0u;
+    uint tid = (val >> 3u) & 0x3FFu;
 
-    int ival = int(val >> 3u);
+    int ival = int(val >> 13u);
 
     int diff = ival == theStale ? theHalfLife :
 	((theTime > ival) ? theTime-ival+1 : ival-theTime+1);
 
     float interp = 1-log2(float(diff))/32;
 
-    vec3 hi[4];
-    hi[0] = lum1(vec3(0.3, 0.3, 0.3));
-    hi[1] = lum1(vec3(0.3, 0.2, 0.8));
-    hi[2] = lum1(vec3(1.0, 0.7, 0.2));
-    hi[3] = lum1(vec3(0.2, 1.0, 0.2));
+    if (theDisplayMode == 1)
+    {
+	vec3 clr[4];
+	clr[0] = lum1(vec3(0.7, 0.2, 1.0));
+	clr[1] = lum1(vec3(0.3, 1.0, 0.4));
+	clr[2] = lum1(vec3(0.3, 0.4, 1.0));
+	clr[3] = lum1(vec3(1.0, 0.7, 0.4));
 
-    vec3 lo[4];
-    lo[0] = lum1(vec3(0.1, 0.1, 0.1));
-    lo[1] = lum1(vec3(0.3, 0.1, 0.4));
-    lo[2] = lum1(vec3(0.3, 0.1, 0.1));
-    lo[3] = lum1(vec3(0.1, 0.1, 0.5));
+	tid &= 3u;
+	frag_color = vec4(ramp_color(clr[tid], clr[tid], interp), 1);
+    }
+    else
+    {
+	vec3 hi[4];
+	hi[0] = lum1(vec3(0.3, 0.3, 0.3));
+	hi[1] = lum1(vec3(0.3, 0.2, 0.8));
+	hi[2] = lum1(vec3(1.0, 0.7, 0.2));
+	hi[3] = lum1(vec3(0.2, 1.0, 0.2));
 
-    frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
+	vec3 lo[4];
+	lo[0] = lum1(vec3(0.1, 0.1, 0.1));
+	lo[1] = lum1(vec3(0.3, 0.1, 0.4));
+	lo[2] = lum1(vec3(0.3, 0.1, 0.1));
+	lo[3] = lum1(vec3(0.1, 0.1, 0.5));
+
+	frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
+    }
 
     if (freed)
 	frag_color *= 0.5;

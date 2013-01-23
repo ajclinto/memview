@@ -105,6 +105,8 @@ static uint64		 theTotalEvents = 0;
 
 static MV_StackInfo	 theStackTrace;
 
+static uint64		 theThread = 0;
+
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
     MV_StackInfo	*sbuf = (MV_StackInfo *)uu_opaque;
@@ -242,6 +244,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 
     // This same encoding is created with VEX IR in flushEventsIR().
     uint64 data = addr;
+    data |= theThread;
     data |= type;
     data |= size << MV_SizeShift;
 
@@ -566,6 +569,9 @@ static void flushEventsIR(IRSB* sb)
 		unop(Iop_32Uto64,
 		    binop(Iop_Mul32, entries, mkU32(addr_size))));
 
+    // Grab the thread id
+    IRExpr *thread = load(end, Ity_I64, mkU64((ULong)&theThread));
+
     Int        i;
     for (i = 0; i < events_used; i++) {
 
@@ -591,6 +597,7 @@ static void flushEventsIR(IRSB* sb)
 	IRExpr *data =
 	    binop(Iop_Or64, ev->addr,
 		    mkU64(type | ((uint64)ev->size << MV_SizeShift)));
+	data = binop(Iop_Or64, data, thread);
 
 	IRStmt *store = IRStmt_Store(end, addr, data);
 
@@ -1049,6 +1056,11 @@ static void mv_die_mem_brk(Addr a, SizeT len)
     mv_mmap_info(a, len, MV_UNMAP, 0);
 }
 
+static void mv_start_client_code(ThreadId tid, ULong blocks_dispatched)
+{
+    theThread = (uint64)tid << MV_ThreadShift;
+}
+
 static void mv_thread_start(ThreadId tid)
 {
     // TODO: This overlaps with the initial stack mmap.  Though it would be
@@ -1089,6 +1101,7 @@ static void mv_pre_clo_init(void)
     VG_(track_new_mem_brk)(mv_new_mem_brk);
     VG_(track_die_mem_brk)(mv_die_mem_brk);
 
+    VG_(track_start_client_code)(mv_start_client_code);
     VG_(track_pre_thread_first_insn)(mv_thread_start);
     VG_(track_pre_thread_ll_exit)(mv_thread_exit);
 
