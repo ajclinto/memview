@@ -138,6 +138,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myHScrollBar(hscrollbar)
     , myStatusBar(status)
     , myTexture(0)
+    , myColorTexture(0)
     , myPixelBuffer(0)
     , myPrevEvents(0)
     , myZoom(0)
@@ -262,6 +263,42 @@ loadTextFile(const char *filename)
     return buffer;
 }
 
+// 512 size texture to accomodate the 500 possible threads supported by
+// valgrind.
+static const int theColorBits = 9;
+static const int theColorSize = (1 << theColorBits);
+
+static int
+rinverse(int val)
+{
+    // Radical inverse specialized for 16 bits
+    int tmp = val;
+    tmp = ((tmp & 0xAAAA) >> 1) | ((tmp & 0x5555) << 1);
+    tmp = ((tmp & 0xCCCC) >> 2) | ((tmp & 0x3333) << 2);
+    tmp = ((tmp & 0xF0F0) >> 4) | ((tmp & 0x0F0F) << 4);
+    tmp = ((tmp & 0xFF00) >> 8) | ((tmp & 0x00FF) << 8);
+    return tmp >> (16-theColorBits);
+}
+
+static void
+fillThreadColors(GLImage<uint32> &colors)
+{
+    const int width = theColorSize;
+    const float s = 0.7;
+    const float v = 1;
+
+    Color clr;
+    colors.resize(width, 1);
+    for (int i = 0; i < width; i++)
+    {
+	int idx = rinverse(i);
+	float h = idx / (float)(width-1);
+
+	clr.fromHSV(h, s, v);
+	colors.setPixel(i, 0, clr.toInt32());
+    }
+}
+
 void
 MemViewWidget::initializeGL()
 {
@@ -269,13 +306,29 @@ MemViewWidget::initializeGL()
     // seem to produce any dithering.
     glDisable(GL_DITHER);
 
-    glActiveTexture(GL_TEXTURE0);
+    const GLuint type = GL_NEAREST;
+
+    // Build a texture to store colors used by the shader
+    glActiveTexture(GL_TEXTURE1);
+    glGenTextures(1, &myColorTexture);
+    glBindTexture(GL_TEXTURE_1D, myColorTexture);
+
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, type);
+    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, type);
+
+    GLImage<uint32> colors;
+    fillThreadColors(colors);
+    glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA,
+	    colors.width(), 0, GL_RGBA,
+	    GL_UNSIGNED_BYTE, colors.data());
+
+    // Create the memory state texture
     glGenBuffers(1, &myPixelBuffer);
 
+    glActiveTexture(GL_TEXTURE0);
     glGenTextures(1, &myTexture);
     glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
 
-    const GLuint type = GL_NEAREST;
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, type);
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, type);
 
@@ -369,6 +422,8 @@ MemViewWidget::paintGL()
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
 #ifdef USE_PBUFFER
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
@@ -384,6 +439,8 @@ MemViewWidget::paintGL()
     myProgram->bind();
 
     myProgram->setUniformValue("theState", 0);
+    myProgram->setUniformValue("theColors", 1);
+
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
     myProgram->setUniformValue("theDisplayMode", myDisplayMode);

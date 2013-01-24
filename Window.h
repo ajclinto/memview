@@ -136,6 +136,7 @@ private:
 
     QGLShaderProgram	*myProgram;
     GLuint		 myTexture;
+    GLuint		 myColorTexture;
     GLuint		 myPixelBuffer;
 
     DisplayLayout	 myDisplay;

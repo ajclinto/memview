@@ -5,6 +5,7 @@ in mediump vec2 texc;
 out vec4 frag_color;
 
 uniform usampler2DRect theState;
+uniform sampler1D theColors;
 
 uniform int theTime;
 uniform int theStale;
@@ -69,27 +70,10 @@ void main(void)
 
     if (theDisplayMode == 1)
     {
-	vec3 clr[16];
-	clr[0] = lum1(vec3(0.7, 0.2, 1.0));
-	clr[1] = lum1(vec3(0.3, 1.0, 0.4));
-	clr[2] = lum1(vec3(0.3, 0.4, 1.0));
-	clr[3] = lum1(vec3(1.0, 0.7, 0.4));
-	clr[4] = lum1(vec3(0.8, 0.4, 0.2));
-	clr[5] = lum1(vec3(0.5, 1.0, 0.7));
-	clr[6] = lum1(vec3(0.6, 0.2, 1.0));
-	clr[7] = lum1(vec3(1.0, 0.4, 0.4));
+	int size = textureSize(theColors, 0);
 
-	clr[8] = lum1(vec3(0.5, 0.4, 1.0));
-	clr[9] = lum1(vec3(0.4, 1.0, 0.1));
-	clr[10] = lum1(vec3(0.8, 0.5, 1.0));
-	clr[11] = lum1(vec3(1.0, 1.0, 0.4));
-	clr[12] = lum1(vec3(1.0, 0.1, 0.3));
-	clr[13] = lum1(vec3(0.3, 1.0, 0.9));
-	clr[14] = lum1(vec3(0.7, 0.3, 1.0));
-	clr[15] = lum1(vec3(1.0, 0.4, 1.0));
-
-	tid &= 15u;
-	frag_color = vec4(ramp_color(clr[tid], clr[tid], interp), 1);
+	vec3 clr = lum1(vec3(texture(theColors, (float(tid)+0.5)/size)));
+	frag_color = vec4(ramp_color(clr, clr, interp), 1);
     }
     else
     {
