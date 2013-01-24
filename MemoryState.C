@@ -116,10 +116,9 @@ MemoryState::appendAddressInfo(QString &message, uint64 addr)
 
     if (typestr)
     {
-	if (type & MV_TypeFree)
-	    tmp.sprintf("\t(%s, Deallocated)", typestr);
-	else
-	    tmp.sprintf("\t(%s)", typestr);
+	tmp.sprintf("\t(Thread %d %s)",
+		entry.thread(),
+		(type & MV_TypeFree) ? "Deallocated" : typestr);
 	message.append(tmp);
     }
 }
