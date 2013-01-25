@@ -96,7 +96,7 @@ Window::Window(int argc, char *argv[])
     myDisplayMenu = menuBar()->addMenu(tr("&Display"));
 
     static const char	*theDisplayNames[theDisplayCount] = {
-	"&Last Access Type",
+	"&Read/Write",
 	"&Thread Id",
     };
 
