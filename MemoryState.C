@@ -47,6 +47,11 @@ MemoryState::MemoryState(int ignorebits)
 	    PROT_WRITE | PROT_READ,
 	    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NONBLOCK | MAP_NORESERVE,
 	    0, 0);
+    if (addr == MAP_FAILED)
+    {
+	perror("mmap");
+	exit(EXIT_FAILURE);
+    }
 
     myState = (State *)addr;
     myExists = (bool *)((char *)addr + ssize);
