@@ -284,7 +284,7 @@ static void
 fillThreadColors(GLImage<uint32> &colors)
 {
     const int width = theColorSize;
-    const float s = 0.7;
+    const float s = 0.75;
     const float v = 1;
 
     Color clr;
