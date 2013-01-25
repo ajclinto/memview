@@ -374,8 +374,8 @@ MemViewWidget::resizeImage(int zoom)
 
     if (zoom < 0)
     {
-	w >>= (-zoom) >> 1;
-	h >>= (-zoom) >> 1;
+	w >>= (-zoom) >> 1; w = SYSmax(w, 1);
+	h >>= (-zoom) >> 1; h = SYSmax(h, 1);
     }
 
     myVScrollBar->setPageStep(h);
