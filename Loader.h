@@ -66,7 +66,7 @@ protected:
 
 private:
     bool	initSharedMemory();
-    bool	writeToken();
+    void	writeToken(int token);
     bool	waitForInput(int timeout_ms);
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
@@ -98,6 +98,7 @@ private:
     // future work.
     MV_SharedData	*mySharedData;
     int			 myIdx;
+    int			 myNextToken;
 
     // What are we loading from?
     enum LoadSource {

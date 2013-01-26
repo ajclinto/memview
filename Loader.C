@@ -183,8 +183,9 @@ Loader::openPipe(int argc, char *argv[])
     myOutPipe = fdopen(myOutPipeFD, "w");
 
     // Queue up some tokens
+    myNextToken = 1;
     for (int i = 1; i < MV_BufCount; i++)
-	writeToken();
+	writeToken(i);
 
     return true;
 }
@@ -220,11 +221,19 @@ Loader::initSharedMemory()
     return true;
 }
 
-bool
-Loader::writeToken()
+static void
+incBuf(int &idx)
 {
-    int token = 1;
-    return write(myOutPipeFD, &token, sizeof(int));
+    idx++;
+    if (idx == MV_BufCount)
+	idx = 0;
+}
+
+void
+Loader::writeToken(int token)
+{
+    if (write(myOutPipeFD, &token, sizeof(int)))
+	incBuf(myNextToken);
 }
 
 bool
@@ -420,11 +429,9 @@ Loader::loadFromPipe()
 	memcpy(block.get(),
 		&mySharedData->myData[myIdx], sizeof(MV_TraceBlock));
 
-	myIdx++;
-	if (myIdx == MV_BufCount)
-	    myIdx = 0;
+	writeToken(myIdx);
 
-	writeToken();
+	incBuf(myIdx);
 
 	if (block->myEntries && loadBlock(block))
 	    return true;
