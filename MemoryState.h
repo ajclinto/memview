@@ -102,6 +102,7 @@ public:
     void	updateAddress(uint64 addr, uint64 size, uint64 type)
 		{
 		    addr >>= myIgnoreBits;
+		    addr &= theAllMask;
 		    size >>= myIgnoreBits;
 		    size = SYSmax(size, 1ull);
 

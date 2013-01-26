@@ -406,11 +406,10 @@ Loader::loadFromLackey(int max_read)
 }
 
 static inline void
-decodeAddr(uint64 &addr, uint64 &size, uint64 &type)
+decodeAddr(uint64 addr, uint64 &size, uint64 &type)
 {
     size = (addr & MV_SizeMask) >> MV_SizeShift,
     type = addr >> MV_TypeShift;
-    addr &= MV_AddrMask;
 }
 
 bool
