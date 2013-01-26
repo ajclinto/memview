@@ -42,6 +42,8 @@ Loader::Loader(MemoryState *state, StackTraceMap *stack)
     , myChild(-1)
     , myPipeFD(0)
     , myPipe(0)
+    , myOutPipeFD(0)
+    , myOutPipe(0)
     , mySharedData(0)
     , myIdx(0)
     , mySource(NONE)
@@ -63,8 +65,8 @@ Loader::~Loader()
     if (myChild > 0)
 	kill(myChild, SIGKILL);
 
-    if (myPipe)
-	fclose(myPipe);
+    if (myPipe) fclose(myPipe);
+    if (myOutPipe) fclose(myOutPipe);
 
     if (mySharedData)
 	shm_unlink(SHARED_NAME);
@@ -94,44 +96,22 @@ Loader::openPipe(int argc, char *argv[])
     if (mySource == TEST)
 	return true;
 
-    if (mySource == MEMVIEW_SHM)
-    {
-	int		shm_fd;
-
-	// Set of shared memory before fork
-	shm_fd = shm_open(SHARED_NAME,
-		O_CREAT | O_CLOEXEC | O_RDWR,
-		S_IRUSR | S_IWUSR);
-	if (shm_fd == -1)
-	{
-	    fprintf(stderr, "could not get shared memory\n");
-	    return false;
-	}
-
-
-	if (ftruncate(shm_fd, sizeof(MV_SharedData)) == -1)
-	{
-	    fprintf(stderr, "ftruncate failed\n");
-	    return false;
-	}
-
-	mySharedData = (MV_SharedData *)mmap(NULL, sizeof(MV_SharedData),
-		PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-	if (mySharedData == MAP_FAILED)
-	{
-	    fprintf(stderr, "mmap failed\n");
-	    return false;
-	}
-
-	memset(mySharedData, 0, sizeof(MV_SharedData));
-    }
-
     int		fd[2];
+    int		outfd[2];
+
     if (pipe(fd) < 0)
     {
 	perror("pipe failed");
 	return false;
     }
+    if (pipe(outfd) < 0)
+    {
+	perror("pipe failed");
+	return false;
+    }
+
+    if (!initSharedMemory())
+	return false;
 
     myChild = fork();
     if (myChild == -1)
@@ -144,25 +124,27 @@ Loader::openPipe(int argc, char *argv[])
     {
 	// Close input for child
 	close(fd[0]);
+	close(outfd[1]);
 
 	static const int	 theMaxArgs = 256;
 	const char		*args[theMaxArgs];
+	char			 pipearg[64];
+	char			 outpipearg[64];
 	int			 vg_args = 0;
 
 	args[vg_args++] = valgrind;
 	if (mySource != LACKEY)
 	{
 	    args[vg_args++] = "--tool=memview";
-	    if (mySource == MEMVIEW_SHM)
-	    {
+
+	    if (mySharedData)
 		args[vg_args++] = "--shared-mem=/dev/shm" SHARED_NAME;
-	    }
-	    else
-	    {
-		char	pipearg[64];
-		sprintf(pipearg, "--pipe=%d", fd[1]);
-		args[vg_args++] = pipearg;
-	    }
+
+	    sprintf(pipearg, "--pipe=%d", fd[1]);
+	    args[vg_args++] = pipearg;
+
+	    sprintf(outpipearg, "--inpipe=%d", outfd[0]);
+	    args[vg_args++] = outpipearg;
 	}
 	else
 	{
@@ -173,6 +155,7 @@ Loader::openPipe(int argc, char *argv[])
 	    args[vg_args++] = "--basic-counts=no";
 	    args[vg_args++] = "--trace-mem=yes";
 	}
+
 	for (int i = 0; i < argc; i++)
 	    args[i+vg_args] = argv[i];
 	args[argc+vg_args] = NULL;
@@ -189,11 +172,47 @@ Loader::openPipe(int argc, char *argv[])
 
     // Close output for parent
     close(fd[1]);
+    close(outfd[0]);
 
     // Open the pipe for reading
     myPipeFD = fd[0];
     myPipe = fdopen(myPipeFD, "r");
 
+    // Open the pipe for writing
+    myOutPipeFD = outfd[1];
+    myOutPipe = fdopen(myOutPipeFD, "w");
+
+    return true;
+}
+
+bool
+Loader::initSharedMemory()
+{
+    // Set of shared memory before fork
+    int shm_fd = shm_open(SHARED_NAME,
+	    O_CREAT | O_CLOEXEC | O_RDWR,
+	    S_IRUSR | S_IWUSR);
+    if (shm_fd == -1)
+    {
+	perror("shm_open");
+	return false;
+    }
+
+    if (ftruncate(shm_fd, sizeof(MV_SharedData)) == -1)
+    {
+	perror("ftruncate");
+	return false;
+    }
+
+    mySharedData = (MV_SharedData *)mmap(NULL, sizeof(MV_SharedData),
+	    PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (mySharedData == MAP_FAILED)
+    {
+	perror("mmap");
+	return false;
+    }
+
+    memset(mySharedData, 0, sizeof(MV_SharedData));
     return true;
 }
 
@@ -286,9 +305,6 @@ Loader::run()
 	    case MEMVIEW_PIPE:
 		if (waitForInput(timeout_ms))
 		    rval = loadFromPipe();
-		break;
-	    case MEMVIEW_SHM:
-		rval = loadFromSharedMemory();
 		break;
 	}
 
@@ -383,19 +399,21 @@ Loader::loadFromPipe()
     if (!myPipe)
 	return false;
 
-    TraceBlockHandle block(new MV_TraceBlock);
-
     MV_Header header;
     if (!read(myPipeFD, &header, sizeof(MV_Header)))
 	return false;
 
     if (header.myType == MV_BLOCK)
     {
-	if (read(myPipeFD, block.get(), sizeof(MV_TraceBlock)))
-	{
-	    if (block->myEntries && loadBlock(block))
-		return true;
-	}
+	TraceBlockHandle block(new MV_TraceBlock);
+	memcpy(block.get(), &mySharedData->myData, sizeof(MV_TraceBlock));
+
+	int token = 1;
+	if (!write(myOutPipeFD, &token, sizeof(int)))
+	    return false;
+
+	if (block->myEntries && loadBlock(block))
+	    return true;
     }
     else if (header.myType == MV_STACKTRACE)
     {

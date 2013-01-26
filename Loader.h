@@ -65,6 +65,7 @@ protected:
     void	run();
 
 private:
+    bool	initSharedMemory();
     bool	waitForInput(int timeout_ms);
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
@@ -89,18 +90,19 @@ private:
     pid_t	 myChild;
     int		 myPipeFD;
     FILE	*myPipe;
+    int		 myOutPipeFD;
+    FILE	*myOutPipe;
 
     // Shared memory.  This interface is only available as a template for
     // future work.
     MV_SharedData	*mySharedData;
-    int		 myIdx;
+    int			 myIdx;
 
     // What are we loading from?
     enum LoadSource {
 	NONE,
 	LACKEY,
 	MEMVIEW_PIPE,
-	MEMVIEW_SHM,
 	TEST
     };
 

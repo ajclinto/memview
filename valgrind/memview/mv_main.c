@@ -59,12 +59,14 @@
 /*------------------------------------------------------------*/
 
 static int		 clo_pipe = 0;
+static int		 clo_inpipe = 0;
 static Bool		 clo_trace_instrs = False;
 static const char	*clo_shared_mem = 0;
 
 static Bool mv_process_cmd_line_option(const HChar* arg)
 {
     if VG_INT_CLO(arg, "--pipe",		clo_pipe) {}
+    else if VG_INT_CLO(arg, "--inpipe",		clo_inpipe) {}
     else if VG_STR_CLO(arg, "--shared-mem",	clo_shared_mem) {}
     else if VG_BOOL_CLO(arg, "--trace-instrs",	clo_trace_instrs) {}
     else
@@ -79,7 +81,7 @@ static void mv_print_usage(void)
 {  
     VG_(printf)(
 	    "    --pipe=<fd>                pipe to fd [0]\n"
-//	    "    --shared-mem=<file>        shared memory output file [""]\n"
+	    "    --shared-mem=<file>        shared memory output file [""]\n"
 	    "    --trace-instrs=yes         trace instruction memory [no]\n"
 	    );
 }
@@ -131,11 +133,7 @@ static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 
 static void flush_data(void)
 {
-    if (clo_shared_mem)
-    {
-	// Not implemented
-    }
-    else if (clo_pipe)
+    if (clo_pipe)
     {
 	MV_Header	header;
 
@@ -152,7 +150,7 @@ static void flush_data(void)
 	    header.mySize = theStackTrace.mySize+1; // Include terminating '\0'
 	    header.mySize += sizeof(uint64);
 
-	    theStackTrace.myAddr = theBlockData.myAddr[0];
+	    theStackTrace.myAddr = theBlock->myAddr[0];
 
 	    VG_(write)(clo_pipe, &header, sizeof(MV_Header));
 	    VG_(write)(clo_pipe, &theStackTrace, header.mySize);
@@ -175,8 +173,11 @@ static void flush_data(void)
 	header.myType = MV_BLOCK;
 
 	VG_(write)(clo_pipe, &header, sizeof(MV_Header));
-	VG_(write)(clo_pipe, &theBlockData, sizeof(theBlockData));
+	//VG_(write)(clo_pipe, theBlock, sizeof(MV_TraceBlock));
 
+	// Wait for token
+	int token;
+	VG_(read)(clo_inpipe, &token, sizeof(int));
     }
 
 #if 0
@@ -786,8 +787,7 @@ static void mv_post_clo_init(void)
 	theSharedData = (MV_SharedData *)(Addr)sr_Res(res);
 	VG_(dmsg)("got memory %p\n", theSharedData);
 
-	VG_(umsg)("shared memory interface not implemented\n");
-	VG_(exit)(1);
+	theBlock = &theSharedData->myData;
     }
     else
     {
@@ -961,6 +961,7 @@ static void mv_atfork_child(ThreadId tid)
        the --trace-children option to decide whether the parent or child
        should continue writing to the pipe? */
     clo_pipe = 0;
+    clo_inpipe = 0;
 }
 
 static void

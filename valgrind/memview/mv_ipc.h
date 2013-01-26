@@ -107,8 +107,9 @@ typedef struct {
     unsigned int	myEntries;
 } MV_TraceBlock;
 
-// Template for future work
-typedef struct {} MV_SharedData;
+typedef struct {
+    MV_TraceBlock   myData;
+} MV_SharedData;
 
 #endif
 
