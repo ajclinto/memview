@@ -66,6 +66,7 @@ protected:
 
 private:
     bool	initSharedMemory();
+    bool	writeToken();
     bool	waitForInput(int timeout_ms);
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();

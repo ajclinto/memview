@@ -182,6 +182,10 @@ Loader::openPipe(int argc, char *argv[])
     myOutPipeFD = outfd[1];
     myOutPipe = fdopen(myOutPipeFD, "w");
 
+    // Queue up some tokens
+    for (int i = 1; i < MV_BufCount; i++)
+	writeToken();
+
     return true;
 }
 
@@ -214,6 +218,13 @@ Loader::initSharedMemory()
 
     memset(mySharedData, 0, sizeof(MV_SharedData));
     return true;
+}
+
+bool
+Loader::writeToken()
+{
+    int token = 1;
+    return write(myOutPipeFD, &token, sizeof(int));
 }
 
 bool
@@ -406,33 +417,34 @@ Loader::loadFromPipe()
     if (header.myType == MV_BLOCK)
     {
 	TraceBlockHandle block(new MV_TraceBlock);
-	memcpy(block.get(), &mySharedData->myData, sizeof(MV_TraceBlock));
+	memcpy(block.get(),
+		&mySharedData->myData[myIdx], sizeof(MV_TraceBlock));
 
-	int token = 1;
-	if (!write(myOutPipeFD, &token, sizeof(int)))
-	    return false;
+	myIdx++;
+	if (myIdx == MV_BufCount)
+	    myIdx = 0;
+
+	writeToken();
 
 	if (block->myEntries && loadBlock(block))
 	    return true;
     }
     else if (header.myType == MV_STACKTRACE)
     {
-	MV_StackInfo stack;
-	if (read(myPipeFD, &stack, header.mySize))
+	char	stack[MV_STR_BUFSIZE];
+	if (read(myPipeFD, stack, header.myStack.mySize))
 	{
 	    uint64 size, type;
-	    decodeAddr(stack.myAddr, size, type);
-	    myStackTrace->insert(stack.myAddr, stack.myBuf);
+	    decodeAddr(header.myStack.myAddr, size, type);
+	    myStackTrace->insert(header.myStack.myAddr, stack);
 	    return true;
 	}
     }
     else if (header.myType == MV_MMAP)
     {
-	MV_MMapInfo info;
 	char	    buf[MV_STR_BUFSIZE];
-	if (read(myPipeFD, &info, sizeof(MV_MMapInfo)))
-	    if (read(myPipeFD, buf, header.mySize-sizeof(MV_MMapInfo)))
-		return true;
+	if (read(myPipeFD, buf, header.myMMap.mySize))
+	    return true;
     }
 
     return false;

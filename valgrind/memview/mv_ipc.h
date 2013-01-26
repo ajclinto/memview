@@ -38,16 +38,10 @@ typedef enum {
     MV_MMAP
 } MV_MessageType;
 
-typedef struct {
-    int		    mySize;
-    MV_MessageType  myType;
-} MV_Header;
-
 #define MV_STR_BUFSIZE 4096
 
 typedef struct {
     unsigned long long	myAddr;
-    char		myBuf[MV_STR_BUFSIZE];
     int			mySize;
 } MV_StackInfo;
 
@@ -65,7 +59,16 @@ typedef struct {
     unsigned long long	myEnd;
     MV_MMapType		myType;
     int			myThread;
+    int			mySize;
 } MV_MMapInfo;
+
+typedef struct {
+    MV_MessageType  myType;
+    union {
+	MV_StackInfo	myStack;
+	MV_MMapInfo	myMMap;
+    };
+} MV_Header;
 
 #define MV_BlockSize	(1024*32)
 
@@ -107,8 +110,10 @@ typedef struct {
     unsigned int	myEntries;
 } MV_TraceBlock;
 
+#define MV_BufCount 4
+
 typedef struct {
-    MV_TraceBlock   myData;
+    MV_TraceBlock   myData[MV_BufCount];
 } MV_SharedData;
 
 #endif

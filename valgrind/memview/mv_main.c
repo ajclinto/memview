@@ -96,43 +96,47 @@ static void mv_print_debug_usage(void)
 /*------------------------------------------------------------*/
 
 static MV_TraceBlock	*theBlock = 0;
+static unsigned int	 theEntries = 0;
 
 // Data for pipe
 static MV_TraceBlock	 theBlockData;
 // Data for shm
 static MV_SharedData	*theSharedData = 0;
+static int		 theBlockIndex = 0;
 
 typedef unsigned long long uint64;
 static uint64		 theTotalEvents = 0;
 
-static MV_StackInfo	 theStackTrace;
+static MV_StackInfo	 theStackInfo;
+static char		 theStackTrace[MV_STR_BUFSIZE];
 
 static uint64		 theThread = 0;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
-    MV_StackInfo	*sbuf = (MV_StackInfo *)uu_opaque;
     HChar		 tmp[MV_STR_BUFSIZE];
 
     VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE);
 
-    int available = MV_STR_BUFSIZE - sbuf->mySize;
+    int available = MV_STR_BUFSIZE - theStackInfo.mySize;
     int len =
 	VG_(snprintf)(
-		&sbuf->myBuf[sbuf->mySize],
+		&theStackTrace[theStackInfo.mySize],
 		available,
 		"%s%s %s",
-		( sbuf->mySize ? "\n" : ""),
+		( theStackInfo.mySize ? "\n" : ""),
 		( n == 0 ? "at" : "by" ), tmp);
 
     if (len >= available)
-	sbuf->mySize += available-1;
+	theStackInfo.mySize += available-1;
     else
-	sbuf->mySize += len;
+	theStackInfo.mySize += len;
 }
 
 static void flush_data(void)
 {
+    theTotalEvents += theEntries;
+
     if (clo_pipe)
     {
 	MV_Header	header;
@@ -144,16 +148,15 @@ static void flush_data(void)
 	//
 
 	// Send the pending stack trace
-	if (theStackTrace.mySize)
+	if (theStackInfo.mySize)
 	{
 	    header.myType = MV_STACKTRACE;
-	    header.mySize = theStackTrace.mySize+1; // Include terminating '\0'
-	    header.mySize += sizeof(uint64);
-
-	    theStackTrace.myAddr = theBlock->myAddr[0];
+	    header.myStack = theStackInfo;
+	    header.myStack.mySize += 1; // Include terminating '\0'
+	    header.myStack.myAddr = theBlock->myAddr[0];
 
 	    VG_(write)(clo_pipe, &header, sizeof(MV_Header));
-	    VG_(write)(clo_pipe, &theStackTrace, header.mySize);
+	    VG_(write)(clo_pipe, theStackTrace, header.myStack.mySize);
 	}
 
 	// Prepare the next stack trace
@@ -166,45 +169,50 @@ static void flush_data(void)
 		NULL/*array to dump FP values in*/,
 		0/*first_ip_delta*/);
 
-	theStackTrace.mySize = 0;
-	VG_(apply_StackTrace)(appendIpDesc, &theStackTrace, ips, n_ips);
+	theStackInfo.mySize = 0;
+	VG_(apply_StackTrace)(appendIpDesc, 0, ips, n_ips);
 
 	// Send the block
 	header.myType = MV_BLOCK;
+	theBlock->myEntries = theEntries;
 
 	VG_(write)(clo_pipe, &header, sizeof(MV_Header));
-	//VG_(write)(clo_pipe, theBlock, sizeof(MV_TraceBlock));
 
 	// Wait for token
 	int token;
 	VG_(read)(clo_inpipe, &token, sizeof(int));
+
+	theBlockIndex++;
+	if (theBlockIndex == MV_BufCount)
+	    theBlockIndex = 0;
+
+	theBlock = &theSharedData->myData[theBlockIndex];
     }
 
 #if 0
-    VG_(printf)("flush_data: %d\n", theBlock->myEntries);
+    VG_(printf)("flush_data: %d\n", theEntries);
     int i;
-    for (i = 0; i < theBlock->myEntries; i++)
+    for (i = 0; i < theEntries; i++)
     {
 	VG_(printf)("addr: %llx\n", theBlock->myAddr[i]);
     }
 #endif
 
-    theTotalEvents += theBlock->myEntries;
-    theBlock->myEntries = 0;
+    theEntries = 0;
 }
 
 static inline void put_data(Addr addr, uint64 type, uint64 size)
 {
-    if (theBlock->myEntries >= MV_BlockSize)
+    if (theEntries >= MV_BlockSize)
 	flush_data();
 
     // This code was written in the hope that it might improve performance
     // by reducing the amount of data sent on the pipe.  Unfortunately, it
     // actually decreased performance.
 #if 0
-    if (theBlock->myEntries > 0)
+    if (theEntries > 0)
     {
-	uint64 last = theBlock->myAddr[theBlock->myEntries-1];
+	uint64 last = theBlock->myAddr[theEntries-1];
 	uint64 lasttype = (last & MV_TypeMask) >> MV_TypeShift;
 	uint64 lastsize = last >> MV_SizeShift;
 	uint64 totalsize = lastsize + size;
@@ -216,7 +224,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 	    {
 		last &= ~MV_SizeMask;
 		last |= totalsize << MV_SizeShift;
-		theBlock->myAddr[theBlock->myEntries-1] = last;
+		theBlock->myAddr[theEntries-1] = last;
 		return;
 	    }
 	    // Sequential, reverse
@@ -225,7 +233,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 		last = addr;
 		last |= type;
 		last |= totalsize << MV_SizeShift;
-		theBlock->myAddr[theBlock->myEntries-1] = last;
+		theBlock->myAddr[theEntries-1] = last;
 		return;
 	    }
 	    // Duplicate
@@ -235,7 +243,7 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
 		{
 		    last &= ~MV_SizeMask;
 		    last |= size << MV_SizeShift;
-		    theBlock->myAddr[theBlock->myEntries-1] = last;
+		    theBlock->myAddr[theEntries-1] = last;
 		}
 		return;
 	    }
@@ -249,8 +257,8 @@ static inline void put_data(Addr addr, uint64 type, uint64 size)
     data |= type;
     data |= size << MV_SizeShift;
 
-    theBlock->myAddr[theBlock->myEntries] = data;
-    theBlock->myEntries++;
+    theBlock->myAddr[theEntries] = data;
+    theEntries++;
 }
 
 static inline void put_wdata(Addr addr, uint64 type, SizeT size)
@@ -545,7 +553,7 @@ static void flushEventsIR(IRSB* sb)
 
     // Conditionally call the flush method if there's not enough room for
     // all the new events.  This may flush an incomplete block.
-    IRExpr *entries_addr = mkU64((ULong)&theBlock->myEntries);
+    IRExpr *entries_addr = mkU64((ULong)&theEntries);
     IRExpr *entries = load(end, Ity_I32, entries_addr);
 
     IRDirty*   di =
@@ -566,7 +574,7 @@ static void flushEventsIR(IRSB* sb)
     uint64 addr_size = sizeof(uint64);
     IRExpr *addr =
 	binop(Iop_Add64,
-		mkU64((ULong)theBlock->myAddr),
+		load(end, Ity_I64, mkU64((ULong)&theBlock)),
 		unop(Iop_32Uto64,
 		    binop(Iop_Mul32, entries, mkU32(addr_size))));
 
@@ -785,9 +793,10 @@ static void mv_post_clo_init(void)
 	}
 
 	theSharedData = (MV_SharedData *)(Addr)sr_Res(res);
-	VG_(dmsg)("got memory %p\n", theSharedData);
+	//VG_(dmsg)("got memory %p\n", theSharedData);
 
-	theBlock = &theSharedData->myData;
+	theBlockIndex = 0;
+	theBlock = &theSharedData->myData[theBlockIndex];
     }
     else
     {
@@ -972,29 +981,24 @@ mv_mmap_info(Addr a, SizeT len, MV_MMapType type, const HChar *filename)
 
     // Flush outstanding events to ensure consistent ordering.  Avoid
     // calling this with 0 entries.
-    if (theBlock->myEntries)
+    if (theEntries)
 	flush_data();
 
     MV_Header	header;
-    MV_MMapInfo	info;
 
     header.myType = MV_MMAP;
-    header.mySize = sizeof(MV_MMapInfo);
-
-    info.myStart = a;
-    info.myEnd = a + len;
-    info.myType = type;
-    info.myThread = 0;
+    header.myMMap.myStart = a;
+    header.myMMap.myEnd = a + len;
+    header.myMMap.myType = type;
+    header.myMMap.myThread = 0;
 
     if (!filename)
 	filename = "\0";
 
-    int slen = VG_(strlen)(filename)+1; // Include terminating '\0'
-    header.mySize += slen;
+    header.myMMap.mySize = VG_(strlen)(filename)+1; // Include terminating '\0'
 
     VG_(write)(clo_pipe, &header, sizeof(MV_Header));
-    VG_(write)(clo_pipe, &info, sizeof(MV_MMapInfo));
-    VG_(write)(clo_pipe, filename, slen);
+    VG_(write)(clo_pipe, filename, header.myMMap.mySize);
 }
 
 static void mv_new_mem_mmap(Addr a, SizeT len,
