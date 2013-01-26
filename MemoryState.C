@@ -159,7 +159,6 @@ private:
 void
 MemoryState::downsample(const MemoryState &state)
 {
-    StopWatch timer;
     const int shift = myIgnoreBits - state.myIgnoreBits;
 
     // Copy time first for the display to work correctly
