@@ -105,21 +105,44 @@ public:
 		    size >>= myIgnoreBits;
 		    size = SYSmax(size, 1ull);
 
-		    uint64 last = addr + size;
-
-		    if (!(type & MV_TypeFree))
-		    {
-			for (; addr < last; addr++)
-			    myState[addr].init(myTime, type);
-		    }
-		    else
-		    {
-			for (; addr < last; addr++)
-			    myState[addr].setFree();
-		    }
-
 		    myExists[addr >> theDisplayBits] = true;
 		    myTopExists[addr >> theBottomBits] = true;
+
+		    uint64 last;
+		    switch (size)
+		    {
+		    case 1:
+			if (!(type & MV_TypeFree))
+			    myState[addr].init(myTime, type);
+			else
+			    myState[addr].setFree();
+			break;
+		    case 2:
+			if (!(type & MV_TypeFree))
+			{
+			    myState[addr].init(myTime, type);
+			    myState[addr+1].init(myTime, type);
+			}
+			else
+			{
+			    myState[addr].setFree();
+			    myState[addr+1].setFree();
+			}
+			break;
+		    default:
+			last = addr + size;
+			if (!(type & MV_TypeFree))
+			{
+			    for (; addr < last; addr++)
+				myState[addr].init(myTime, type);
+			}
+			else
+			{
+			    for (; addr < last; addr++)
+				myState[addr].setFree();
+			}
+			break;
+		    }
 		}
     void	incrementTime();
     uint32	getTime() const { return myTime; }
