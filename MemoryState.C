@@ -130,9 +130,10 @@ MemoryState::appendAddressInfo(QString &message, uint64 addr)
 
 class Downsample : public QRunnable {
 public:
-    Downsample(MemoryState &dst, int shift)
+    Downsample(MemoryState &dst, int shift, bool fast)
 	: myDst(dst)
 	, myShift(shift)
+	, myFast(fast)
     {
     }
 
@@ -145,18 +146,20 @@ public:
     virtual void run()
     {
 	for (auto it = mySrc.begin(); it != mySrc.end(); ++it)
-	    myDst.downsamplePage(*it, myShift);
+	    myDst.downsamplePage(*it, myShift, myFast);
     }
 
 private:
     MemoryState			&myDst;
     std::vector<MemoryState::DisplayPage>	 mySrc;
-    int				 myShift;
+    int	    myShift;
+    bool    myFast;
 };
 
 void
 MemoryState::downsample(const MemoryState &state)
 {
+    StopWatch timer;
     const int shift = myIgnoreBits - state.myIgnoreBits;
 
     // Copy time first for the display to work correctly
@@ -171,7 +174,7 @@ MemoryState::downsample(const MemoryState &state)
 	// thread-safe when 1 << shift is greater than bunch_size, but the
 	// errors aren't usually visible.
 	if (!task)
-	    task = new Downsample(*this, shift);
+	    task = new Downsample(*this, shift, false);
 	task->push(it.page());
 	if (task->size() >= bunch_size)
 	{
@@ -186,9 +189,10 @@ MemoryState::downsample(const MemoryState &state)
 }
 
 void
-MemoryState::downsamplePage(const DisplayPage &page, int shift)
+MemoryState::downsamplePage(const DisplayPage &page, int shift, bool fast)
 {
     const   uint64 scale = 1 << shift;
+    const   uint64 stride = fast ? 1 : scale;
     uint64  myaddr = page.addr() >> shift;
 
     myTopExists[myaddr >> theBottomBits] = true;
@@ -198,7 +202,7 @@ MemoryState::downsamplePage(const DisplayPage &page, int shift)
     {
 	uint    &mystate = myState[myaddr].uval;
 	const State   *arr = page.stateArray();
-	uint64   n = SYSmin(i+scale, page.size());
+	uint64   n = SYSmin(i + stride, page.size());
 	for (uint64 j = i; j < n; j++)
 	{
 	    mystate = SYSmax(mystate, arr[j].uval);

@@ -162,7 +162,7 @@ public:
 
     // Build a mipmap from another memory state
     void	downsample(const MemoryState &state);
-    void	downsamplePage(const DisplayPage &page, int shift);
+    void	downsamplePage(const DisplayPage &page, int shift, bool fast);
 
     // A class to iterate over only non-zero state values.  The iterator
     // increments in chunks of size theDisplaySize.
