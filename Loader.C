@@ -440,9 +440,11 @@ Loader::loadFromPipe()
 	char	stack[MV_STR_BUFSIZE];
 	if (read(myPipeFD, stack, header.myStack.mySize))
 	{
-	    uint64 size, type;
-	    decodeAddr(header.myStack.myAddr, size, type);
-	    myStackTrace->insert(header.myStack.myAddr, stack);
+	    uint64 addr, size, type;
+	    addr = header.myStack.myAddr;
+	    decodeAddr(addr, size, type);
+	    addr &= MV_AddrMask;
+	    myStackTrace->insert(addr, stack);
 	    return true;
 	}
     }
