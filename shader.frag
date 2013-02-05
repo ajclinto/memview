@@ -36,7 +36,7 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 
     vals[0] = lo * 0.02;
     vals[1] = lo * 0.15;
-    vals[2] = hi * 0.5;
+    vals[2] = hi * 0.7;
     vals[3] = hi * 2.0;
 
     if (interp >= hcutoff)
