@@ -101,10 +101,9 @@ public:
 
     void	updateAddress(uint64 addr, uint64 size, uint64 type)
 		{
-		    addr >>= myIgnoreBits;
 		    addr &= theAllMask;
+		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
-		    size = SYSmax(size, 1ull);
 
 		    myExists[addr >> theDisplayBits] = true;
 		    myTopExists[addr >> theBottomBits] = true;
@@ -112,6 +111,7 @@ public:
 		    uint64 last;
 		    switch (size)
 		    {
+		    case 0:
 		    case 1:
 			if (!(type & MV_TypeFree))
 			    myState[addr].init(myTime, type);
