@@ -41,15 +41,23 @@ usage()
 
 int main(int argc, char *argv[])
 {
+    int		  myargc = argc;
+    char	**myargv = (char **)alloca(argc*sizeof(char *));
+
+    // Create a copy of the command-line arguments since qt may strip out
+    // arguments that are also used by the guest program.
+    for (int i = 0; i < argc; i++)
+	myargv[i] = argv[i];
+
     QApplication	app(argc, argv);
 
-    if (argc <= 1)
+    if (myargc <= 1)
     {
 	usage();
 	return 1;
     }
 
-    Window	window(argc, argv);
+    Window	window(myargc, myargv);
 
     window.show();
     return app.exec();
