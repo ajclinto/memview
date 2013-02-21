@@ -89,7 +89,7 @@ private:
     static const uint64	theBottomSize = 1ull << theBottomBits;
     static const uint64	theBottomMask = theBottomSize-1;
 
-    // For display - 32x32 is the basic block size
+    // For display - 64x64 is the basic block size
     static const int	theDisplayWidthBits = 6;
     static const uint64	theDisplayWidth = 1ull<<theDisplayWidthBits;
     static const int	theDisplayBits = theDisplayWidthBits<<1;

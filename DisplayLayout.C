@@ -137,7 +137,7 @@ public:
 static inline uint64
 blockAlign(uint64 daddr, uint64 addr, uint64 size)
 {
-    uint64 asize = 1024;
+    uint64 asize = 4096;
     while (asize < (size >> 2))
 	asize <<= 1;
 
@@ -318,7 +318,7 @@ public:
     int	    *myIData;
 };
 
-// This is only valid for idx in the range 0 to 1023
+// This is only valid for idx in the range 0 to theLUTSize-1
 class BlockLUT {
 public:
     BlockLUT()
