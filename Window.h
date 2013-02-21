@@ -66,6 +66,7 @@ private:
     static const int	 theDisplayCount = 2;
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];
+    QAction		*myDisplayStack;
 
     MemViewWidget	*myMemView;
     MemViewScroll	*myScrollArea;
@@ -126,6 +127,7 @@ private slots:
 
     void    rwdisplay();
     void    threaddisplay();
+    void    stackdisplay();
 
 private:
     GLImage<uint32>	 myImage;
@@ -150,6 +152,7 @@ private:
     int			 myFastTimer;
     int			 mySlowTimer;
     int			 myDisplayMode;
+    int			 myDisplayStack;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}

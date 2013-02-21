@@ -189,6 +189,7 @@ DisplayLayout::update(
 	uint64 addr = 0;
 	uint64 psize = 0;
 
+	myStartLevel = 31 - (state.getIgnoreBits() >> 1);
 	myWidth = 0;
 	myHeight = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
@@ -203,7 +204,7 @@ DisplayLayout::update(
 
 	    BlockSizer  sizer;
 	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, sizer,
-		    31 - (state.getIgnoreBits() >> 1),
+		    myStartLevel,
 		    myVisualization == HILBERT, 0, false);
 
 	    it->myBox = sizer.myBox;
@@ -375,45 +376,12 @@ private:
 
 static BlockLUT		theBlockLUT;
 
-template <typename T>
-static inline void
-setPixel(GLImage<T> &image, int c, int r,
-	const MemoryState::DisplayPage &page, uint64 off)
-{
-    image.setPixel(c, r, page.state(off).uval);
-}
-
-template <>
-inline void
-setPixel<uint64>(GLImage<uint64> &image, int c, int r,
-	const MemoryState::DisplayPage &page, uint64 off)
-{
-    image.setPixel(c, r, page.addr() + off);
-}
-
-template <typename T>
-static inline void
-copyScanline(T *scan,
-	MemoryState::DisplayPage &page, uint64 off, int n)
-{
-    memcpy(scan, page.stateArray() + off, n*sizeof(T));
-}
-
-template <>
-inline void
-copyScanline<uint64>(uint64 *scan,
-	MemoryState::DisplayPage &page, uint64 off, int n)
-{
-    for (int i = 0; i < n; i++)
-	scan[i] = page.addr() + off + i;
-}
-
-template <typename T>
+template <typename T, typename Source>
 class PlotImage : public Traverser {
 public:
-    PlotImage(MemoryState &state,
+    PlotImage(const Source &src,
 	    GLImage<T> &image, uint64 addr, uint64 daddr, int roff, int coff)
-	: myState(state)
+	: mySource(src)
 	, myImage(image)
 	, myAddr(addr)
 	, myDisplayAddr(daddr)
@@ -445,7 +413,7 @@ public:
 	if (level <= theLUTLevels)
 	{
 	    uint64 off;
-	    auto page = myState.getPage(myAddr + idx - myDisplayAddr, off);
+	    auto page = mySource.getPage(myAddr + idx - myDisplayAddr, off);
 
 	    if (!page.exists())
 		return false;
@@ -464,7 +432,8 @@ public:
 	    for (int r = 0, rc = 0; r < bsize; r++)
 	    {
 		for (int c = 0; c < bsize; c++, rc++)
-		    setPixel<T>(myImage, c+coff, r+roff, page, off+lut[rc]);
+		    mySource.setPixel(myImage,
+			    c+coff, r+roff, page, off+lut[rc]);
 		// The LUT might have been created for a different size
 		// block
 		rc += theLUTWidth - bsize;
@@ -477,7 +446,7 @@ public:
     }
 
 private:
-    MemoryState	&myState;
+    const Source  &mySource;
     GLImage<T> &myImage;
     uint64   myAddr;
     uint64   myDisplayAddr;
@@ -485,11 +454,11 @@ private:
     int	     myColOff;
 };
 
-template <typename T>
+template <typename T, typename Source>
 void
 DisplayLayout::fillImage(
 	GLImage<T> &image,
-	MemoryState &state,
+	const Source &src,
 	int coff, int roff) const
 {
     image.zero();
@@ -525,7 +494,7 @@ DisplayLayout::fillImage(
 		while (c < ibox.xmax() && addr < it->end())
 		{
 		    uint64  off;
-		    auto    page = state.getPage(addr, off);
+		    auto    page = src.getPage(addr, off);
 		    int	    nc = ibox.xmax() - c;
 		   
 		    // It's a min with an int, so it can't be more than 32-bit
@@ -535,7 +504,7 @@ DisplayLayout::fillImage(
 		    addr += nc;
 		    if (page.exists())
 		    {
-			copyScanline(
+			src.setScanline(
 				image.getScanline(r-roff) + c-coff,
 				page, off, nc);
 		    }
@@ -547,21 +516,22 @@ DisplayLayout::fillImage(
 	}
 	else
 	{
-	    PlotImage<T> plot(state, image,
+	    PlotImage<T, Source> plot(src, image,
 		    it->myAddr, it->myDisplayAddr, -roff, -coff);
 
 	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, plot,
-		    31 - state.getIgnoreBits()/2,
+		    myStartLevel,
 		    myVisualization == HILBERT, 0, false);
 	}
     }
 }
 
-#define INST_FUNC(TYPE) template void DisplayLayout::fillImage<TYPE>( \
-	GLImage<TYPE> &image, MemoryState &state, int coff, int roff) const;
+#define INST_FUNC(TYPE, SOURCE) \
+    template void DisplayLayout::fillImage<TYPE, SOURCE>( \
+	GLImage<TYPE> &image, const SOURCE &src, int coff, int roff) const;
 
-INST_FUNC(uint32)
-INST_FUNC(uint64)
+INST_FUNC(uint32, StateSource)
+INST_FUNC(uint64, AddressSource)
 
 uint64
 DisplayLayout::queryPixelAddress(
@@ -569,12 +539,13 @@ DisplayLayout::queryPixelAddress(
 	int coff, int roff) const
 {
     GLImage<uint64> image;
+    AddressSource   src(state);
 
     // Fill a 1x1 image with the memory address for the query pixel
 
     image.resize(1, 1);
 
-    fillImage(image, state, coff, roff);
+    fillImage(image, src, coff, roff);
     return *image.data();
 }
 

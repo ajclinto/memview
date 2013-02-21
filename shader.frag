@@ -12,6 +12,7 @@ uniform int theStale;
 uniform int theHalfLife;
 
 uniform int theDisplayMode;
+uniform int theDisplayStack;
 
 float rand(vec2 co)
 {
@@ -60,8 +61,9 @@ void main(void)
     uint type = val & 3u;
     bool freed = (val & 4u) > 0u;
     uint tid = (val >> 3u) & 0x3FFu;
+    bool hasstack = (val & (1u << 13u)) > 0u;
 
-    int ival = int(val >> 13u);
+    int ival = int(val >> 14u);
 
     int diff = ival == theStale ? theHalfLife :
 	((theTime > ival) ? theTime-ival+1 : ival-theTime+1);
@@ -94,6 +96,18 @@ void main(void)
 
     if (freed)
 	frag_color *= 0.5;
+
+    if (theDisplayStack > 0)
+    {
+	if (hasstack)
+	    frag_color = vec4(1, 1, 0.5, 1);
+	else
+	{
+	    // Change to grayscale
+	    frag_color = vec4(luminance(vec3(frag_color))*0.25);
+	    frag_color = min(frag_color, vec4(0.25, 0.25, 0.25, 1));
+	}
+    }
 
     // Poor man's dithering
     vec3 rval = vec3(rand(texc)-0.5,

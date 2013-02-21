@@ -25,12 +25,12 @@
 #ifndef DisplayLayout_H
 #define DisplayLayout_H
 
+#include "MemoryState.h"
 #include "Math.h"
 #include "GLImage.h"
 #include <vector>
 #include <stdio.h>
 
-class MemoryState;
 
 class DisplayLayout {
 public:
@@ -59,12 +59,13 @@ public:
     int		    height() const { return myHeight; }
 
     // Fill an entire image, starting at the given row and column offset.
-    // The 2 available instantiations have additional semantic meaning:
-    // uint32 - fills mapped colors
-    // uint64 - fills memory addresses
-    template <typename T>
+    // The Source type determines what data is put in the image.  Currently
+    // there are explicit instantiations for:
+    //	- uint32, StateSource
+    //	- uint64, AddressSource
+    template <typename T, typename Source>
     void	    fillImage(GLImage<T> &image,
-			  MemoryState &state,
+			  const Source &src,
 			  int roff, int coff) const;
 
     // Look up the memory address that corresponds to a given pixel
@@ -91,9 +92,55 @@ private:
 
     Visualization		myVisualization;
     std::vector<DisplayBlock>	myBlocks;
+    int				myStartLevel;
     int				myWidth;
     int				myHeight;
     bool			myCompact;
+};
+
+// Fill State values from the given MemoryState
+class StateSource {
+public:
+    StateSource(MemoryState &state) : myState(state) {}
+
+    MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
+    { return myState.getPage(addr, off); }
+
+    inline void setPixel(GLImage<uint32> &image, int c, int r,
+	    const MemoryState::DisplayPage &page, uint64 off) const
+    { image.setPixel(c, r, page.state(off).uval); }
+
+    inline void setScanline(uint32 *scan,
+	    MemoryState::DisplayPage &page, uint64 off, int n) const
+    {
+	memcpy(scan, page.stateArray() + off, n*sizeof(uint32));
+    }
+
+private:
+    MemoryState	&myState;
+};
+
+// Fill memory addresses
+class AddressSource {
+public:
+    AddressSource(MemoryState &state) : myState(state) {}
+
+    MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
+    { return myState.getPage(addr, off); }
+
+    inline void setPixel(GLImage<uint64> &image, int c, int r,
+	    const MemoryState::DisplayPage &page, uint64 off) const
+    { image.setPixel(c, r, page.addr() + off); }
+
+    inline void setScanline(uint64 *scan,
+	    MemoryState::DisplayPage &page, uint64 off, int n) const
+    {
+	for (int i = 0; i < n; i++)
+	    scan[i] = page.addr() + off + i;
+    }
+
+private:
+    MemoryState	&myState;
 };
 
 #endif

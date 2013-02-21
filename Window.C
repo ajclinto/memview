@@ -109,8 +109,15 @@ Window::Window(int argc, char *argv[])
     }
     myDisplay[0]->setChecked(true);
 
+    myDisplayMenu->addSeparator();
+    myDisplayStack = new QAction(tr("&Inspect Stacks"), this);
+    myDisplayStack->setCheckable(true);
+    myDisplayMenu->addAction(myDisplayStack);
+
     connect(myDisplay[0], SIGNAL(triggered()), myMemView, SLOT(rwdisplay()));
     connect(myDisplay[1], SIGNAL(triggered()), myMemView, SLOT(threaddisplay()));
+
+    connect(myDisplayStack, SIGNAL(triggered()), myMemView, SLOT(stackdisplay()));
 
     setWindowTitle("Memview");
 
@@ -143,6 +150,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myPrevEvents(0)
     , myZoom(0)
     , myDisplayMode(0)
+    , myDisplayStack(0)
     , myStopWatch(false)
     , myPaintInterval(false)
     , myEventTimer(false)
@@ -238,6 +246,7 @@ MemViewWidget::full()
 
 void MemViewWidget::rwdisplay() { myDisplayMode = 0; }
 void MemViewWidget::threaddisplay() { myDisplayMode = 1; }
+void MemViewWidget::stackdisplay() { myDisplayStack = !myDisplayStack; }
 
 // Load a file into a buffer.  The buffer is owned by the caller, and
 // should be freed with delete[].
@@ -418,7 +427,7 @@ MemViewWidget::paintGL()
 #endif
 
     myDisplay.update(*myState, myImage.width(), SYSmax(myZoom, 0));
-    myDisplay.fillImage(myImage, *myZoomState,
+    myDisplay.fillImage(myImage, StateSource(*myZoomState),
 	    myHScrollBar->value(),
 	    myVScrollBar->value());
 
@@ -444,6 +453,7 @@ MemViewWidget::paintGL()
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
     myProgram->setUniformValue("theDisplayMode", myDisplayMode);
+    myProgram->setUniformValue("theDisplayStack", myDisplayStack);
 
     myProgram->setUniformValue("theTime", myState->getTime());
 

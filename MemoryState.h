@@ -36,9 +36,10 @@
 class MemoryState {
 public:
     class State {
-    private:
-	static const int	theStateShift = 13;
+    public:
+	static const int	theStateShift = 14;
 
+    private:
 	// Here, type is the combined metadata that excludes the time
 	static const uint32	theStateTypeMask = (1 << theStateShift) - 1;
 	static const uint32	theStateTimeMask = ~theStateTypeMask;
@@ -48,6 +49,7 @@ public:
 	static const uint32	theSubTypeMask = (1 << theSubTypeBits) - 1;
 	static const int	theSubThreadBits = 10;
 	static const uint32	theSubThreadMask = (1 << theSubThreadBits) - 1;
+	static const uint32	theSubStackMask = 1 << (theStateShift-1);
 
     public:
 	void init(uint32 time, uint32 type)
@@ -56,24 +58,25 @@ public:
 	void setTime(uint32 time)
 	{ uval = (uval & theStateTypeMask) | (time << theStateShift); }
 	void setFree() { uval |= MV_TypeFree; }
+	void setHasStack() { uval |= theSubStackMask; }
 
 	// Field accessors.  Here type is the sub-type (without the thread
 	// id).
 	uint32 type() const { return uval & theSubTypeMask; }
 	uint32 thread() const { return (uval >> theSubTypeBits) &
 					    theSubThreadMask; }
+	uint32 hasStack() const { return uval & theSubStackMask; }
 	uint32 time() const { return uval >> theStateShift; }
 
 	uint32	uval;
     };
 
     static const uint32	theStale	= 1;
-    static const uint32	theFullLife	= 0x0007FFFF;
+    static const uint32	theFullLife	= 1 << (32-State::theStateShift);
     static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
-    // The maximum space is 36+myIgnoreBits.  For 2 ignore bits, that's
-    // 38 bits of address space or 256Gb of memory.
+    // The maximum space is 36 bits or 64Gb of memory.
     static const int	theAllBits = 36;
     static const uint64	theAllSize = 1ull << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
