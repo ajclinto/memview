@@ -241,6 +241,8 @@ DisplayLayout::update(
 
 	    adjustZoom(myWidth, zoom2);
 	    adjustZoom(myHeight, zoom2);
+
+	    myStartLevel -= zoom2;
 	}
     }
     else
