@@ -22,13 +22,5 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include "StackTraceMap.h"
+#include "SparseMap.h"
 
-StackTraceMap::StackTraceMap()
-{
-}
-
-StackTraceMap::~StackTraceMap()
-{
-    //fprintf(stderr, "%d traces\n", (int)myMap.size());
-}

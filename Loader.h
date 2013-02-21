@@ -28,12 +28,12 @@
 #include <QtGui>
 #include "valgrind/memview/mv_ipc.h"
 #include "Math.h"
+#include "SparseMap.h"
 #include <memory>
 #include <sys/types.h>
 #include <signal.h>
 
 class MemoryState;
-class StackTraceMap;
 
 typedef std::shared_ptr<MemoryState> MemoryStateHandle;
 typedef std::shared_ptr<MV_TraceBlock> TraceBlockHandle;

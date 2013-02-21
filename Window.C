@@ -25,7 +25,6 @@
 #include "Window.h"
 #include "Color.h"
 #include "MemoryState.h"
-#include "StackTraceMap.h"
 #include "Loader.h"
 #include <fstream>
 
@@ -492,9 +491,9 @@ MemViewWidget::event(QEvent *event)
 	{
 	    qaddr <<= myZoomState->getIgnoreBits();
 
-	    const char *trace = myStackTrace->findClosestStackTrace(qaddr);
+	    std::string *trace = myStackTrace->findClosest(qaddr);
 	    if (trace)
-		QToolTip::showText(helpEvent->globalPos(), trace);
+		QToolTip::showText(helpEvent->globalPos(), trace->c_str());
 	    else
 		QToolTip::hideText();
 	}

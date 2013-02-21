@@ -33,12 +33,12 @@
 #include "StopWatch.h"
 #include "MemoryState.h"
 #include "DisplayLayout.h"
+#include "SparseMap.h"
 #include <queue>
 
 class MemViewWidget;
 class MemViewScroll;
 class Loader;
-class StackTraceMap;
 
 class Window : public QMainWindow {
     Q_OBJECT

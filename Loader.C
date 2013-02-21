@@ -24,7 +24,6 @@
 
 #include "Loader.h"
 #include "MemoryState.h"
-#include "StackTraceMap.h"
 #include "StopWatch.h"
 #include <sys/mman.h>
 #include <fcntl.h>

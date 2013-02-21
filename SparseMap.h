@@ -22,8 +22,8 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef StackTraceMap_H
-#define StackTraceMap_H
+#ifndef SparseMap_H
+#define SparseMap_H
 
 #include <QMutex>
 #include "Math.h"
@@ -31,18 +31,16 @@
 #include <map>
 #include <string>
 
-class StackTraceMap {
+template <typename T>
+class SparseMap {
 public:
-     StackTraceMap();
-    ~StackTraceMap();
-
-    void    insert(uint64 addr, const char *stack)
+    void    insert(uint64 addr, const T &val)
     {
 	QMutexLocker lock(&myLock);
-	myMap[addr] = stack;
+	myMap[addr] = val;
     }
 
-    const char	*findClosestStackTrace(uint64 addr)
+    T	    *findClosest(uint64 addr)
     {
 	QMutexLocker lock(&myLock);
 	// Finds the element above and below the query address, and returns
@@ -54,17 +52,19 @@ public:
 	    if (lo != myMap.end())
 	    {
 		return (hi->first - addr) <= (addr - lo->first) ?
-		    hi->second.c_str() : lo->second.c_str();
+		    &hi->second : &lo->second;
 	    }
-	    return hi->second.c_str();
+	    return &hi->second;
 	}
 
 	return 0;
     }
 
 private:
-    std::map<uint64, std::string>  myMap;
-    QMutex			   myLock;
+    std::map<uint64, T>  myMap;
+    QMutex		 myLock;
 };
+
+typedef SparseMap<std::string> StackTraceMap;
 
 #endif
