@@ -39,6 +39,8 @@ private:
 	T	obj;
     };
 
+    typedef std::map<uint64, Entry> MapType;
+
 public:
     void    insert(uint64 addr, uint64 end, const T &val)
     {
@@ -70,7 +72,7 @@ public:
 	    --lo;
 	    if (lo != myMap.end())
 	    {
-		return (hi->first - addr) <= (addr - lo->first) ?
+		return dist2(hi, addr) <= dist2(lo, addr) ?
 		    hi->second.obj : lo->second.obj;
 	    }
 	    return hi->second.obj;
@@ -89,9 +91,7 @@ public:
 	if (it != myMap.end())
 	{
 	    --it;
-	    if (it != myMap.end() &&
-		    addr >= it->first &&
-		    addr < it->second.end)
+	    if (it != myMap.end() && !dist2(it, addr))
 		return it->second.obj;
 	}
 
@@ -99,8 +99,19 @@ public:
     }
 
 private:
-    std::map<uint64, Entry>  myMap;
-    mutable QMutex	     myLock;
+    // Find the distance from an address to an interval
+    uint64 dist2(const typename MapType::const_iterator &e, uint64 addr) const
+    {
+	if (addr < e->first)
+	    return e->first - addr;
+	if (addr > e->second.end)
+	    return addr - e->second.end;
+	return 0;
+    }
+
+private:
+    MapType	      myMap;
+    mutable QMutex    myLock;
 };
 
 typedef SparseMap<std::string> StackTraceMap;
