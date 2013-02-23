@@ -145,6 +145,7 @@ private:
     MemoryState		*myState;
     MemoryState		*myZoomState;
     StackTraceMap	*myStackTrace;
+    MMapMap		*myMMapMap;
     Loader		*myLoader;
     QString		 myEventInfo;
     uint64		 myPrevEvents;

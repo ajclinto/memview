@@ -40,7 +40,7 @@ typedef std::shared_ptr<MV_TraceBlock> TraceBlockHandle;
 
 class Loader : public QThread {
 public:
-     Loader(MemoryState *state, StackTraceMap *stack);
+     Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap);
     ~Loader();
 
     bool	openPipe(int argc, char *argv[]);
@@ -81,6 +81,7 @@ private:
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;
     StackTraceMap	*myStackTrace;
+    MMapMap		*myMMapMap;
     uint64		 myTotalEvents;
 
     QMutex		 myPendingLock;

@@ -91,13 +91,21 @@ MemoryState::incrementTime()
 }
 
 void
-MemoryState::appendAddressInfo(QString &message, uint64 addr)
+MemoryState::appendAddressInfo(
+	QString &message, uint64 addr,
+	const MMapMap &map)
 {
     if (!addr)
 	return;
 
     QString	tmp;
-    tmp.sprintf("\t\tAddress: 0x%.12llx", addr << myIgnoreBits);
+    uint64	paddr = addr << myIgnoreBits;
+
+    std::string		mmapstr = map.find(paddr);
+    if (mmapstr.empty())
+	mmapstr = "Address";
+
+    tmp.sprintf("\t\t%s: 0x%.12llx", mmapstr.c_str(), paddr);
 
     message.append(tmp);
 

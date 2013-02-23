@@ -974,7 +974,7 @@ static void mv_atfork_child(ThreadId tid)
 }
 
 static void
-mv_mmap_info(Addr a, SizeT len, MV_MMapType type, const HChar *filename)
+mv_mmap_info(Addr a, SizeT len, MV_MMapType type, int thread, const HChar *filename)
 {
     if (!clo_pipe)
 	return;
@@ -990,7 +990,7 @@ mv_mmap_info(Addr a, SizeT len, MV_MMapType type, const HChar *filename)
     header.myMMap.myStart = a;
     header.myMMap.myEnd = a + len;
     header.myMMap.myType = type;
-    header.myMMap.myThread = 0;
+    header.myMMap.myThread = thread;
 
     if (!filename)
 	filename = "\0";
@@ -1028,7 +1028,7 @@ static void mv_new_mem_mmap(Addr a, SizeT len,
 	    return;
     }
 
-    mv_mmap_info(a, len, type, filename);
+    mv_mmap_info(a, len, type, 0, filename);
 }
 
 static void mv_copy_mem_remap(Addr from, Addr to, SizeT len)
@@ -1038,27 +1038,27 @@ static void mv_copy_mem_remap(Addr from, Addr to, SizeT len)
 
 static void mv_die_mem_munmap(Addr a, SizeT len)
 {
-    mv_mmap_info(a, len, MV_UNMAP, 0);
+    mv_mmap_info(a, len, MV_UNMAP, 0, 0);
 }
 
 static void mv_new_mem_stack_signal(Addr a, SizeT len, ThreadId tid)
 {
-    mv_mmap_info(a, len, MV_STACK, 0);
+    mv_mmap_info(a, len, MV_STACK, tid, 0);
 }
 
 static void mv_die_mem_stack_signal(Addr a, SizeT len)
 {
-    mv_mmap_info(a, len, MV_UNMAP, 0);
+    mv_mmap_info(a, len, MV_UNMAP, 0, 0);
 }
 
 static void mv_new_mem_brk(Addr a, SizeT len, ThreadId tid)
 {
-    mv_mmap_info(a, len, MV_HEAP, 0);
+    mv_mmap_info(a, len, MV_HEAP, tid, 0);
 }
 
 static void mv_die_mem_brk(Addr a, SizeT len)
 {
-    mv_mmap_info(a, len, MV_UNMAP, 0);
+    mv_mmap_info(a, len, MV_UNMAP, 0, 0);
 }
 
 static void mv_start_client_code(ThreadId tid, ULong blocks_dispatched)
@@ -1068,16 +1068,18 @@ static void mv_start_client_code(ThreadId tid, ULong blocks_dispatched)
 
 static void mv_thread_start(ThreadId tid)
 {
-    // TODO: This overlaps with the initial stack mmap.  Though it would be
-    // nice to see the full range of the stack.
-#if 0
-    Addr start = VG_(thread_get_stack_max)(tid);
-    Addr end = start - VG_(thread_get_stack_size)(tid);
-#endif
+    Addr end = VG_(thread_get_stack_max)(tid);
+    Addr size = VG_(thread_get_stack_size)(tid);
+
+    mv_mmap_info(end-size, size, MV_STACK, tid, 0);
 }
 
 static void mv_thread_exit(ThreadId tid)
 {
+    Addr end = VG_(thread_get_stack_max)(tid);
+    Addr size = VG_(thread_get_stack_size)(tid);
+
+    mv_mmap_info(end-size, size, MV_UNMAP, tid, 0);
 }
 
 static void mv_pre_clo_init(void)

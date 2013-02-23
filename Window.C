@@ -182,7 +182,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     myState = new MemoryState(ignorebits);
     myZoomState = myState;
     myStackTrace = new StackTraceMap;
-    myLoader = new Loader(myState, myStackTrace);
+    myMMapMap = new MMapMap;
+    myLoader = new Loader(myState, myStackTrace, myMMapMap);
 
     if (myLoader->openPipe(argc, argv))
     {
@@ -202,6 +203,7 @@ MemViewWidget::~MemViewWidget()
     delete myLoader;
     delete myState;
     delete myStackTrace;
+    delete myMMapMap;
 }
 
 void
@@ -491,9 +493,9 @@ MemViewWidget::event(QEvent *event)
 	{
 	    qaddr <<= myZoomState->getIgnoreBits();
 
-	    std::string *trace = myStackTrace->findClosest(qaddr);
-	    if (trace)
-		QToolTip::showText(helpEvent->globalPos(), trace->c_str());
+	    std::string trace = myStackTrace->findClosest(qaddr);
+	    if (!trace.empty())
+		QToolTip::showText(helpEvent->globalPos(), trace.c_str());
 	    else
 		QToolTip::hideText();
 	}
@@ -805,7 +807,7 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 
     QString	message(myEventInfo);
 
-    myZoomState->appendAddressInfo(message, qaddr);
+    myZoomState->appendAddressInfo(message, qaddr, *myMMapMap);
 
     // Append the zoom level.  Add spaces to right-justify it.
     int		width = myStatusBar->width() - myStatusBar->height();

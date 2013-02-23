@@ -33,38 +33,77 @@
 
 template <typename T>
 class SparseMap {
+private:
+    struct Entry {
+	uint64	end;
+	T	obj;
+    };
+
 public:
-    void    insert(uint64 addr, const T &val)
+    void    insert(uint64 addr, uint64 end, const T &val)
     {
 	QMutexLocker lock(&myLock);
-	myMap[addr] = val;
+	myMap[addr].end = end;
+	myMap[addr].obj = val;
+    }
+    void    erase(uint64 addr)
+    {
+	QMutexLocker lock(&myLock);
+	myMap.erase(addr);
     }
 
-    T	    *findClosest(uint64 addr)
+    //
+    // Note that these methods return elements by value.  This is to ensure
+    // thread safety in the case where another thread erases or overwrites
+    // an element after it has been queried by the display thread.
+    //
+
+    // Finds the element above and below the query address, and returns the
+    // closer of the two.
+    T    findClosest(uint64 addr) const
     {
 	QMutexLocker lock(&myLock);
-	// Finds the element above and below the query address, and returns
-	// the closer of the two.
 	auto hi = myMap.lower_bound(addr);
 	if (hi != myMap.end())
 	{
-	    auto lo = --hi;
+	    auto lo = hi;
+	    --lo;
 	    if (lo != myMap.end())
 	    {
 		return (hi->first - addr) <= (addr - lo->first) ?
-		    &hi->second : &lo->second;
+		    hi->second.obj : lo->second.obj;
 	    }
-	    return &hi->second;
+	    return hi->second.obj;
 	}
 
-	return 0;
+	return T();
+    }
+
+    // Returns the element whose interval contains addr if it exists -
+    // otherwise 0.
+    T    find(uint64 addr) const
+    {
+	QMutexLocker lock(&myLock);
+	auto it = myMap.upper_bound(addr);
+
+	if (it != myMap.end())
+	{
+	    --it;
+	    if (it != myMap.end() &&
+		    addr >= it->first &&
+		    addr < it->second.end)
+		return it->second.obj;
+	}
+
+	return T();
     }
 
 private:
-    std::map<uint64, T>  myMap;
-    QMutex		 myLock;
+    std::map<uint64, Entry>  myMap;
+    mutable QMutex	     myLock;
 };
 
 typedef SparseMap<std::string> StackTraceMap;
+typedef SparseMap<std::string> MMapMap;
 
 #endif

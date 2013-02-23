@@ -32,10 +32,11 @@
 #define	SHARED_NAME "/memview"
 #define	THREAD_LOADS
 
-Loader::Loader(MemoryState *state, StackTraceMap *stack)
+Loader::Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap)
     : QThread(0)
     , myState(state)
     , myStackTrace(stack)
+    , myMMapMap(mmapmap)
     , myTotalEvents(0)
     , myPendingClear(false)
     , myChild(-1)
@@ -411,6 +412,17 @@ decodeAddr(uint64 addr, uint64 &size, uint64 &type)
     type = addr >> MV_TypeShift;
 }
 
+static inline void
+appendBuf(std::string &str, const char *buf)
+{
+    if (buf && buf[0])
+    {
+	str += "(";
+	str += buf;
+	str += ")";
+    }
+}
+
 bool
 Loader::loadFromPipe()
 {
@@ -443,7 +455,7 @@ Loader::loadFromPipe()
 	    addr = header.myStack.myAddr;
 	    decodeAddr(addr, size, type);
 	    addr &= MV_AddrMask;
-	    myStackTrace->insert(addr, stack);
+	    myStackTrace->insert(addr, addr + size, stack);
 	    return true;
 	}
     }
@@ -451,7 +463,42 @@ Loader::loadFromPipe()
     {
 	char	    buf[MV_STR_BUFSIZE];
 	if (read(myPipeFD, buf, header.myMMap.mySize))
+	{
+	    if (header.myMMap.myType != MV_UNMAP)
+	    {
+		std::string	info;
+		switch (header.myMMap.myType)
+		{
+		    case MV_CODE:
+			info = "Code";
+			appendBuf(info, buf);
+			break;
+		    case MV_DATA:
+			info = "Data";
+			appendBuf(info, buf);
+			break;
+		    case MV_HEAP: info = "Heap"; break;
+		    case MV_STACK:
+			info = "Thread ";
+			info += std::to_string(header.myMMap.myThread);
+			info += " stack";
+			break;
+		    case MV_SHM:
+			info = "Shared";
+			appendBuf(info, buf);
+			break;
+		    case MV_UNMAP: break;
+		}
+
+		myMMapMap->insert(header.myMMap.myStart,
+			header.myMMap.myEnd, info);
+	    }
+	    else
+	    {
+		myMMapMap->erase(header.myMMap.myStart);
+	    }
 	    return true;
+	}
     }
 
     return false;
