@@ -490,12 +490,15 @@ Loader::loadFromPipe()
 		    case MV_UNMAP: break;
 		}
 
-		myMMapMap->insert(header.myMMap.myStart,
+		myMMapMap->insert(
+			header.myMMap.myStart,
 			header.myMMap.myEnd, info);
 	    }
 	    else
 	    {
-		myMMapMap->erase(header.myMMap.myStart);
+		myMMapMap->erase(
+			header.myMMap.myStart,
+			header.myMMap.myEnd);
 	    }
 	    return true;
 	}

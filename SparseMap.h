@@ -35,23 +35,23 @@ template <typename T>
 class SparseMap {
 private:
     struct Entry {
-	uint64	end;
+	uint64	start;
 	T	obj;
     };
 
     typedef std::map<uint64, Entry> MapType;
 
 public:
-    void    insert(uint64 addr, uint64 end, const T &val)
+    void    insert(uint64 start, uint64 end, const T &val)
     {
 	QMutexLocker lock(&myLock);
-	myMap[addr].end = end;
-	myMap[addr].obj = val;
+	myMap[end].start = start;
+	myMap[end].obj = val;
     }
-    void    erase(uint64 addr)
+    void    erase(uint64, uint64 end)
     {
 	QMutexLocker lock(&myLock);
-	myMap.erase(addr);
+	myMap.erase(end);
     }
 
     //
@@ -65,7 +65,7 @@ public:
     T    findClosest(uint64 addr) const
     {
 	QMutexLocker lock(&myLock);
-	auto hi = myMap.lower_bound(addr);
+	auto hi = myMap.upper_bound(addr);
 	if (hi != myMap.end())
 	{
 	    auto lo = hi;
@@ -77,6 +77,8 @@ public:
 	    }
 	    return hi->second.obj;
 	}
+	else if (myMap.size())
+	    return myMap.rbegin()->second.obj;
 
 	return T();
     }
@@ -88,24 +90,21 @@ public:
 	QMutexLocker lock(&myLock);
 	auto it = myMap.upper_bound(addr);
 
-	if (it != myMap.end())
-	{
-	    --it;
-	    if (it != myMap.end() && !dist2(it, addr))
-		return it->second.obj;
-	}
+	if (it != myMap.end() && !dist2(it, addr))
+	    return it->second.obj;
 
 	return T();
     }
 
 private:
     // Find the distance from an address to an interval
-    uint64 dist2(const typename MapType::const_iterator &e, uint64 addr) const
+    template <typename IT>
+    uint64 dist2(const IT &e, uint64 addr) const
     {
-	if (addr < e->first)
-	    return e->first - addr;
-	if (addr > e->second.end)
-	    return addr - e->second.end;
+	if (addr < e->second.start)
+	    return e->second.start - addr;
+	if (addr >= e->first)
+	    return addr - e->first + 1;
 	return 0;
     }
 
