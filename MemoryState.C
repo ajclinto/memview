@@ -111,6 +111,9 @@ MemoryState::appendAddressInfo(
 
     uint64	off;
     auto	page = getPage(addr, off);
+    if (!page.exists())
+	return;
+
     State	entry = page.state(off);
 
     if (!entry.uval)

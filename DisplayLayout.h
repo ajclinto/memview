@@ -106,6 +106,9 @@ public:
     MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
     { return myState.getPage(addr, off); }
 
+    inline bool exists(const MemoryState::DisplayPage &page) const
+    { return page.exists(); }
+
     inline void setPixel(GLImage<uint32> &image, int c, int r,
 	    const MemoryState::DisplayPage &page, uint64 off) const
     { image.setPixel(c, r, page.state(off).uval); }
@@ -127,6 +130,9 @@ public:
 
     MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
     { return myState.getPage(addr, off); }
+
+    inline bool exists(const MemoryState::DisplayPage &) const
+    { return true; }
 
     inline void setPixel(GLImage<uint64> &image, int c, int r,
 	    const MemoryState::DisplayPage &page, uint64 off) const

@@ -417,7 +417,7 @@ public:
 	    uint64 off;
 	    auto page = mySource.getPage(myAddr + idx - myDisplayAddr, off);
 
-	    if (!page.exists())
+	    if (!mySource.exists(page))
 		return false;
 
 	    int	size = bsize*bsize;
@@ -504,7 +504,7 @@ DisplayLayout::fillImage(
 		    nc = (int)SYSmin((uint64)nc, it->end() - addr);
 
 		    addr += nc;
-		    if (page.exists())
+		    if (src.exists(page))
 		    {
 			src.setScanline(
 				image.getScanline(r-roff) + c-coff,

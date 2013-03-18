@@ -489,7 +489,7 @@ MemViewWidget::event(QEvent *event)
 	uint64 off;
 	auto page = myZoomState->getPage(qaddr, off);
 
-	if (qaddr && page.state(off).time())
+	if (qaddr && page.exists() && page.state(off).time())
 	{
 	    qaddr <<= myZoomState->getIgnoreBits();
 
