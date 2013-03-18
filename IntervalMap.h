@@ -63,6 +63,20 @@ public:
 
 	clearOverlappingIntervals(start, end);
     }
+
+    // Apply the function to all intervals in [start, end).  If any
+    // intervals overlap the boundary values, they are split and the
+    // function is applied only to the included values.
+    template <typename Func>
+    void    apply(uint64 start, uint64 end, const Func func)
+    {
+	typename MapType::iterator first, last;
+	getOverlappingIntervals(start, end, first, last);
+
+	for (; first != last; ++first)
+	    func(first->second.obj);
+    }
+
     size_t  size() const { return myMap.size(); }
 
     //
@@ -130,41 +144,40 @@ private:
 	return 0;
     }
 
-    void clearOverlappingIntervals(uint64 start, uint64 end)
+    // Find all intervals that overlap [start, end).  If any intervals
+    // overlapped these boundary values, split the intervals to eliminate
+    // overlap.
+    void getOverlappingIntervals(
+	    uint64 start, uint64 end,
+	    typename MapType::iterator &first,
+	    typename MapType::iterator &it)
     {
-	// Find any overlapping intervals and either erase them or shorten
-	// them to make them non-overlapping.
-
-	auto it = myMap.upper_bound(start);
-
-	while (it != myMap.end() && it->second.start < end)
+	first = myMap.upper_bound(start);
+	for (it = first; it != myMap.end() && it->second.start < end; )
 	{
-	    auto next = it;
-	    next++;
-
 	    if (it->second.start < start)
 	    {
 		// We used upper_bound so this should always be true
 		assert(it->first > start);
 
-		Entry   val = it->second;
-
-		// Test whether the existing interval needs to be split or
-		// just truncated
-		if (it->first > end)
-		    it->second.start = end;
-		else
-		    myMap.erase(it);
-
-		myMap[start] = val;
+		myMap[start] = it->second;
+		it->second.start = start;
 	    }
-	    else if (it->first <= end)
-		myMap.erase(it);
-	    else
+	    else if (it->first > end)
+	    {
+		myMap[end] = it->second;
 		it->second.start = end;
-
-	    it = next;
+	    }
+	    else
+		++it;
 	}
+    }
+
+    void clearOverlappingIntervals(uint64 start, uint64 end)
+    {
+	typename MapType::iterator first, last;
+	getOverlappingIntervals(start, end, first, last);
+	myMap.erase(first, last);
     }
 
 private:
@@ -173,6 +186,12 @@ private:
 };
 
 typedef IntervalMap<std::string> StackTraceMap;
-typedef IntervalMap<std::string> MMapMap;
+
+struct MMapInfo {
+    std::string	myStr;
+    bool	myMapped;
+};
+
+typedef IntervalMap<MMapInfo> MMapMap;
 
 #endif

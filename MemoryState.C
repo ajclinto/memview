@@ -101,11 +101,11 @@ MemoryState::appendAddressInfo(
     QString	tmp;
     uint64	paddr = addr << myIgnoreBits;
 
-    std::string		mmapstr = map.find(paddr);
-    if (mmapstr.empty())
-	mmapstr = "Address";
+    MMapInfo	mmapinfo = map.find(paddr);
+    if (mmapinfo.myStr.empty())
+	mmapinfo.myStr = "Address";
 
-    tmp.sprintf("\t\t%s: 0x%.12llx", mmapstr.c_str(), paddr);
+    tmp.sprintf("\t\t%s: 0x%.12llx", mmapinfo.myStr.c_str(), paddr);
 
     message.append(tmp);
 
@@ -132,9 +132,12 @@ MemoryState::appendAddressInfo(
 
     if (typestr)
     {
-	tmp.sprintf("\t(Thread %d %s)",
-		entry.thread(),
-		(type & MV_TypeFree) ? "Deallocated" : typestr);
+	if (!mmapinfo.myMapped)
+	    typestr = "Unmapped";
+	else if (type & MV_TypeFree)
+	    typestr = "Deallocated";
+
+	tmp.sprintf("\t(Thread %d %s)", entry.thread(), typestr);
 	message.append(tmp);
     }
 }

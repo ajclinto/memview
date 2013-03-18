@@ -64,6 +64,11 @@ testOverlap()
     fprintf(stderr, "Overlapping intervals:\n");
     map.dump();
 
+    map.apply(0, 15, [](std::string &str) { str = ""; });
+
+    fprintf(stderr, "After apply:\n");
+    map.dump();
+
     return true;
 }
 

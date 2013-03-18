@@ -492,13 +492,14 @@ Loader::loadFromPipe()
 
 		myMMapMap->insert(
 			header.myMMap.myStart,
-			header.myMMap.myEnd, info);
+			header.myMMap.myEnd, MMapInfo{info,true});
 	    }
 	    else
 	    {
-		myMMapMap->erase(
+		myMMapMap->apply(
 			header.myMMap.myStart,
-			header.myMMap.myEnd);
+			header.myMMap.myEnd,
+			[] (MMapInfo &val) { val.myMapped = false; });
 	    }
 	    return true;
 	}
