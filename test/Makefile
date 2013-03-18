@@ -6,7 +6,7 @@ CXXFLAGS = -g -O3 -std=c++0x -Wall -W -D_REENTRANT -DQT_WEBKIT -DQT_NO_DEBUG -DQ
 
 LDFLAGS = -lQtCore
 
-$(APP): $(SRC)
+$(APP): $(SRC) ../IntervalMap.h
 	g++ $(CXXFLAGS) $(SRC) -o $@ $(LDFLAGS)
 
 clean:

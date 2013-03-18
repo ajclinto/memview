@@ -4,17 +4,18 @@
     if (map.find(IDX) != STR) \
     { \
 	fprintf(stderr, "find: %d %s\n", IDX, STR); \
-	return 1; \
+	return false; \
     }
 
 #define CLOSEST(IDX, STR) \
     if (map.findClosest(IDX) != STR) \
     { \
 	fprintf(stderr, "findClosest: %d %s\n", IDX, STR); \
-	return 1; \
+	return false; \
     }
 
-int main()
+bool
+testBasic()
 {
     StackTraceMap   map;
 
@@ -42,11 +43,37 @@ int main()
     if (map.size())
     {
 	fprintf(stderr, "map should be empty\n");
-	return 1;
+	return false;
     }
 
     FIND(15, "")
     CLOSEST(15, "")
 
-    return 0;
+    return true;
+}
+
+bool
+testOverlap()
+{
+    StackTraceMap   map;
+
+    map.insert(0, 10, "test1");
+    map.insert(5, 15, "test2");
+    map.insert(10, 12, "test3");
+
+    fprintf(stderr, "Overlapping intervals:\n");
+    map.dump();
+
+    return true;
+}
+
+int
+main()
+{
+    bool    ok = true;
+
+    ok &= testBasic();
+    ok &= testOverlap();
+
+    return ok ? 0 : 1;
 }

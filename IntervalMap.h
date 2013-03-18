@@ -30,8 +30,12 @@
 #include <unordered_set>
 #include <map>
 #include <string>
+#include <assert.h>
+#include <iostream>
 
-// This class stores a map of intervals [start, end)
+// This class stores a map of non-overlapping intervals [start, end).  The
+// manipulator methods ensure that the interval map is always
+// non-overlapping.
 template <typename T>
 class IntervalMap {
 private:
@@ -46,13 +50,18 @@ public:
     void    insert(uint64 start, uint64 end, const T &val)
     {
 	QMutexLocker lock(&myLock);
+
+	clearOverlappingIntervals(start, end);
+
 	myMap[end].start = start;
 	myMap[end].obj = val;
     }
-    void    erase(uint64, uint64 end)
+
+    void    erase(uint64 start, uint64 end)
     {
 	QMutexLocker lock(&myLock);
-	myMap.erase(end);
+
+	clearOverlappingIntervals(start, end);
     }
     size_t  size() const { return myMap.size(); }
 
@@ -98,6 +107,17 @@ public:
 	return T();
     }
 
+    void    dump() const
+    {
+	for (auto it = myMap.begin(); it != myMap.end(); ++it)
+	{
+	    std::cerr
+		<< "[" << it->second.start
+		<< ", " << it->first << "): "
+		<< it->second.obj << "\n";
+	}
+    }
+
 private:
     // Find the distance from an address to an interval
     template <typename IT>
@@ -108,6 +128,43 @@ private:
 	if (addr >= e->first)
 	    return addr - e->first + 1;
 	return 0;
+    }
+
+    void clearOverlappingIntervals(uint64 start, uint64 end)
+    {
+	// Find any overlapping intervals and either erase them or shorten
+	// them to make them non-overlapping.
+
+	auto it = myMap.upper_bound(start);
+
+	while (it != myMap.end() && it->second.start < end)
+	{
+	    auto next = it;
+	    next++;
+
+	    if (it->second.start < start)
+	    {
+		// We used upper_bound so this should always be true
+		assert(it->first > start);
+
+		Entry   val = it->second;
+
+		// Test whether the existing interval needs to be split or
+		// just truncated
+		if (it->first > end)
+		    it->second.start = end;
+		else
+		    myMap.erase(it);
+
+		myMap[start] = val;
+	    }
+	    else if (it->first <= end)
+		myMap.erase(it);
+	    else
+		it->second.start = end;
+
+	    it = next;
+	}
     }
 
 private:
