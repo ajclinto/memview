@@ -22,8 +22,8 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#ifndef SparseMap_H
-#define SparseMap_H
+#ifndef IntervalMap_H
+#define IntervalMap_H
 
 #include <QMutex>
 #include "Math.h"
@@ -31,8 +31,9 @@
 #include <map>
 #include <string>
 
+// This class stores a map of intervals [start, end)
 template <typename T>
-class SparseMap {
+class IntervalMap {
 private:
     struct Entry {
 	uint64	start;
@@ -53,6 +54,7 @@ public:
 	QMutexLocker lock(&myLock);
 	myMap.erase(end);
     }
+    size_t  size() const { return myMap.size(); }
 
     //
     // Note that these methods return elements by value.  This is to ensure
@@ -113,7 +115,7 @@ private:
     mutable QMutex    myLock;
 };
 
-typedef SparseMap<std::string> StackTraceMap;
-typedef SparseMap<std::string> MMapMap;
+typedef IntervalMap<std::string> StackTraceMap;
+typedef IntervalMap<std::string> MMapMap;
 
 #endif

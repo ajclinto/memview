@@ -28,7 +28,7 @@
 #include <QtGui>
 #include "valgrind/memview/mv_ipc.h"
 #include "Math.h"
-#include "SparseMap.h"
+#include "IntervalMap.h"
 #include <memory>
 #include <sys/types.h>
 #include <signal.h>

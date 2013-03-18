@@ -33,7 +33,7 @@
 #include "StopWatch.h"
 #include "MemoryState.h"
 #include "DisplayLayout.h"
-#include "SparseMap.h"
+#include "IntervalMap.h"
 #include <queue>
 
 class MemViewWidget;

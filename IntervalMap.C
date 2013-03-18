@@ -22,5 +22,5 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
-#include "SparseMap.h"
+#include "IntervalMap.h"
 
