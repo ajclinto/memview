@@ -446,6 +446,10 @@ MemViewWidget::paintGL()
 	    GL_UNSIGNED_INT, myImage.data());
 #endif
 
+    // Unbind the buffer - this is required for text rendering to work
+    // correctly.
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+
     myProgram->bind();
 
     myProgram->setUniformValue("theState", 0);
