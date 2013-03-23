@@ -27,6 +27,8 @@
 #include "MemoryState.h"
 #include "Loader.h"
 #include <fstream>
+#include <sys/ptrace.h>
+#include <sys/wait.h>
 
 #define USE_PBUFFER
 
@@ -475,7 +477,106 @@ MemViewWidget::paintGL()
 
     myProgram->release();
 
+    // Render memory contents as text if we're at a sufficient zoom level
+    paintData();
+
     update();
+}
+
+void
+MemViewWidget::paintData()
+{
+    int psize = width() / myImage.width();
+
+    if (psize < 100)
+	return;
+
+    // Use ptrace to stop the process and inspect data
+    pid_t pid = myLoader->getChild();
+    if (ptrace(PTRACE_ATTACH, pid, NULL, NULL))
+	return;
+
+    // Wait for the process to stop on a signal
+    waitpid(pid, 0, 0);
+
+    for (int i = 0; i < myImage.height(); i++)
+    {
+	for (int j = 0; j < myImage.width(); j++)
+	{
+	    const bool isfloat = true;
+	    const uint64 min_align_bits = 3;
+	    const uint64 min_align = 1 << min_align_bits;
+
+	    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+		    myHScrollBar->value() + j,
+		    myVScrollBar->value() + i);
+	    qaddr <<= myState->getIgnoreBits();
+	    if (!qaddr || (qaddr & (min_align-1)))
+		continue;
+
+	    uint64 buf64;
+
+	    long peekval = ptrace(PTRACE_PEEKDATA,
+		    pid, (void *)qaddr, NULL);
+	    if (peekval == -1)
+		continue;
+
+	    buf64 = (uint64)peekval;
+	    if (sizeof(long) == 4)
+	    {
+		// long is a different size on 32-bit platforms...
+		peekval = ptrace(PTRACE_PEEKDATA,
+			pid, (void *)(qaddr + 4), NULL);
+		if (peekval == -1)
+		    continue;
+
+		buf64 |= (uint64)peekval << 32;
+	    }
+
+	    int x = (j*width())/myImage.width() + 2;
+	    int y = (i*height() + height()/2)/myImage.height();
+
+	    QString str;
+	    if (min_align_bits == 2)
+	    {
+		if (qaddr & min_align)
+		    buf64 >>= 32;
+		else
+		    buf64 &= 0xFFFFFFFF;
+
+		if (isfloat)
+		{
+		    union {
+			float  fval;
+			uint32 ival;
+		    } uval;
+		    uval.ival = (uint32)buf64;
+		    str.sprintf("%f", uval.fval);
+		}
+		else
+		    str.sprintf("%x", (uint32)buf64);
+	    }
+	    else
+	    {
+		if (isfloat)
+		{
+		    union {
+			double fval;
+			uint64 ival;
+		    } uval;
+		    uval.ival = buf64;
+		    str.sprintf("%g", uval.fval);
+		}
+		else
+		    str.sprintf("%llx", buf64);
+	    }
+
+	    renderText(x, y, str);
+	}
+    }
+
+    // Detach - this will restart the process
+    ptrace(PTRACE_DETACH, pid, NULL, NULL);
 }
 
 bool

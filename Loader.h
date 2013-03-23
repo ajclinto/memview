@@ -61,6 +61,8 @@ public:
     uint64	getTotalEvents() const { return myTotalEvents; }
     bool	isComplete() const { return myAbort; }
 
+    pid_t	getChild() const { return myChild; }
+
 protected:
     void	run();
 

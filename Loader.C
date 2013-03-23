@@ -254,7 +254,7 @@ Loader::waitForInput(int timeout_ms)
     tv.tv_sec = 0;
     tv.tv_usec = 1000*timeout_ms;
 
-    // Waits for data to be ready or 0.1s
+    // Waits for data to be ready or timeout_ms
     int retval = select(max_fd, &rfds, NULL, NULL, &tv);
 
     if (retval == -1)

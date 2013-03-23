@@ -95,27 +95,30 @@ public:
 			    QStatusBar *status);
     virtual ~MemViewWidget();
 
-    void	paint(QPaintEvent *event)
-		{ paintEvent(event); }
+    virtual void	paint(QPaintEvent *event)
+			{ paintEvent(event); }
+
 protected:
-    void	initializeGL();
-    void	resizeGL(int width, int height);
-    void	paintGL();
+    virtual void	initializeGL();
+    virtual void	resizeGL(int width, int height);
+    virtual void	paintGL();
 
-    bool	event(QEvent *event);
+    virtual bool	event(QEvent *event);
 
-    void	resizeEvent(QResizeEvent *event);
+    virtual void	resizeEvent(QResizeEvent *event);
 
-    void	mousePressEvent(QMouseEvent *event);
-    void	mouseMoveEvent(QMouseEvent *event);
-    void	mouseReleaseEvent(QMouseEvent *event);
-    void	wheelEvent(QWheelEvent *event);
+    virtual void	mousePressEvent(QMouseEvent *event);
+    virtual void	mouseMoveEvent(QMouseEvent *event);
+    virtual void	mouseReleaseEvent(QMouseEvent *event);
+    virtual void	wheelEvent(QWheelEvent *event);
 
-    void	timerEvent(QTimerEvent *event);
+    virtual void	timerEvent(QTimerEvent *event);
 
     void	resizeImage(int zoom);
     void	changeZoom(int zoom);
     QPoint	zoomPos(QPoint pos, int zoom) const;
+
+    void	paintData();
 
 private slots:
     void    linear();
