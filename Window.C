@@ -489,9 +489,13 @@ MemViewWidget::paintGL()
 void
 MemViewWidget::paintText()
 {
-    int psize = width() / myImage.width();
+    int pwidth = width() / myImage.width();
+    int pheight = height() / myImage.height();
 
-    if (psize < 10)
+    QFont	    font;
+    QFontMetrics    metrics(font);
+
+    if (pheight < 2*metrics.height())
 	return;
 
     // Use ptrace to stop the process and inspect data
@@ -575,8 +579,10 @@ MemViewWidget::paintText()
 		buf64 |= (uint64)peekval << 32;
 	    }
 
-	    int x = (j*width())/myImage.width() + 2;
-	    int y = (i*height() + height()/2)/myImage.height();
+	    const int xmargin = 2;
+	    int x = (j*width())/myImage.width() + xmargin;
+	    int y = (i*height())/myImage.height() +
+		(pheight + metrics.height())/2;
 
 	    QString str;
 	    if (min_align_bits == 2)
@@ -613,7 +619,8 @@ MemViewWidget::paintText()
 		    str.sprintf("%llx", buf64);
 	    }
 
-	    text_list.push_back(Text{x, y, str});
+	    if (metrics.width(str) < pwidth - 2*xmargin)
+		text_list.push_back(Text{x, y, str});
 	}
     }
 
