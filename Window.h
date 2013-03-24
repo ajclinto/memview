@@ -63,7 +63,7 @@ private:
 
     QMenu		*myDisplayMenu;
 
-    static const int	 theDisplayCount = 2;
+    static const int	 theDisplayCount = 3;
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];
     QAction		*myDisplayStack;
@@ -129,7 +129,9 @@ private slots:
     void    full();
 
     void    rwdisplay();
-    void    threaddisplay();
+    void    tiddisplay();
+    void    datadisplay();
+
     void    stackdisplay();
 
 private:

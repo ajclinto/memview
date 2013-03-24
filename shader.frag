@@ -58,12 +58,13 @@ void main(void)
 	return;
     }
 
-    uint type = val & 3u;
-    bool freed = (val & 4u) > 0u;
-    uint tid = (val >> 3u) & 0x3FFu;
-    bool hasstack = (val & (1u << 13u)) > 0u;
+    uint dtype = val & 7u;
+    uint type = (val >> 3u) & 3u;
+    bool freed = ((val >> 3u) & 4u) > 0u;
+    uint tid = (val >> 6u) & 0x3FFu;
+    bool hasstack = (val & (1u << 16u)) > 0u;
 
-    int ival = int(val >> 14u);
+    int ival = int(val >> 17u);
 
     int diff = ival == theStale ? theHalfLife :
 	((theTime > ival) ? theTime-ival+1 : ival-theTime+1);
@@ -75,6 +76,13 @@ void main(void)
 	int size = textureSize(theColors, 0);
 
 	vec3 clr = lum1(vec3(texture(theColors, (float(tid)+0.5)/size)));
+	frag_color = vec4(ramp_color(clr, clr, interp), 1);
+    }
+    else if (theDisplayMode == 2)
+    {
+	int size = textureSize(theColors, 0);
+
+	vec3 clr = lum1(vec3(texture(theColors, (float(dtype)+0.5)/size)));
 	frag_color = vec4(ramp_color(clr, clr, interp), 1);
     }
     else

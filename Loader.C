@@ -409,7 +409,7 @@ static inline void
 decodeAddr(uint64 addr, uint64 &size, uint64 &type)
 {
     size = (addr & MV_SizeMask) >> MV_SizeShift,
-    type = addr >> MV_TypeShift;
+    type = addr >> MV_DataShift;
 }
 
 static inline void
@@ -529,6 +529,7 @@ Loader::loadFromTest()
     for (uint64 j = 0; j < block->myEntries; j++)
     {
 	block->myAddr[j] = theCount*MV_BlockSize + j;
+	block->myAddr[j] |= (uint64)MV_DataInt32 << MV_DataShift;
 	block->myAddr[j] |= (uint64)MV_TypeRead << MV_TypeShift;
 	block->myAddr[j] |= (uint64)4 << MV_SizeShift;
     }

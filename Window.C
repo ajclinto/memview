@@ -99,6 +99,7 @@ Window::Window(int argc, char *argv[])
     static const char	*theDisplayNames[theDisplayCount] = {
 	"&Read/Write",
 	"&Thread Id",
+	"&Data Type",
     };
 
     myDisplayGroup = new QActionGroup(this);
@@ -116,7 +117,8 @@ Window::Window(int argc, char *argv[])
     myDisplayMenu->addAction(myDisplayStack);
 
     connect(myDisplay[0], SIGNAL(triggered()), myMemView, SLOT(rwdisplay()));
-    connect(myDisplay[1], SIGNAL(triggered()), myMemView, SLOT(threaddisplay()));
+    connect(myDisplay[1], SIGNAL(triggered()), myMemView, SLOT(tiddisplay()));
+    connect(myDisplay[2], SIGNAL(triggered()), myMemView, SLOT(datadisplay()));
 
     connect(myDisplayStack, SIGNAL(triggered()), myMemView, SLOT(stackdisplay()));
 
@@ -248,7 +250,8 @@ MemViewWidget::full()
 }
 
 void MemViewWidget::rwdisplay() { myDisplayMode = 0; }
-void MemViewWidget::threaddisplay() { myDisplayMode = 1; }
+void MemViewWidget::tiddisplay() { myDisplayMode = 1; }
+void MemViewWidget::datadisplay() { myDisplayMode = 2; }
 void MemViewWidget::stackdisplay() { myDisplayStack = !myDisplayStack; }
 
 // Load a file into a buffer.  The buffer is owned by the caller, and
@@ -503,15 +506,46 @@ MemViewWidget::paintData()
     {
 	for (int j = 0; j < myImage.width(); j++)
 	{
-	    const bool isfloat = true;
-	    const uint64 min_align_bits = 3;
-	    const uint64 min_align = 1 << min_align_bits;
-
 	    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
 		    myHScrollBar->value() + j,
 		    myVScrollBar->value() + i);
+	    if (!qaddr)
+		continue;
+
+	    bool isfloat = false;
+	    uint64 min_align_bits = 2;
+
+	    uint64 off;
+	    auto page = myState->getPage(qaddr, off);
+
+	    if (page.exists())
+	    {
+		switch (page.state(off).dtype())
+		{
+		    case MV_DataInt32:
+			isfloat = false;
+			min_align_bits = 2;
+			break;
+		    case MV_DataInt64:
+			isfloat = false;
+			min_align_bits = 3;
+			break;
+		    case MV_DataFlt32:
+			isfloat = true;
+			min_align_bits = 2;
+			break;
+		    case MV_DataFlt64:
+			isfloat = true;
+			min_align_bits = 3;
+			break;
+		}
+	    }
+
+	    const uint64 min_align = 1 << min_align_bits;
+
 	    qaddr <<= myState->getIgnoreBits();
-	    if (!qaddr || (qaddr & (min_align-1)))
+
+	    if (qaddr & (min_align-1))
 		continue;
 
 	    uint64 buf64;

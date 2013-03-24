@@ -38,7 +38,7 @@ class MemoryState {
 public:
     class State {
     public:
-	static const int	theStateShift = 14;
+	static const int	theStateShift = 17;
 
     private:
 	// Here, type is the combined metadata that excludes the time
@@ -46,6 +46,8 @@ public:
 	static const uint32	theStateTimeMask = ~theStateTypeMask;
 
 	// Sub-fields of type
+	static const int	theSubDataBits = 3;
+	static const uint32	theSubDataMask = (1 << theSubDataBits) - 1;
 	static const int	theSubTypeBits = 3;
 	static const uint32	theSubTypeMask = (1 << theSubTypeBits) - 1;
 	static const int	theSubThreadBits = 10;
@@ -58,13 +60,16 @@ public:
 
 	void setTime(uint32 time)
 	{ uval = (uval & theStateTypeMask) | (time << theStateShift); }
-	void setFree() { uval |= MV_TypeFree; }
+	void setFree() { uval |= (MV_TypeFree << MV_DataBits); }
 	void setHasStack() { uval |= theSubStackMask; }
 
 	// Field accessors.  Here type is the sub-type (without the thread
 	// id).
-	uint32 type() const { return uval & theSubTypeMask; }
-	uint32 thread() const { return (uval >> theSubTypeBits) &
+	uint32 dtype() const { return uval & theSubDataMask; }
+	uint32 type() const { return (uval >> theSubDataBits) &
+					    theSubTypeMask; }
+	uint32 thread() const { return (uval >> (theSubDataBits +
+					    theSubTypeBits)) &
 					    theSubThreadMask; }
 	uint32 hasStack() const { return uval & theSubStackMask; }
 	uint32 time() const { return uval >> theStateShift; }
@@ -117,13 +122,13 @@ public:
 		    {
 		    case 0:
 		    case 1:
-			if (!(type & MV_TypeFree))
+			if (!(type & (MV_TypeFree << MV_DataBits)))
 			    myState[addr].init(myTime, type);
 			else
 			    myState[addr].setFree();
 			break;
 		    case 2:
-			if (!(type & MV_TypeFree))
+			if (!(type & (MV_TypeFree << MV_DataBits)))
 			{
 			    myState[addr].init(myTime, type);
 			    myState[addr+1].init(myTime, type);
@@ -136,7 +141,7 @@ public:
 			break;
 		    default:
 			last = addr + size;
-			if (!(type & MV_TypeFree))
+			if (!(type & (MV_TypeFree << MV_DataBits)))
 			{
 			    for (; addr < last; addr++)
 				myState[addr].init(myTime, type);

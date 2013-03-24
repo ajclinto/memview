@@ -292,6 +292,7 @@ typedef
       EventKind  ekind;
       IRAtom*    addr;
       Int        size;
+      uint64	 type;
    }
    Event;
 
@@ -602,6 +603,8 @@ static void flushEventsIR(IRSB* sb)
 		tl_assert(0);
 	}
 
+	type |= ev->type << MV_DataShift;
+
 	// Construct the address and store it
 	IRExpr *data =
 	    binop(Iop_Or64, ev->addr,
@@ -643,11 +646,12 @@ static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
     evt->ekind = Event_Ir;
     evt->addr  = iaddr;
     evt->size  = isize;
+    evt->type  = MV_DataInt32;
     events_used++;
 }
 
 static
-void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
+void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize, Int type )
 {
     Event* evt;
     tl_assert(isIRAtom(daddr));
@@ -659,12 +663,13 @@ void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize )
     evt->ekind = Event_Dr;
     evt->addr  = daddr;
     evt->size  = dsize;
+    evt->type  = type;
     events_used++;
     canCreateModify = True;
 }
 
 static
-void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
+void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize, Int type )
 {
     Event* lastEvt;
     Event* evt;
@@ -676,6 +681,7 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
     if (canCreateModify && events_used > 0
 	    && lastEvt->ekind == Event_Dr
 	    && lastEvt->size  == dsize
+	    && lastEvt->type == type 
 	    && eqIRAtom(lastEvt->addr, daddr))
     {
 	lastEvt->ekind = Event_Dm;
@@ -690,6 +696,7 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize )
     evt->ekind = Event_Dw;
     evt->size  = dsize;
     evt->addr  = daddr;
+    evt->type  = type;
     events_used++;
 }
 
@@ -804,6 +811,30 @@ static void mv_post_clo_init(void)
     }
 }
 
+static Int
+IRTypeToMVType(IRType type)
+{
+    switch (type)
+    {
+	case Ity_INVALID:
+	case Ity_I1: return MV_DataInt32;
+	case Ity_I8: return MV_DataChar8;
+	case Ity_I16:
+	case Ity_I32: return MV_DataInt32;
+	case Ity_I64:
+	case Ity_I128: return MV_DataInt64;
+	case Ity_F32: return MV_DataFlt32;
+	case Ity_F64: return MV_DataFlt64;
+	case Ity_D32: return MV_DataInt32;
+	case Ity_D64: return MV_DataInt64;
+	case Ity_D128: return MV_DataInt32;
+	case Ity_F128: return MV_DataFlt32;
+	case Ity_V128: return MV_DataFlt32;
+	case Ity_V256: return MV_DataFlt32;
+    }
+    return MV_DataInt32;
+}
+
 /* This is copied mostly verbatim from lackey */
 static IRSB*
 mv_instrument ( VgCallbackClosure* closure,
@@ -863,7 +894,8 @@ mv_instrument ( VgCallbackClosure* closure,
 		    IRExpr* data = st->Ist.WrTmp.data;
 		    if (data->tag == Iex_Load) {
 			addEvent_Dr( sbOut, data->Iex.Load.addr,
-				sizeofIRType(data->Iex.Load.ty) );
+				sizeofIRType(data->Iex.Load.ty),
+			       IRTypeToMVType(data->Iex.Load.ty) );
 		    }
 		}
 		addStmtToIRSB( sbOut, st );
@@ -873,7 +905,8 @@ mv_instrument ( VgCallbackClosure* closure,
 		{
 		    IRExpr* data  = st->Ist.Store.data;
 		    addEvent_Dw( sbOut, st->Ist.Store.addr,
-			    sizeofIRType(typeOfIRExpr(tyenv, data)) );
+			    sizeofIRType(typeOfIRExpr(tyenv, data)),
+			   IRTypeToMVType(typeOfIRExpr(tyenv, data)) );
 		}
 		addStmtToIRSB( sbOut, st );
 		break;
@@ -888,9 +921,9 @@ mv_instrument ( VgCallbackClosure* closure,
 			tl_assert(d->mSize != 0);
 			dsize = d->mSize;
 			if (d->mFx == Ifx_Read || d->mFx == Ifx_Modify)
-			    addEvent_Dr( sbOut, d->mAddr, dsize );
+			    addEvent_Dr( sbOut, d->mAddr, dsize, MV_DataInt32 );
 			if (d->mFx == Ifx_Write || d->mFx == Ifx_Modify)
-			    addEvent_Dw( sbOut, d->mAddr, dsize );
+			    addEvent_Dw( sbOut, d->mAddr, dsize, MV_DataInt32 );
 		    } else {
 			tl_assert(d->mAddr == NULL);
 			tl_assert(d->mSize == 0);
@@ -915,8 +948,10 @@ mv_instrument ( VgCallbackClosure* closure,
 		    dataSize = sizeofIRType(dataTy);
 		    if (cas->dataHi != NULL)
 			dataSize *= 2; /* since it's a doubleword-CAS */
-		    addEvent_Dr( sbOut, cas->addr, dataSize );
-		    addEvent_Dw( sbOut, cas->addr, dataSize );
+		    addEvent_Dr( sbOut, cas->addr, dataSize,
+			    IRTypeToMVType(dataTy) );
+		    addEvent_Dw( sbOut, cas->addr, dataSize,
+			    IRTypeToMVType(dataTy) );
 		    addStmtToIRSB( sbOut, st );
 		    break;
 		}
@@ -928,12 +963,14 @@ mv_instrument ( VgCallbackClosure* closure,
 			/* LL */
 			dataTy = typeOfIRTemp(tyenv, st->Ist.LLSC.result);
 			addEvent_Dr( sbOut, st->Ist.LLSC.addr,
-				sizeofIRType(dataTy) );
+				sizeofIRType(dataTy),
+			       IRTypeToMVType(dataTy) );
 		    } else {
 			/* SC */
 			dataTy = typeOfIRExpr(tyenv, st->Ist.LLSC.storedata);
 			addEvent_Dw( sbOut, st->Ist.LLSC.addr,
-				sizeofIRType(dataTy) );
+				sizeofIRType(dataTy),
+				IRTypeToMVType(dataTy) );
 		    }
 		    addStmtToIRSB( sbOut, st );
 		    break;
