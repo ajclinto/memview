@@ -467,6 +467,8 @@ MemViewWidget::paintGL()
 
     myProgram->setUniformValue("theTime", myState->getTime());
 
+    myProgram->setUniformValue("theImageSize", size());
+
     setScrollMax(myVScrollBar, myDisplay.height());
     setScrollMax(myHScrollBar, myDisplay.width(),
 	    myDisplay.getVisualization() != DisplayLayout::LINEAR);
@@ -579,7 +581,7 @@ MemViewWidget::paintText()
 		buf64 |= (uint64)peekval << 32;
 	    }
 
-	    const int xmargin = 2;
+	    const int xmargin = 4;
 	    int x = (j*width())/myImage.width() + xmargin;
 	    int y = (i*height())/myImage.height() +
 		(pheight + metrics.height())/2;

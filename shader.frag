@@ -14,6 +14,8 @@ uniform int theHalfLife;
 uniform int theDisplayMode;
 uniform int theDisplayStack;
 
+uniform vec2 theImageSize;
+
 float rand(vec2 co)
 {
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
@@ -47,6 +49,44 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
     return mix(vals[0], vals[1], interp/lcutoff);
 }
 
+// This routine overlays a grid pattern on the pixels when the texture is
+// zoomed.  It analytically antialiases the pattern when the grid cells are
+// small to avoid over-scaling.
+vec4 round_block(vec4 clr, ivec2 texsize)
+{
+    if (theImageSize.x > texsize.x)
+    {
+	float bsize = sqrt(
+		(theImageSize.x / float(texsize.x)) *
+		(theImageSize.y / float(texsize.y)));
+
+	ivec2 boff;
+	boff = ivec2(theImageSize*vec2(texsize)*texc);
+	boff %= ivec2(theImageSize);
+	boff /= texsize;
+
+	// Determine the portion of pixels on the edge
+	float all_pixels = bsize*bsize;
+	float in_pixels = (bsize-1)*(bsize-1);
+	float out_pixels = all_pixels - in_pixels;
+
+	float max_scale = 1.25;
+	float in_scale = min(all_pixels / in_pixels, max_scale);
+
+	if (boff.x == 0 || boff.y == 0)
+	{
+	    float out_scale = max(1 - (in_scale - 1) *
+		    (in_pixels / out_pixels), 0);
+	    clr *= out_scale;
+	}
+	else
+	{
+	    clr *= in_scale;
+	}
+    }
+
+    return clr;
+}
 void main(void)
 {
     ivec2   texsize = textureSize(theState);
@@ -116,6 +156,8 @@ void main(void)
 	    frag_color = min(frag_color, vec4(0.25, 0.25, 0.25, 1));
 	}
     }
+
+    frag_color = round_block(frag_color, texsize);
 
     // Poor man's dithering
     vec3 rval = vec3(rand(texc)-0.5,
