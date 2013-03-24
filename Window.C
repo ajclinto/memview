@@ -481,17 +481,17 @@ MemViewWidget::paintGL()
     myProgram->release();
 
     // Render memory contents as text if we're at a sufficient zoom level
-    paintData();
+    paintText();
 
     update();
 }
 
 void
-MemViewWidget::paintData()
+MemViewWidget::paintText()
 {
     int psize = width() / myImage.width();
 
-    if (psize < 100)
+    if (psize < 10)
 	return;
 
     // Use ptrace to stop the process and inspect data
@@ -501,6 +501,14 @@ MemViewWidget::paintData()
 
     // Wait for the process to stop on a signal
     waitpid(pid, 0, 0);
+
+    struct Text {
+	int x;
+	int y;
+	QString str;
+    };
+
+    std::vector<Text> text_list;
 
     for (int i = 0; i < myImage.height(); i++)
     {
@@ -605,12 +613,17 @@ MemViewWidget::paintData()
 		    str.sprintf("%llx", buf64);
 	    }
 
-	    renderText(x, y, str);
+	    text_list.push_back(Text{x, y, str});
 	}
     }
 
     // Detach - this will restart the process
     ptrace(PTRACE_DETACH, pid, NULL, NULL);
+
+    // Render text after restarting the process so that we're only slowing
+    // down draw time (not execution)
+    for (auto it = text_list.begin(); it != text_list.end(); ++it)
+	renderText(it->x, it->y, it->str);
 }
 
 bool

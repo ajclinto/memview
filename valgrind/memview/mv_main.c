@@ -853,6 +853,8 @@ mv_instrument ( VgCallbackClosure* closure,
 	VG_(tool_panic)("host/guest word size mismatch");
     }
 
+    //ppIRSB(sbIn);
+
     /* Set up SB */
     sbOut = deepCopyIRSBExceptStmts(sbIn);
 

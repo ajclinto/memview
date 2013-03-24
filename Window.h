@@ -118,7 +118,7 @@ protected:
     void	changeZoom(int zoom);
     QPoint	zoomPos(QPoint pos, int zoom) const;
 
-    void	paintData();
+    void	paintText();
 
 private slots:
     void    linear();
