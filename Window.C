@@ -621,8 +621,12 @@ MemViewWidget::paintText()
 		    str.sprintf("%llx", buf64);
 	    }
 
-	    if (metrics.width(str) < pwidth - 2*xmargin)
-		text_list.push_back(Text{x, y, str});
+	    // Shorten the text so that it fits within the desired width.
+	    // This will add the "..." if it's too long.
+	    str = metrics.elidedText(
+		    str, Qt::ElideRight, pwidth - 2*xmargin);
+
+	    text_list.push_back(Text{x, y, str});
 	}
     }
 
