@@ -82,6 +82,18 @@ vec4 round_block(vec4 clr, ivec2 texsize)
 	else
 	{
 	    clr *= in_scale;
+
+	    // For large enough block sizes, scale the value based on the
+	    // distance to the center to give it a rounded appearance.
+	    // This transformation does not preserve average luminance like
+	    // the grid scaling above, so don't use it for too small
+	    // blocks.
+	    if (bsize > 6)
+	    {
+		float dist = length(2*vec2(boff) - vec2(bsize+0.5));
+		dist /= bsize;
+		clr *= 1.25-0.5*dist;
+	    }
 	}
     }
 
