@@ -48,6 +48,13 @@ public:
     virtual ~Window();
 
 private:
+    QActionGroup	*createActionGroup(QMenu *menu,
+					   const char *names[],
+					   QAction *actions[],
+					   int count,
+					   int def_action);
+
+private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
 
@@ -61,12 +68,16 @@ private:
     QActionGroup	*myLayoutGroup;
     QAction		*myLayout[theLayoutCount];
 
-    QMenu		*myDisplayMenu;
-
     static const int	 theDisplayCount = 3;
+    QMenu		*myDisplayMenu;
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];
     QAction		*myDisplayStack;
+
+    static const int	 theDataTypeCount = 5;
+    QMenu		*myDataTypeMenu;
+    QActionGroup	*myDataTypeGroup;
+    QAction		*myDataType[theDataTypeCount];
 
     MemViewWidget	*myMemView;
     MemViewScroll	*myScrollArea;
@@ -133,9 +144,8 @@ private slots:
     void    compact();
     void    full();
 
-    void    rwdisplay();
-    void    tiddisplay();
-    void    datadisplay();
+    void    display(QAction *action);
+    void    datatype(QAction *action);
 
     void    stackdisplay();
 
@@ -164,6 +174,7 @@ private:
     int			 mySlowTimer;
     int			 myDisplayMode;
     int			 myDisplayStack;
+    int			 myDataType;
 
     struct Velocity {
 	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}

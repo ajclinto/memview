@@ -36,6 +36,16 @@ static const QSize	theDefaultSize(800, 600);
 
 Window::Window(int argc, char *argv[])
 {
+    myScrollArea = new MemViewScroll(this);
+
+    setStatusBar(statusBar());
+
+    myMemView = new MemViewWidget(argc, argv,
+	    myScrollArea,
+	    myScrollArea->verticalScrollBar(),
+	    myScrollArea->horizontalScrollBar(),
+	    statusBar());
+
     myQuit = new QAction(tr("&Quit"), this);
 
     connect(myQuit, SIGNAL(triggered()), qApp, SLOT(quit()));
@@ -52,14 +62,8 @@ Window::Window(int argc, char *argv[])
 	"&Linear",
     };
 
-    myVisGroup = new QActionGroup(this);
-    for (int i = 0; i < theVisCount; i++)
-    {
-	myVis[i] = new QAction(tr(theVisNames[i]), myVisGroup);
-	myVis[i]->setCheckable(true);
-	myLayoutMenu->addAction(myVis[i]);
-    }
-    myVis[0]->setChecked(true);
+    myVisGroup = createActionGroup(
+	    myLayoutMenu, theVisNames, myVis, theVisCount, 0);
 
     myLayoutMenu->addSeparator();
 
@@ -68,24 +72,8 @@ Window::Window(int argc, char *argv[])
 	"&Full Size",
     };
 
-    myLayoutGroup = new QActionGroup(this);
-    for (int i = 0; i < theLayoutCount; i++)
-    {
-	myLayout[i] = new QAction(tr(theLayoutNames[i]), myLayoutGroup);
-	myLayout[i]->setCheckable(true);
-	myLayoutMenu->addAction(myLayout[i]);
-    }
-    myLayout[0]->setChecked(true);
-
-    myScrollArea = new MemViewScroll(this);
-
-    setStatusBar(statusBar());
-
-    myMemView = new MemViewWidget(argc, argv,
-	    myScrollArea,
-	    myScrollArea->verticalScrollBar(),
-	    myScrollArea->horizontalScrollBar(),
-	    statusBar());
+    myLayoutGroup = createActionGroup(
+	    myLayoutMenu, theLayoutNames, myLayout, theLayoutCount, 0);
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
@@ -94,33 +82,44 @@ Window::Window(int argc, char *argv[])
     connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(compact()));
     connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(full()));
 
-    myDisplayMenu = menuBar()->addMenu(tr("&Display"));
-
     static const char	*theDisplayNames[theDisplayCount] = {
 	"&Read/Write",
 	"&Thread Id",
 	"&Data Type",
     };
 
-    myDisplayGroup = new QActionGroup(this);
-    for (int i = 0; i < theDisplayCount; i++)
-    {
-	myDisplay[i] = new QAction(tr(theDisplayNames[i]), myDisplayGroup);
-	myDisplay[i]->setCheckable(true);
-	myDisplayMenu->addAction(myDisplay[i]);
-    }
-    myDisplay[0]->setChecked(true);
+    myDisplayMenu = menuBar()->addMenu(tr("&Display"));
+    myDisplayGroup = createActionGroup(
+	    myDisplayMenu, theDisplayNames, myDisplay, theDisplayCount, 0);
 
     myDisplayMenu->addSeparator();
     myDisplayStack = new QAction(tr("&Inspect Stacks"), this);
     myDisplayStack->setCheckable(true);
     myDisplayMenu->addAction(myDisplayStack);
 
-    connect(myDisplay[0], SIGNAL(triggered()), myMemView, SLOT(rwdisplay()));
-    connect(myDisplay[1], SIGNAL(triggered()), myMemView, SLOT(tiddisplay()));
-    connect(myDisplay[2], SIGNAL(triggered()), myMemView, SLOT(datadisplay()));
+    connect(myDisplayGroup, SIGNAL(triggered(QAction *)),
+	    myMemView, SLOT(display(QAction *)));
 
-    connect(myDisplayStack, SIGNAL(triggered()), myMemView, SLOT(stackdisplay()));
+    connect(myDisplayStack, SIGNAL(triggered()),
+	    myMemView, SLOT(stackdisplay()));
+
+    // This menu should be ordered the same as the MV_Data* defines in
+    // mv_ipc.h
+    static const char	*theDataTypeNames[theDataTypeCount] = {
+	"&Auto-Detect Types",
+	"&32-bit Integer",
+	"&64-bit Integer",
+	"&32-bit Float",
+	"&64-bit Float",
+    };
+
+    myDataTypeMenu = menuBar()->addMenu(tr("&Data Type"));
+    myDataTypeGroup = createActionGroup(
+	    myDataTypeMenu, theDataTypeNames, myDataType, theDataTypeCount, 0);
+
+    connect(myDataTypeGroup, SIGNAL(triggered(QAction *)),
+	    myMemView, SLOT(datatype(QAction *)));
+
 
     setWindowTitle("Memview");
 
@@ -132,6 +131,25 @@ Window::Window(int argc, char *argv[])
 
 Window::~Window()
 {
+}
+
+QActionGroup *
+Window::createActionGroup(
+	QMenu *menu,
+	const char *names[],
+	QAction *actions[],
+	int count,
+	int def_action)
+{
+    QActionGroup *group = new QActionGroup(this);
+    for (int i = 0; i < count; i++)
+    {
+	actions[i] = new QAction(tr(names[i]), group);
+	actions[i]->setCheckable(true);
+	menu->addAction(actions[i]);
+    }
+    actions[def_action]->setChecked(true);
+    return group;
 }
 
 //
@@ -154,6 +172,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myZoom(0)
     , myDisplayMode(0)
     , myDisplayStack(0)
+    , myDataType(-1)
     , myStopWatch(false)
     , myPaintInterval(false)
     , myEventTimer(false)
@@ -249,10 +268,18 @@ MemViewWidget::full()
     update();
 }
 
-void MemViewWidget::rwdisplay() { myDisplayMode = 0; }
-void MemViewWidget::tiddisplay() { myDisplayMode = 1; }
-void MemViewWidget::datadisplay() { myDisplayMode = 2; }
+void MemViewWidget::display(QAction *action)
+{
+    myDisplayMode = action->actionGroup()->actions().indexOf(action);
+}
+
 void MemViewWidget::stackdisplay() { myDisplayStack = !myDisplayStack; }
+
+void MemViewWidget::datatype(QAction *action)
+{
+    // Subtract 1 so that auto-detect types is -1
+    myDataType = action->actionGroup()->actions().indexOf(action) - 1;
+}
 
 // Load a file into a buffer.  The buffer is owned by the caller, and
 // should be freed with delete[].
@@ -488,9 +515,71 @@ MemViewWidget::paintGL()
     update();
 }
 
+static inline bool
+isFloatType(int datatype)
+{
+    switch (datatype)
+    {
+	case MV_DataFlt32:
+	case MV_DataFlt64:
+	    return true;
+    }
+    return false;
+}
+
+static inline int
+getAlignBits(int datatype)
+{
+    switch (datatype)
+    {
+	case MV_DataInt64:
+	case MV_DataFlt64:
+	    return 3;
+    }
+    return 2;
+}
+
+template <typename FT, typename IT>
+static inline FT
+intToFloat(IT val)
+{
+    union {
+	FT  fval;
+	IT  ival;
+    } uval;
+    uval.ival = val;
+    return uval.fval;
+}
+
+// Peek at a 64-bit value in the tracee
+static bool
+peekData(pid_t pid, uint64 qaddr, uint64 &buf64)
+{
+    long peekval = ptrace(PTRACE_PEEKDATA,
+	    pid, (void *)qaddr, NULL);
+    if (peekval == -1)
+	return false;
+
+    buf64 = (uint64)peekval;
+    if (sizeof(long) == 4)
+    {
+	// long is a different size on 32-bit platforms...
+	peekval = ptrace(PTRACE_PEEKDATA,
+		pid, (void *)(qaddr + 4), NULL);
+	if (peekval == -1)
+	    return false;
+
+	buf64 |= (uint64)peekval << 32;
+    }
+
+    return true;
+}
+
 void
 MemViewWidget::paintText()
 {
+    const int xmargin = 4;
+
     int pwidth = width() / myImage.width();
     int pheight = height() / myImage.height();
 
@@ -526,35 +615,21 @@ MemViewWidget::paintText()
 	    if (!qaddr)
 		continue;
 
-	    bool isfloat = false;
-	    uint64 min_align_bits = 2;
-
-	    uint64 off;
-	    auto page = myState->getPage(qaddr, off);
-
-	    if (page.exists())
+	    // Either use the specified data type or if it's -1, get the
+	    // type from the value
+	    int	datatype = myDataType;
+	    if (datatype < 0)
 	    {
-		switch (page.state(off).dtype())
-		{
-		    case MV_DataInt32:
-			isfloat = false;
-			min_align_bits = 2;
-			break;
-		    case MV_DataInt64:
-			isfloat = false;
-			min_align_bits = 3;
-			break;
-		    case MV_DataFlt32:
-			isfloat = true;
-			min_align_bits = 2;
-			break;
-		    case MV_DataFlt64:
-			isfloat = true;
-			min_align_bits = 3;
-			break;
-		}
+		uint64 off;
+		auto page = myState->getPage(qaddr, off);
+
+		if (page.exists())
+		    datatype = page.state(off).dtype();
+		else
+		    datatype = MV_DataInt32;
 	    }
 
+	    const uint64 min_align_bits = getAlignBits(datatype);
 	    const uint64 min_align = 1 << min_align_bits;
 
 	    qaddr <<= myState->getIgnoreBits();
@@ -562,26 +637,12 @@ MemViewWidget::paintText()
 	    if (qaddr & (min_align-1))
 		continue;
 
-	    uint64 buf64;
-
-	    long peekval = ptrace(PTRACE_PEEKDATA,
-		    pid, (void *)qaddr, NULL);
-	    if (peekval == -1)
+	    // Get the value.  If the address wasn't mapped, peekData()
+	    // will return false.
+	    uint64 val;
+	    if (!peekData(pid, qaddr, val))
 		continue;
 
-	    buf64 = (uint64)peekval;
-	    if (sizeof(long) == 4)
-	    {
-		// long is a different size on 32-bit platforms...
-		peekval = ptrace(PTRACE_PEEKDATA,
-			pid, (void *)(qaddr + 4), NULL);
-		if (peekval == -1)
-		    continue;
-
-		buf64 |= (uint64)peekval << 32;
-	    }
-
-	    const int xmargin = 4;
 	    int x = (j*width())/myImage.width() + xmargin;
 	    int y = (i*height())/myImage.height() +
 		(pheight + metrics.height())/2;
@@ -590,35 +651,21 @@ MemViewWidget::paintText()
 	    if (min_align_bits == 2)
 	    {
 		if (qaddr & min_align)
-		    buf64 >>= 32;
+		    val >>= 32;
 		else
-		    buf64 &= 0xFFFFFFFF;
+		    val &= 0xFFFFFFFF;
 
-		if (isfloat)
-		{
-		    union {
-			float  fval;
-			uint32 ival;
-		    } uval;
-		    uval.ival = (uint32)buf64;
-		    str.sprintf("%f", uval.fval);
-		}
+		if (isFloatType(datatype))
+		    str.sprintf("%f", intToFloat<float>((uint32)val));
 		else
-		    str.sprintf("%x", (uint32)buf64);
+		    str.sprintf("%x", (uint32)val);
 	    }
 	    else
 	    {
-		if (isfloat)
-		{
-		    union {
-			double fval;
-			uint64 ival;
-		    } uval;
-		    uval.ival = buf64;
-		    str.sprintf("%g", uval.fval);
-		}
+		if (isFloatType(datatype))
+		    str.sprintf("%g", intToFloat<double>(val));
 		else
-		    str.sprintf("%llx", buf64);
+		    str.sprintf("%llx", val);
 	    }
 
 	    // Shorten the text so that it fits within the desired width.
@@ -636,7 +683,7 @@ MemViewWidget::paintText()
     // Render text after restarting the process so that we're only slowing
     // down draw time (not execution)
     for (auto it = text_list.begin(); it != text_list.end(); ++it)
-	renderText(it->x, it->y, it->str);
+	renderText(it->x, it->y, it->str, font);
 }
 
 bool
