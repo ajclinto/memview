@@ -118,6 +118,11 @@ protected:
     void	changeZoom(int zoom);
     QPoint	zoomPos(QPoint pos, int zoom) const;
 
+    // This method will adjust the scroll bars given a delta against the
+    // current position.  dir is in absolute pixel coordinates (no
+    // zooming).  If a scroll bar value changed, returns true.
+    bool	panBy(QPoint dir);
+
     void	paintText();
 
 private slots:
@@ -190,6 +195,7 @@ private:
     StopWatch	 myPaintInterval;
     StopWatch	 myEventTimer;
     QPoint	 myMousePos;
+    QPoint	 myDragRemainder;
     std::queue<Velocity> myVelocity;
     bool	 myDragging;
 };

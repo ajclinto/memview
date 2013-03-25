@@ -699,6 +699,7 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
     {
 	myStopWatch.start();
 	myDragging = true;
+	myDragRemainder = QPoint(0, 0);
 	myVelocity = std::queue<Velocity>();
     }
 
@@ -711,9 +712,9 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
     if (event->buttons() & Qt::LeftButton)
     {
 	double  time = myStopWatch.elapsed();
-	QPoint  dir = zoomPos(myMousePos - event->pos(), myZoom);
-	myHScrollBar->setValue(myHScrollBar->value() + dir.x());
-	myVScrollBar->setValue(myVScrollBar->value() + dir.y());
+	QPoint  dir = myMousePos - event->pos();
+
+	panBy(dir);
 
 	if (myVelocity.size() >= 5)
 	    myVelocity.pop();
@@ -927,21 +928,16 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 	{
 	    Velocity   &vel = myVelocity.front();
 	    double	time = myStopWatch.lap();
-	    int		drag[2];
+	    QPoint	dir((int)(vel.x * time + 0.5F),
+			    (int)(vel.y * time + 0.5F));
 
-	    drag[0] = (int)(vel.x * time + 0.5F);
-	    drag[1] = (int)(vel.y * time + 0.5F);
-
-	    shortenDrag(vel.x, time);
-	    shortenDrag(vel.y, time);
-
-	    myHScrollBar->setValue(myHScrollBar->value() + drag[0]);
-	    myVScrollBar->setValue(myVScrollBar->value() + drag[1]);
-
-	    if (drag[0] || drag[1])
+	    if (panBy(dir))
 	    {
 		update();
 	    }
+
+	    shortenDrag(vel.x, time);
+	    shortenDrag(vel.y, time);
 	}
     }
     else if (event->timerId() == mySlowTimer)
@@ -996,3 +992,18 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 	myStatusBar->showMessage(message);
 }
 
+bool
+MemViewWidget::panBy(QPoint dir)
+{
+    myDragRemainder += dir;
+
+    QPoint  zrem = zoomPos(myDragRemainder, myZoom);
+
+    myDragRemainder.rx() -= (zrem.x()*width())/myImage.width();
+    myDragRemainder.ry() -= (zrem.y()*height())/myImage.height();
+
+    myHScrollBar->setValue(myHScrollBar->value() + zrem.x());
+    myVScrollBar->setValue(myVScrollBar->value() + zrem.y());
+
+    return zrem.x() || zrem.y();
+}
