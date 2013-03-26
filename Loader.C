@@ -423,6 +423,11 @@ appendBuf(std::string &str, const char *buf)
     }
 }
 
+class Func {
+public:
+    void operator()(MMapInfo &val) const { val.myMapped = false; }
+};
+
 bool
 Loader::loadFromPipe()
 {
@@ -480,7 +485,9 @@ Loader::loadFromPipe()
 		    case MV_HEAP: info = "Heap"; break;
 		    case MV_STACK:
 			info = "Thread ";
+#if HAS_LAMBDA
 			info += std::to_string(header.myMMap.myThread);
+#endif
 			info += " stack";
 			break;
 		    case MV_SHM:
@@ -499,7 +506,12 @@ Loader::loadFromPipe()
 		myMMapMap->apply(
 			header.myMMap.myStart,
 			header.myMMap.myEnd,
-			[] (MMapInfo &val) { val.myMapped = false; });
+#if HAS_LAMBDA
+			[] (MMapInfo &val) { val.myMapped = false; }
+#else
+			Func()
+#endif
+			);
 	    }
 	    return true;
 	}

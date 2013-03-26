@@ -575,6 +575,12 @@ peekData(pid_t pid, uint64 qaddr, uint64 &buf64)
     return true;
 }
 
+struct Text {
+    int x;
+    int y;
+    QString str;
+};
+
 void
 MemViewWidget::paintText()
 {
@@ -596,12 +602,6 @@ MemViewWidget::paintText()
 
     // Wait for the process to stop on a signal
     waitpid(pid, 0, 0);
-
-    struct Text {
-	int x;
-	int y;
-	QString str;
-    };
 
     std::vector<Text> text_list;
 

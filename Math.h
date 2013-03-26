@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <limits.h>
 
+#define HAS_LAMBDA (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
+
 typedef unsigned char		uint8;
 typedef unsigned short		uint16;
 typedef unsigned		uint32;
