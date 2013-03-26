@@ -69,7 +69,7 @@ MemoryState::incrementTime()
     myTime++;
 
     // The time wrapped
-    if (myTime == theFullLife || myTime == theHalfLife)
+    if (myTime == theHalfLife)
     {
 	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
 	{
@@ -77,16 +77,29 @@ MemoryState::incrementTime()
 	    for (uint64 i = 0; i < page.size(); i++)
 	    {
 		uint32	state = page.state(i).time();
-		if ((myTime == theFullLife && state < theHalfLife) ||
-		    (myTime == theHalfLife && state >= theHalfLife &&
-		     state <= theFullLife))
+		if (state &&
+		    state >= theHalfLife &&
+		    state <= theFullLife)
 		    page.state(i).setTime(theStale);
 	    }
 	}
-	if (myTime == theFullLife)
-	    myTime = 2;
-	else
-	    myTime++;
+	myTime++;
+    }
+
+    if (myTime == theFullLife)
+    {
+	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
+	{
+	    DisplayPage page(it.page());
+	    for (uint64 i = 0; i < page.size(); i++)
+	    {
+		uint32	state = page.state(i).time();
+		if (state &&
+		    state < theHalfLife)
+		    page.state(i).setTime(theStale);
+	    }
+	}
+	myTime = 2;
     }
 }
 
