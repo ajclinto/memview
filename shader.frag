@@ -14,7 +14,8 @@ uniform int theHalfLife;
 uniform int theDisplayMode;
 uniform int theDisplayStack;
 
-uniform vec2 theImageSize;
+uniform int theImageResX;
+uniform int theImageResY;
 
 float rand(vec2 co)
 {
@@ -54,15 +55,16 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 // small to avoid over-scaling.
 vec4 round_block(vec4 clr, ivec2 texsize)
 {
-    if (theImageSize.x > texsize.x)
+    ivec2	imgsize = ivec2(theImageResX, theImageResY);
+    if (imgsize.x > texsize.x)
     {
 	float bsize = sqrt(
-		(theImageSize.x / float(texsize.x)) *
-		(theImageSize.y / float(texsize.y)));
+		(imgsize.x / float(texsize.x)) *
+		(imgsize.y / float(texsize.y)));
 
 	ivec2 boff;
-	boff = ivec2(theImageSize*vec2(texsize)*texc);
-	boff %= ivec2(theImageSize);
+	boff = ivec2(vec2(texsize*imgsize)*texc);
+	boff %= imgsize;
 	boff /= texsize;
 
 	// Determine the portion of pixels on the edge
