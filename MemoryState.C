@@ -22,6 +22,7 @@
    The GNU General Public License is contained in the file COPYING.
 */
 
+#include <QThreadPool>
 #include "MemoryState.h"
 #include "StopWatch.h"
 #include "Color.h"

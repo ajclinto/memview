@@ -25,7 +25,7 @@
 #ifndef Loader_H
 #define Loader_H
 
-#include <QtGui>
+#include <QThread>
 #include "valgrind/memview/mv_ipc.h"
 #include "Math.h"
 #include "IntervalMap.h"

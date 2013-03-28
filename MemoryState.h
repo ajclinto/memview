@@ -25,7 +25,6 @@
 #ifndef MemoryState_H
 #define MemoryState_H
 
-#include <QtGui>
 #include "Math.h"
 #include "GLImage.h"
 #include "IntervalMap.h"

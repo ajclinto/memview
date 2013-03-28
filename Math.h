@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <limits.h>
+#include <limits>
 
 #define HAS_LAMBDA (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
 

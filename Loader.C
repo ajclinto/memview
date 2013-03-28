@@ -25,6 +25,7 @@
 #include "Loader.h"
 #include "MemoryState.h"
 #include "StopWatch.h"
+#include <QThreadPool>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>

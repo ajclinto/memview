@@ -121,6 +121,7 @@ typedef struct {
 #define MV_DataFlt32	2
 #define MV_DataFlt64	3
 #define MV_DataChar8	4
+#define MV_DataVec	5
 
 typedef struct {
     unsigned long long	myAddr[MV_BlockSize];

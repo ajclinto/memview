@@ -827,10 +827,10 @@ IRTypeToMVType(IRType type)
 	case Ity_F64: return MV_DataFlt64;
 	case Ity_D32: return MV_DataInt32;
 	case Ity_D64: return MV_DataInt64;
-	case Ity_D128: return MV_DataInt32;
-	case Ity_F128: return MV_DataFlt32;
-	case Ity_V128: return MV_DataFlt32;
-	case Ity_V256: return MV_DataFlt32;
+	case Ity_D128: return MV_DataVec;
+	case Ity_F128: return MV_DataVec;
+	case Ity_V128: return MV_DataVec;
+	case Ity_V256: return MV_DataVec;
     }
     return MV_DataInt32;
 }
