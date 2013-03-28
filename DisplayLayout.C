@@ -39,7 +39,7 @@ DisplayLayout::~DisplayLayout()
 {
 }
 
-static const int	theBlockSpacing = 1;
+static const int64	theBlockSpacing = 1;
 
 // A callback for recursive block traversal
 class Traverser {
@@ -131,7 +131,7 @@ public:
     }
 
 public:
-    Box	myBox;
+    Box<int64>	myBox;
 };
 
 static inline uint64
@@ -153,7 +153,7 @@ blockAlign(uint64 daddr, uint64 addr, uint64 size)
 }
 
 static void
-adjustZoom(int &val, int zoom)
+adjustZoom(int64 &val, int zoom)
 {
     int a = (1 << zoom) - 1;
     val = (val + a) >> zoom;
@@ -162,7 +162,7 @@ adjustZoom(int &val, int zoom)
 void
 DisplayLayout::update(
 	MemoryState &state,
-	int width, int zoom)
+	int64 width, int zoom)
 {
     //StopWatch	timer;
     myBlocks.clear();
@@ -208,8 +208,8 @@ DisplayLayout::update(
 		    myVisualization == HILBERT, 0, false);
 
 	    it->myBox = sizer.myBox;
-	    myWidth = SYSmax(myWidth, sizer.myBox.xmax());
-	    myHeight = SYSmax(myHeight, sizer.myBox.ymax());
+	    myWidth = SYSmax(myWidth, (int64)sizer.myBox.xmax());
+	    myHeight = SYSmax(myHeight, (int64)sizer.myBox.ymax());
 
 	    addr = it->myDisplayAddr + it->mySize;
 	    psize = it->mySize;
@@ -247,7 +247,7 @@ DisplayLayout::update(
     }
     else
     {
-	int r = 0;
+	int64 r = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
 	    if (zoom > 0)
@@ -263,8 +263,8 @@ DisplayLayout::update(
 	    if (!myCompact)
 		r = it->myAddr / width;
 
-	    int c = it->myAddr % width;
-	    int nr = 1 + (c + it->mySize - 1) / width;
+	    int64 c = it->myAddr % width;
+	    int64 nr = 1 + (c + it->mySize - 1) / width;
 
 	    it->myBox.initBounds(0, r, width, r+nr);
 	    it->myStartCol = c;
@@ -461,13 +461,13 @@ void
 DisplayLayout::fillImage(
 	GLImage<T> &image,
 	const Source &src,
-	int coff, int roff) const
+	int64 coff, int64 roff) const
 {
     image.zero();
 
     for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
     {
-	Box	ibox;
+	Box<int64>	ibox;
 	
 	ibox.initBounds(coff, roff, coff+image.width(), roff+image.height());
 
@@ -477,7 +477,7 @@ DisplayLayout::fillImage(
 	if (myVisualization == LINEAR)
 	{
 	    uint64	addr = it->myAddr;
-	    int		c = it->myStartCol;
+	    int64	c = it->myStartCol;
 
 	    if (ibox.ymin() > it->myBox.ymin())
 	    {
@@ -491,17 +491,16 @@ DisplayLayout::fillImage(
 		c = ibox.xmin();
 	    }
 
-	    for (int r = ibox.ymin(); r < ibox.ymax(); r++)
+	    for (int64 r = ibox.ymin(); r < ibox.ymax(); r++)
 	    {
 		while (c < ibox.xmax() && addr < it->end())
 		{
 		    uint64  off;
 		    auto    page = src.getPage(addr, off);
-		    int	    nc = ibox.xmax() - c;
+		    int64   nc = ibox.xmax() - c;
 		   
-		    // It's a min with an int, so it can't be more than 32-bit
-		    nc = (int)SYSmin((uint64)nc, page.size() - off);
-		    nc = (int)SYSmin((uint64)nc, it->end() - addr);
+		    nc = SYSmin((uint64)nc, page.size() - off);
+		    nc = SYSmin((uint64)nc, it->end() - addr);
 
 		    addr += nc;
 		    if (src.exists(page))
@@ -530,7 +529,7 @@ DisplayLayout::fillImage(
 
 #define INST_FUNC(TYPE, SOURCE) \
     template void DisplayLayout::fillImage<TYPE, SOURCE>( \
-	GLImage<TYPE> &image, const SOURCE &src, int coff, int roff) const;
+	GLImage<TYPE> &image, const SOURCE &src, int64 coff, int64 roff) const;
 
 INST_FUNC(uint32, StateSource)
 INST_FUNC(uint64, AddressSource)
@@ -538,7 +537,7 @@ INST_FUNC(uint64, AddressSource)
 uint64
 DisplayLayout::queryPixelAddress(
 	MemoryState &state,
-	int coff, int roff) const
+	int64 coff, int64 roff) const
 {
     GLImage<uint64> image;
     AddressSource   src(state);

@@ -435,13 +435,13 @@ MemViewWidget::resizeImage(int zoom)
 }
 
 static void
-setScrollMax(QScrollBar *scroll, int size, bool with_margin = true)
+setScrollMax(QScrollBar *scroll, int64 size, bool with_margin = true)
 {
-    int margin = with_margin ? (scroll->pageStep() >> 1) : 0;
-    int nmax = SYSmax(size - scroll->pageStep() + margin, 0);
+    int64 margin = with_margin ? (scroll->pageStep() >> 1) : 0;
+    int64 nmax = SYSmax(size - scroll->pageStep() + margin, 0ll);
 
-    scroll->setMaximum(nmax);
-    scroll->setMinimum(-margin);
+    scroll->setMaximum(SYSclamp32(nmax));
+    scroll->setMinimum(SYSclamp32(-margin));
 }
 
 void
@@ -835,13 +835,16 @@ MemViewWidget::wheelEvent(QWheelEvent *event)
 }
 
 static void
-minScroll(QScrollBar *scroll, int x, int size, bool zoomout)
+minScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout)
 {
-    int ox = x;
+    int64 ox = x;
     x += scroll->value();
 
     if (zoomout)
+    {
+	x += 1;
 	x >>= 1;
+    }
     else
     {
 	x <<= 1;
@@ -851,44 +854,40 @@ minScroll(QScrollBar *scroll, int x, int size, bool zoomout)
     x -= ox;
 
     setScrollMax(scroll, size);
-    scroll->setValue(x);
+    scroll->setValue(SYSclamp32(x));
 }
 
 static void
-magScroll(QScrollBar *scroll, int x, int size, bool zoomout)
+magScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout,
+	int64 winsize, int64 psize, int64 nsize)
 {
     if (zoomout)
     {
-	x >>= 1;
+	x = (x*(psize+1)) / winsize;
 	x = scroll->value() - x;
     }
     else
     {
+	x = (x*(nsize+1)) / winsize;
 	x += scroll->value();
     }
 
     setScrollMax(scroll, size);
-    scroll->setValue(x);
+    scroll->setValue(SYSclamp32(x));
 }
 
 static void
-magScrollLinear(QScrollBar *scroll, int x, int size, bool zoomout)
+magScrollLinear(QScrollBar *scroll, int64 x,
+	int64 winheight, int64 size,
+	int64 pwidth, int64 pheight,
+	int64 nwidth, int64 nheight)
 {
-    // This is only approximate, since the zoom may not be an exact power
-    // of 2.
-    if (zoomout)
-    {
-	x = (((x >> 1) + scroll->value()) >> 1) - x;
-	size >>= 1;
-    }
-    else
-    {
-	x = (((x << 1) + scroll->value()) << 1) - x;
-	size <<= 1;
-    }
+    x = (((x*pheight)/winheight + scroll->value())*pwidth)/nwidth -
+	(x*nheight)/winheight;
+    size = (size * pheight) / nheight;
 
     setScrollMax(scroll, size);
-    scroll->setValue(x);
+    scroll->setValue(SYSclamp32(x));
 }
 
 void
@@ -924,19 +923,24 @@ MemViewWidget::changeZoom(int zoom)
 
 	if (zoom < 0 || myZoom < 0)
 	{
+	    int64 pwidth = myImage.width();
+	    int64 pheight = myImage.height();
+
 	    // This makes a GL call
 	    resizeImage(zoom);
 
-	    // This needs to be computed based on the new zoom value
-	    zpos = zoomPos(zpos, zoom);
 	    if (!linear)
 	    {
-		magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
-		magScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+		magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout,
+			width(), pwidth, myImage.width());
+		magScroll(myVScrollBar, zpos.y(), myDisplay.width(), zoomout,
+			height(), pheight, myImage.height());
 	    }
 	    else
 	    {
-		magScrollLinear(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+		magScrollLinear(myVScrollBar,
+			zpos.y(), height(), myDisplay.height(),
+			pwidth, pheight, myImage.width(), myImage.height());
 	    }
 	}
 	else

@@ -51,6 +51,10 @@ inline T SYSclamp(T v, T a, T b)
 {
     return v < a ? a : (v > b ? b : v);
 }
+inline int SYSclamp32(int64 val)
+{
+    return (int)SYSclamp(val, 0ll, (int64)std::numeric_limits<int>::max());
+}
 template <typename T>
 inline T SYSlerp(T v1, T v2, T bias)
 {
@@ -69,18 +73,21 @@ inline T SYSabs(T a)
     return a >= 0 ? a : -a;
 }
 
+template <typename T>
 struct Box {
     void initBounds()
     {
-	l[0] = INT_MAX; h[0] = -INT_MAX;
-	l[1] = INT_MAX; h[1] = -INT_MAX;
+	T minv = std::numeric_limits<T>::min();
+	T maxv = std::numeric_limits<T>::max();
+	l[0] = maxv; h[0] = minv;
+	l[1] = maxv; h[1] = minv;
     }
-    void initBounds(int xl, int yl, int xh, int yh)
+    void initBounds(T xl, T yl, T xh, T yh)
     {
 	l[0] = xl; h[0] = xh;
 	l[1] = yl; h[1] = yh;
     }
-    void enlargeBounds(int xl, int yl, int xh, int yh)
+    void enlargeBounds(T xl, T yl, T xh, T yh)
     {
 	l[0] = SYSmin(l[0], xl); h[0] = SYSmax(h[0], xh);
 	l[1] = SYSmin(l[1], yl); h[1] = SYSmax(h[1], yh);
@@ -88,7 +95,7 @@ struct Box {
 
     bool intersect(const Box &other)
     {
-	for (int i = 0; i < 2; i++)
+	for (T i = 0; i < 2; i++)
 	{
 	    l[i] = SYSmax(l[i], other.l[i]);
 	    h[i] = SYSmin(h[i], other.h[i]);
@@ -102,17 +109,17 @@ struct Box {
 	fprintf(stderr, "box: %d %d - %d %d\n", l[0], l[1], h[0], h[1]);
     }
 
-    int xmin() const { return l[0]; }
-    int xmax() const { return h[0]; }
+    T xmin() const { return l[0]; }
+    T xmax() const { return h[0]; }
 
-    int ymin() const { return l[1]; }
-    int ymax() const { return h[1]; }
+    T ymin() const { return l[1]; }
+    T ymax() const { return h[1]; }
 
-    int width() const { return h[0] - l[0]; }
-    int height() const { return h[1] - l[1]; }
+    T width() const { return h[0] - l[0]; }
+    T height() const { return h[1] - l[1]; }
 
-    int	l[2];
-    int	h[2];
+    T	l[2];
+    T	h[2];
 };
 
 #endif

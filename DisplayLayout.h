@@ -52,11 +52,11 @@ public:
 
     // Build the block display layout from state
     void	    update(MemoryState &state,
-			   int width, int zoom);
+			   int64 width, int zoom);
 
     // Get the resolution of the full layout
-    int		    width() const { return myWidth; }
-    int		    height() const { return myHeight; }
+    int64	    width() const { return myWidth; }
+    int64	    height() const { return myHeight; }
 
     // Fill an entire image, starting at the given row and column offset.
     // The Source type determines what data is put in the image.  Currently
@@ -66,12 +66,12 @@ public:
     template <typename T, typename Source>
     void	    fillImage(GLImage<T> &image,
 			  const Source &src,
-			  int roff, int coff) const;
+			  int64 roff, int64 coff) const;
 
     // Look up the memory address that corresponds to a given pixel
     uint64	    queryPixelAddress(
 			  MemoryState &state,
-			  int roff, int coff) const;
+			  int64 roff, int64 coff) const;
 
 private:
     struct DisplayBlock {
@@ -85,16 +85,16 @@ private:
 	uint64	myAddr;
 	uint64	mySize;
 
-	Box	myBox;
-	uint64	myDisplayAddr;
-	int	myStartCol;
+	Box<int64>	myBox;
+	uint64		myDisplayAddr;
+	int		myStartCol;
     };
 
     Visualization		myVisualization;
     std::vector<DisplayBlock>	myBlocks;
+    int64			myWidth;
+    int64			myHeight;
     int				myStartLevel;
-    int				myWidth;
-    int				myHeight;
     bool			myCompact;
 };
 
