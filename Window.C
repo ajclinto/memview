@@ -441,7 +441,7 @@ setScrollMax(QScrollBar *scroll, int64 size, bool with_margin = true)
     int64 nmax = SYSmax(size - scroll->pageStep() + margin, 0ll);
 
     scroll->setMaximum(SYSclamp32(nmax));
-    scroll->setMinimum(SYSclamp32(-margin));
+    scroll->setMinimum(-SYSclamp32(margin));
 }
 
 void
