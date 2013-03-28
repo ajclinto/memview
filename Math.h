@@ -54,7 +54,9 @@ inline T SYSclamp(T v, T a, T b)
 }
 inline int SYSclamp32(int64 val)
 {
-    return (int)SYSclamp(val, 0ll, (int64)std::numeric_limits<int>::max());
+    return (int)SYSclamp(val,
+	    (int64)std::numeric_limits<int>::min(),
+	    (int64)std::numeric_limits<int>::max());
 }
 template <typename T>
 inline T SYSlerp(T v1, T v2, T bias)
