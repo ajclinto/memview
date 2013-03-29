@@ -134,24 +134,6 @@ public:
     Box<int64>	myBox;
 };
 
-static inline uint64
-blockAlign(uint64 daddr, uint64 addr, uint64 size)
-{
-    uint64 asize = 4096;
-    while (asize < (size >> 2))
-	asize <<= 1;
-
-    addr &= (asize-1);
-
-    uint64 dalign = daddr & (asize-1);
-    if (addr >= dalign)
-	addr -= dalign;
-    else
-	addr += asize - dalign;
-
-    return daddr + addr;
-}
-
 static void
 adjustZoom(int64 &val, int zoom)
 {
@@ -185,34 +167,38 @@ DisplayLayout::update(
 
     if (myVisualization != LINEAR)
     {
-	// Initialize block display addresses
-	uint64 addr = 0;
-	uint64 psize = 0;
-
 	myStartLevel = 31 - (state.getIgnoreBits() >> 1);
 	myWidth = 0;
 	myHeight = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
-	    // Align the new block based on its size and the size of the
-	    // previous block
-	    if (myCompact)
-		it->myDisplayAddr =
-		    blockAlign(addr, it->myAddr, SYSmax(it->mySize, psize));
-	    else
-		it->myDisplayAddr = it->myAddr;
-
 	    BlockSizer  sizer;
-	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, sizer,
+	    blockTraverse(it->myAddr, it->mySize, 0, 0, sizer,
 		    myStartLevel,
 		    myVisualization == HILBERT, 0, false);
 
 	    it->myBox = sizer.myBox;
-	    myWidth = SYSmax(myWidth, (int64)sizer.myBox.xmax());
-	    myHeight = SYSmax(myHeight, (int64)sizer.myBox.ymax());
 
-	    addr = it->myDisplayAddr + it->mySize;
-	    psize = it->mySize;
+	    if (!myCompact)
+	    {
+		it->myDisplayBox = it->myBox;
+
+		myWidth = SYSmax(myWidth, it->myDisplayBox.xmax());
+		myHeight = SYSmax(myHeight, it->myDisplayBox.ymax());
+	    }
+	}
+
+	if (myCompact)
+	{
+	    // This method will initialize myDisplayBox for each block
+	    compactBoxes<0>();
+	    compactBoxes<1>();
+
+	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	    {
+		myWidth = SYSmax(myWidth, it->myDisplayBox.xmax());
+		myHeight = SYSmax(myHeight, it->myDisplayBox.ymax());
+	    }
 	}
 
 	if (zoom > 0)
@@ -229,7 +215,6 @@ DisplayLayout::update(
 		end += a;
 		end >>= zoom;
 		it->myAddr >>= zoom;
-		it->myDisplayAddr >>= zoom;
 		it->mySize = end - it->myAddr;
 
 		// Update the block size
@@ -237,6 +222,11 @@ DisplayLayout::update(
 		it->myBox.l[1] >>= zoom2;
 		adjustZoom(it->myBox.h[0], zoom2);
 		adjustZoom(it->myBox.h[1], zoom2);
+
+		it->myDisplayBox.l[0] >>= zoom2;
+		it->myDisplayBox.l[1] >>= zoom2;
+		adjustZoom(it->myDisplayBox.h[0], zoom2);
+		adjustZoom(it->myDisplayBox.h[1], zoom2);
 	    }
 
 	    adjustZoom(myWidth, zoom2);
@@ -267,12 +257,59 @@ DisplayLayout::update(
 	    int64 nr = 1 + (c + it->mySize - 1) / width;
 
 	    it->myBox.initBounds(0, r, width, r+nr);
+	    it->myDisplayBox = it->myBox;
 	    it->myStartCol = c;
 
 	    r += nr + theBlockSpacing;
 	}
 	myWidth = width;
 	myHeight = r;
+    }
+}
+
+struct Edge {
+    bool operator<(const Edge &rhs) const { return myVal < rhs.myVal; }
+
+    int64   myVal;
+    int	    myIdx;
+    bool    myEnd;
+};
+
+template <int dim>
+void
+DisplayLayout::compactBoxes()
+{
+    std::vector<Edge>	edges;
+    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+    {
+	int idx = it - myBlocks.begin();
+	edges.push_back(Edge{it->myBox.l[dim], idx, false});
+	edges.push_back(Edge{it->myBox.h[dim], idx, true});
+    }
+
+    std::sort(edges.begin(), edges.end());
+
+    int64   off = 0;
+    int64   pval = 0;
+    int	    in = 0;
+    for (auto it = edges.begin(); it != edges.end(); ++it)
+    {
+	if (!in)
+	    off += it->myVal - pval;
+
+	if (it->myEnd)
+	{
+	    in--;
+	    myBlocks[it->myIdx].myDisplayBox.h[dim] = it->myVal - off;
+	}
+	else
+	{
+	    in++;
+	    myBlocks[it->myIdx].myDisplayBox.l[dim] = it->myVal - off;
+	}
+
+	if (!in)
+	    pval = it->myVal;
     }
 }
 
@@ -381,12 +418,9 @@ static BlockLUT		theBlockLUT;
 template <typename T, typename Source>
 class PlotImage : public Traverser {
 public:
-    PlotImage(const Source &src,
-	    GLImage<T> &image, uint64 addr, uint64 daddr, int roff, int coff)
+    PlotImage(const Source &src, GLImage<T> &image, int roff, int coff)
 	: mySource(src)
 	, myImage(image)
-	, myAddr(addr)
-	, myDisplayAddr(daddr)
 	, myRowOff(roff)
 	, myColOff(coff)
 	{}
@@ -415,7 +449,7 @@ public:
 	if (level <= theLUTLevels)
 	{
 	    uint64 off;
-	    auto page = mySource.getPage(myAddr + idx - myDisplayAddr, off);
+	    auto page = mySource.getPage(idx, off);
 
 	    if (!mySource.exists(page))
 		return false;
@@ -450,8 +484,6 @@ public:
 private:
     const Source  &mySource;
     GLImage<T> &myImage;
-    uint64   myAddr;
-    uint64   myDisplayAddr;
     int	     myRowOff;
     int	     myColOff;
 };
@@ -471,7 +503,7 @@ DisplayLayout::fillImage(
 	
 	ibox.initBounds(coff, roff, coff+image.width(), roff+image.height());
 
-	if (!ibox.intersect(it->myBox))
+	if (!ibox.intersect(it->myDisplayBox))
 	    continue;
 
 	if (myVisualization == LINEAR)
@@ -479,11 +511,11 @@ DisplayLayout::fillImage(
 	    uint64	addr = it->myAddr;
 	    int64	c = it->myStartCol;
 
-	    if (ibox.ymin() > it->myBox.ymin())
+	    if (ibox.ymin() > it->myDisplayBox.ymin())
 	    {
-		addr += (ibox.ymin() - it->myBox.ymin())*it->myBox.width();
+		addr += (ibox.ymin() - it->myDisplayBox.ymin())*it->myDisplayBox.width();
 		addr -= it->myStartCol;
-		c = it->myBox.xmin();
+		c = it->myDisplayBox.xmin();
 	    }
 	    if (ibox.xmin() > c)
 	    {
@@ -511,16 +543,19 @@ DisplayLayout::fillImage(
 		    }
 		    c += nc;
 		}
-		addr += it->myBox.width() - ibox.width();
+		addr += it->myDisplayBox.width() - ibox.width();
 		c = ibox.xmin();
 	    }
 	}
 	else
 	{
+	    int rboff = it->myBox.ymin() - it->myDisplayBox.ymin();
+	    int cboff = it->myBox.xmin() - it->myDisplayBox.xmin();
 	    PlotImage<T, Source> plot(src, image,
-		    it->myAddr, it->myDisplayAddr, -roff, -coff);
+		    -(roff + rboff),
+		    -(coff + cboff));
 
-	    blockTraverse(it->myDisplayAddr, it->mySize, 0, 0, plot,
+	    blockTraverse(it->myAddr, it->mySize, 0, 0, plot,
 		    myStartLevel,
 		    myVisualization == HILBERT, 0, false);
 	}

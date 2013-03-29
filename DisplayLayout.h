@@ -74,6 +74,11 @@ public:
 			  int64 roff, int64 coff) const;
 
 private:
+    // This method handles the compact display mode in 2D
+    template <int dim>
+    void	    compactBoxes();
+
+private:
     struct DisplayBlock {
 	DisplayBlock(uint64 addr, uint64 size)
 	    : myAddr(addr)
@@ -86,7 +91,7 @@ private:
 	uint64	mySize;
 
 	Box<int64>	myBox;
-	uint64		myDisplayAddr;
+	Box<int64>	myDisplayBox;
 	int		myStartCol;
     };
 
