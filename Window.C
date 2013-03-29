@@ -933,7 +933,7 @@ MemViewWidget::changeZoom(int zoom)
 	    {
 		magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout,
 			width(), pwidth, myImage.width());
-		magScroll(myVScrollBar, zpos.y(), myDisplay.width(), zoomout,
+		magScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout,
 			height(), pheight, myImage.height());
 	    }
 	    else
