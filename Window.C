@@ -111,6 +111,7 @@ Window::Window(int argc, char *argv[])
 	"&64-bit Integer",
 	"&32-bit Float",
 	"&64-bit Float",
+	"&Ascii String",
     };
 
     myDataTypeMenu = menuBar()->addMenu(tr("&Data Type"));
@@ -651,15 +652,35 @@ MemViewWidget::paintText()
 	    QString str;
 	    if (min_align_bits == 2)
 	    {
-		if (qaddr & min_align)
-		    val >>= 32;
-		else
-		    val &= 0xFFFFFFFF;
+		val &= 0xFFFFFFFF;
 
-		if (isFloatType(datatype))
-		    str.sprintf("%f", intToFloat<float>((uint32)val));
+		if (datatype == MV_DataChar8)
+		{
+		    char	cstr[4];
+
+		    bool valid = true;
+		    for (int i = 0; i < 4; i++)
+		    {
+			cstr[i] = (char)((val >> (i*8)) & 0xFF);
+			valid &= isascii(cstr[i]);
+		    }
+
+		    if (valid)
+			str.sprintf("\"%c%c%c%c\"",
+				cstr[0],
+				cstr[1],
+				cstr[2],
+				cstr[3]);
+		    else
+			str.sprintf("%x", (uint32)val);
+		}
 		else
-		    str.sprintf("%x", (uint32)val);
+		{
+		    if (isFloatType(datatype))
+			str.sprintf("%f", intToFloat<float>((uint32)val));
+		    else
+			str.sprintf("%x", (uint32)val);
+		}
 	    }
 	    else
 	    {

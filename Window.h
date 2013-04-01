@@ -74,7 +74,7 @@ private:
     QAction		*myDisplay[theDisplayCount];
     QAction		*myDisplayStack;
 
-    static const int	 theDataTypeCount = 5;
+    static const int	 theDataTypeCount = 6;
     QMenu		*myDataTypeMenu;
     QActionGroup	*myDataTypeGroup;
     QAction		*myDataType[theDataTypeCount];
