@@ -84,10 +84,8 @@ MemoryState::incrementTime()
 		    page.state(i).setTime(theStale);
 	    }
 	}
-	myTime++;
     }
-
-    if (myTime == theFullLife)
+    else if (myTime == theFullLife)
     {
 	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
 	{

@@ -76,7 +76,7 @@ public:
 private:
     // This method handles the compact display mode in 2D
     template <int dim>
-    void	    compactBoxes();
+    void	    compactBoxes(int64 &maxval);
 
 private:
     struct DisplayBlock {

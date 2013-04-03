@@ -191,14 +191,8 @@ DisplayLayout::update(
 	if (myCompact)
 	{
 	    // This method will initialize myDisplayBox for each block
-	    compactBoxes<0>();
-	    compactBoxes<1>();
-
-	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
-	    {
-		myWidth = SYSmax(myWidth, it->myDisplayBox.xmax());
-		myHeight = SYSmax(myHeight, it->myDisplayBox.ymax());
-	    }
+	    compactBoxes<0>(myWidth);
+	    compactBoxes<1>(myHeight);
 	}
 
 	if (zoom > 0)
@@ -277,7 +271,7 @@ struct Edge {
 
 template <int dim>
 void
-DisplayLayout::compactBoxes()
+DisplayLayout::compactBoxes(int64 &maxval)
 {
     std::vector<Edge>	edges;
     for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
@@ -297,20 +291,22 @@ DisplayLayout::compactBoxes()
 	if (!in)
 	    off += it->myVal - pval;
 
+	pval = it->myVal;
+	it->myVal -= off;
+
 	if (it->myEnd)
 	{
 	    in--;
-	    myBlocks[it->myIdx].myDisplayBox.h[dim] = it->myVal - off;
+	    myBlocks[it->myIdx].myDisplayBox.h[dim] = it->myVal;
 	}
 	else
 	{
 	    in++;
-	    myBlocks[it->myIdx].myDisplayBox.l[dim] = it->myVal - off;
+	    myBlocks[it->myIdx].myDisplayBox.l[dim] = it->myVal;
 	}
-
-	if (!in)
-	    pval = it->myVal;
     }
+
+    maxval = edges.size() ? edges.back().myVal : 0;
 }
 
 static void
