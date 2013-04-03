@@ -495,8 +495,13 @@ MemViewWidget::paintGL()
 
     myProgram->setUniformValue("theTime", myState->getTime());
 
-    myProgram->setUniformValue("theImageResX", width());
-    myProgram->setUniformValue("theImageResY", height());
+    myProgram->setUniformValue("theWindowResX", width());
+    myProgram->setUniformValue("theWindowResY", height());
+
+    myProgram->setUniformValue("theDisplayOffX", (int)myHScrollBar->value());
+    myProgram->setUniformValue("theDisplayOffY", (int)myVScrollBar->value());
+    myProgram->setUniformValue("theDisplayResX", (int)myDisplay.width());
+    myProgram->setUniformValue("theDisplayResY", (int)myDisplay.height());
 
     setScrollMax(myVScrollBar, myDisplay.height());
     setScrollMax(myHScrollBar, myDisplay.width(),

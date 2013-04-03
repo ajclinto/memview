@@ -14,12 +14,28 @@ uniform int theHalfLife;
 uniform int theDisplayMode;
 uniform int theDisplayStack;
 
-uniform int theImageResX;
-uniform int theImageResY;
+uniform int theWindowResX;
+uniform int theWindowResY;
+
+// The image bounding box, relative to the window box
+uniform int theDisplayOffX;
+uniform int theDisplayOffY;
+uniform int theDisplayResX;
+uniform int theDisplayResY;
 
 float rand(vec2 co)
 {
     return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+}
+
+vec4 dither(vec4 clr)
+{
+    // Poor man's dithering
+    vec3 rval = vec3(rand(texc)-0.5,
+		     rand(texc+vec2(0.1, 0.1))-0.5,
+		     rand(texc+vec2(0.2, 0.2))-0.5);
+    rval *= 1.0/255.0;
+    return clr + vec4(rval.r, rval.g, rval.b, 0);
 }
 
 float luminance(vec3 val)
@@ -55,16 +71,16 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 // small to avoid over-scaling.
 vec4 round_block(vec4 clr, ivec2 texsize)
 {
-    ivec2	imgsize = ivec2(theImageResX, theImageResY);
-    if (imgsize.x > texsize.x)
+    ivec2	winsize = ivec2(theWindowResX, theWindowResY);
+    if (winsize.x > texsize.x)
     {
 	float bsize = sqrt(
-		(imgsize.x / float(texsize.x)) *
-		(imgsize.y / float(texsize.y)));
+		(winsize.x / float(texsize.x)) *
+		(winsize.y / float(texsize.y)));
 
 	ivec2 boff;
-	boff = ivec2(vec2(texsize*imgsize)*texc);
-	boff %= imgsize;
+	boff = ivec2(vec2(texsize*winsize)*texc);
+	boff %= winsize;
 	boff /= texsize;
 
 	// Determine the portion of pixels on the edge
@@ -101,9 +117,33 @@ vec4 round_block(vec4 clr, ivec2 texsize)
 
     return clr;
 }
+
 void main(void)
 {
+    // Render a border for pixels that are outside the display box
     ivec2   texsize = textureSize(theState);
+    ivec2   winsize = ivec2(theWindowResX, theWindowResY);
+    ivec2   dispoff = ivec2(theDisplayOffX, theDisplayOffY);
+    ivec2   dispsize = ivec2(theDisplayResX, theDisplayResY);
+    ivec2   winc = ivec2(vec2(texsize)*vec2(texc.x, 1-texc.y)) + dispoff;
+
+    if (winc.x < -1 || winc.x > dispsize.x ||
+	winc.y < -1 || winc.y > dispsize.y)
+    {
+	float xdist = float(max(max(-1 - winc.x, winc.x - dispsize.x), 0));
+	float ydist = float(max(max(-1 - winc.y, winc.y - dispsize.y), 0));
+	float val;
+	if (xdist <= 1 && ydist <= 1)
+	    val = 0.15;
+	else
+	    val = 0.1*exp(-0.01*sqrt(xdist*xdist + ydist*ydist));
+
+	frag_color = vec4(val, val, val, 1);
+	frag_color = dither(frag_color);
+	return;
+    }
+
+    // Check for zero texels
     uint    val = texture(theState, texsize*texc).r;
 
     if (val == 0u)
@@ -172,11 +212,5 @@ void main(void)
     }
 
     frag_color = round_block(frag_color, texsize);
-
-    // Poor man's dithering
-    vec3 rval = vec3(rand(texc)-0.5,
-		     rand(texc+vec2(0.1, 0.1))-0.5,
-		     rand(texc+vec2(0.2, 0.2))-0.5);
-    rval *= 1.0/255.0;
-    frag_color += vec4(rval.r, rval.g, rval.b, 0);
+    frag_color = dither(frag_color);
 }
