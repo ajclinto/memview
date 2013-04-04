@@ -68,7 +68,10 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
     int	rs[4], cs[4];
     int	map[4];
 
-    if (hilbert)
+    // Switch over to recursive block for 4x4 and smaller tiles even in
+    // hilbert mode.  The hilbert pattern is a little difficult to follow
+    // for small blocks.
+    if (hilbert && level > 2)
     {
 	for (int i = 0; i < 4; i++)
 	    map[i] = (rotate + i) & 3;
