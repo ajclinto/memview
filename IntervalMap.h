@@ -112,12 +112,22 @@ public:
     // otherwise 0.
     T    find(uint64 addr) const
     {
+	uint64 start, end;
+	return find(addr, start, end);
+    }
+    T    find(uint64 addr, uint64 &start, uint64 &end) const
+    {
 	QMutexLocker lock(&myLock);
 	auto it = myMap.upper_bound(addr);
 
 	if (it != myMap.end() && !dist2(it, addr))
+	{
+	    start = it->second.start;
+	    end = it->first;
 	    return it->second.obj;
+	}
 
+	start = end = 0;
 	return T();
     }
 
@@ -189,6 +199,7 @@ typedef IntervalMap<std::string> StackTraceMap;
 
 struct MMapInfo {
     std::string	myStr;
+    int	        myIdx;
     bool	myMapped;
 };
 

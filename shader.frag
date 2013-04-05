@@ -179,6 +179,12 @@ void main(void)
 	vec3 clr = lum1(vec3(texture(theColors, (float(dtype)+0.5)/size)));
 	frag_color = vec4(ramp_color(clr, clr, interp), 1);
     }
+    else if (theDisplayMode == 3)
+    {
+	int size = textureSize(theColors, 0);
+
+	frag_color = 0.5*texture(theColors, (float(val)+0.5)/size);
+    }
     else
     {
 	vec3 hi[4];
@@ -196,7 +202,7 @@ void main(void)
 	frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
     }
 
-    if (freed)
+    if (theDisplayMode != 3 && freed)
 	frag_color *= 0.5;
 
     if (theDisplayStack > 0)

@@ -29,6 +29,7 @@
 #include "valgrind/memview/mv_ipc.h"
 #include "Math.h"
 #include "IntervalMap.h"
+#include <unordered_map>
 #include <memory>
 #include <sys/types.h>
 #include <signal.h>
@@ -76,14 +77,18 @@ private:
     bool	loadFromTest();
 
     bool	loadBlock(const TraceBlockHandle &block);
+    void	loadMMap(const MV_Header &header, const char *buf);
 
     void	timerEvent(QTimerEvent *event);
 
 private:
+    typedef std::unordered_map<std::string, int> MMapNameMap;
+
     MemoryState		*myState;
     MemoryStateHandle	 myZoomState;
     StackTraceMap	*myStackTrace;
     MMapMap		*myMMapMap;
+    MMapNameMap		 myMMapNames;
     uint64		 myTotalEvents;
 
     QMutex		 myPendingLock;

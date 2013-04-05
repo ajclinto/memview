@@ -68,7 +68,7 @@ private:
     QActionGroup	*myLayoutGroup;
     QAction		*myLayout[theLayoutCount];
 
-    static const int	 theDisplayCount = 3;
+    static const int	 theDisplayCount = 4;
     QMenu		*myDisplayMenu;
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];

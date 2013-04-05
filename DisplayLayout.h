@@ -63,6 +63,7 @@ public:
     // there are explicit instantiations for:
     //	- uint32, StateSource
     //	- uint64, AddressSource
+    //	- uint32, MMapSource
     template <typename T, typename Source>
     void	    fillImage(GLImage<T> &image,
 			  const Source &src,
@@ -152,6 +153,61 @@ public:
 
 private:
     MemoryState	&myState;
+};
+
+// Fill indices representing which MMap segment each mapped address
+// corresponds to
+class MMapSource {
+public:
+    MMapSource(MMapMap &mmap, int ignorebits)
+	: myMMap(mmap)
+        , myIgnoreBits(ignorebits)
+	{}
+
+    struct Page {
+	Page() : mySize(0) {}
+	Page(uint64 size, uint32 idx)
+	    : mySize(size)
+	    , myIdx(idx) {}
+
+	uint64 size() const { return mySize; }
+
+	uint64	mySize;
+	uint32	myIdx;
+    };
+
+    Page getPage(uint64 addr, uint64 &off) const
+    {
+	addr <<= myIgnoreBits;
+
+	uint64	    start, end;
+	MMapInfo    info = myMMap.find(addr, start, end);
+
+	if (end > start && info.myMapped)
+	{
+	    off = addr - start;
+	    return Page(end-start, info.myIdx);
+	}
+
+	off = 0;
+	return Page();
+    }
+
+    inline bool exists(const Page &page) const { return page.size(); }
+
+    inline void setPixel(GLImage<uint32> &image, int c, int r,
+	    const Page &page, uint64) const
+    { image.setPixel(c, r, page.myIdx); }
+
+    inline void setScanline(uint32 *scan, Page &page, uint64, int n) const
+    {
+	for (int i = 0; i < n; i++)
+	    scan[i] = page.myIdx;
+    }
+
+private:
+    MMapMap &myMMap;
+    int	     myIgnoreBits;
 };
 
 #endif

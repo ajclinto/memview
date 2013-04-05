@@ -153,6 +153,23 @@ public:
 			break;
 		    }
 		}
+
+    // Set all display flags in the given range
+    void	setRangeExists(uint64 start, uint64 end)
+		{
+		    start &= theAllMask;
+		    start >>= myIgnoreBits;
+		    end &= theAllMask;
+		    end >>= myIgnoreBits;
+
+		    while (start <= end)
+		    {
+			myExists[start >> theDisplayBits] = true;
+			myTopExists[start >> theBottomBits] = true;
+			start += 1ull << theDisplayBits;
+		    }
+		}
+
     void	incrementTime();
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }

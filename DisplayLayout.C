@@ -567,6 +567,7 @@ DisplayLayout::fillImage(
 
 INST_FUNC(uint32, StateSource)
 INST_FUNC(uint64, AddressSource)
+INST_FUNC(uint32, MMapSource)
 
 uint64
 DisplayLayout::queryPixelAddress(

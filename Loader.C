@@ -413,22 +413,6 @@ decodeAddr(uint64 addr, uint64 &size, uint64 &type)
     type = addr >> MV_DataShift;
 }
 
-static inline void
-appendBuf(std::string &str, const char *buf)
-{
-    if (buf && buf[0])
-    {
-	str += "(";
-	str += buf;
-	str += ")";
-    }
-}
-
-class Func {
-public:
-    void operator()(MMapInfo &val) const { val.myMapped = false; }
-};
-
 bool
 Loader::loadFromPipe()
 {
@@ -470,55 +454,89 @@ Loader::loadFromPipe()
 	char	    buf[MV_STR_BUFSIZE];
 	if (read(myPipeFD, buf, header.myMMap.mySize))
 	{
-	    if (header.myMMap.myType != MV_UNMAP)
-	    {
-		std::string	info;
-		switch (header.myMMap.myType)
-		{
-		    case MV_CODE:
-			info = "Code";
-			appendBuf(info, buf);
-			break;
-		    case MV_DATA:
-			info = "Data";
-			appendBuf(info, buf);
-			break;
-		    case MV_HEAP: info = "Heap"; break;
-		    case MV_STACK:
-			info = "Thread ";
-#if HAS_LAMBDA
-			info += std::to_string(header.myMMap.myThread);
-#endif
-			info += " stack";
-			break;
-		    case MV_SHM:
-			info = "Shared";
-			appendBuf(info, buf);
-			break;
-		    case MV_UNMAP: break;
-		}
-
-		myMMapMap->insert(
-			header.myMMap.myStart,
-			header.myMMap.myEnd, MMapInfo{info,true});
-	    }
-	    else
-	    {
-		myMMapMap->apply(
-			header.myMMap.myStart,
-			header.myMMap.myEnd,
-#if HAS_LAMBDA
-			[] (MMapInfo &val) { val.myMapped = false; }
-#else
-			Func()
-#endif
-			);
-	    }
+	    loadMMap(header, buf);
 	    return true;
 	}
     }
 
     return false;
+}
+
+static inline void
+appendBuf(std::string &str, const char *buf)
+{
+    if (buf && buf[0])
+    {
+	str += "(";
+	str += buf;
+	str += ")";
+    }
+}
+
+class Func {
+public:
+    void operator()(MMapInfo &val) const { val.myMapped = false; }
+};
+
+void
+Loader::loadMMap(const MV_Header &header, const char *buf)
+{
+    if (header.myMMap.myType != MV_UNMAP)
+    {
+	std::string	info;
+	switch (header.myMMap.myType)
+	{
+	    case MV_CODE:
+		info = "Code";
+		appendBuf(info, buf);
+		break;
+	    case MV_DATA:
+		info = "Data";
+		appendBuf(info, buf);
+		break;
+	    case MV_HEAP: info = "Heap"; break;
+	    case MV_STACK:
+		info = "Thread ";
+#if HAS_LAMBDA
+		info += std::to_string(header.myMMap.myThread);
+#endif
+		info += " stack";
+		break;
+	    case MV_SHM:
+		info = "Shared";
+		appendBuf(info, buf);
+		break;
+	    case MV_UNMAP: break;
+	}
+
+	// Create an integer index for each unique mmap string
+	int &idx = myMMapNames[info];
+	if (!idx)
+	    idx = (int)myMMapNames.size();
+
+	myMMapMap->insert(
+		header.myMMap.myStart,
+		header.myMMap.myEnd, MMapInfo{info,idx,true});
+
+	// Mark any blocks covered by the map as active in the
+	// memory state
+	myState->setRangeExists(header.myMMap.myStart, header.myMMap.myEnd);
+	if (myZoomState)
+	    myZoomState->setRangeExists(
+		    header.myMMap.myStart, header.myMMap.myEnd);
+    }
+    else
+    {
+	myMMapMap->apply(
+		header.myMMap.myStart,
+		header.myMMap.myEnd,
+#if HAS_LAMBDA
+		[] (MMapInfo &val) { val.myMapped = false; }
+#else
+		Func()
+#endif
+		);
+    }
 }
 
 bool

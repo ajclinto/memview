@@ -86,6 +86,7 @@ Window::Window(int argc, char *argv[])
 	"&Read/Write",
 	"&Thread Id",
 	"&Data Type",
+	"&Mapped Regions",
     };
 
     myDisplayMenu = menuBar()->addMenu(tr("&Display"));
@@ -461,9 +462,15 @@ MemViewWidget::paintGL()
 #endif
 
     myDisplay.update(*myState, myImage.width(), SYSmax(myZoom, 0));
-    myDisplay.fillImage(myImage, StateSource(*myZoomState),
-	    myHScrollBar->value(),
-	    myVScrollBar->value());
+    if (myDisplayMode != 3)
+	myDisplay.fillImage(myImage, StateSource(*myZoomState),
+		myHScrollBar->value(),
+		myVScrollBar->value());
+    else
+	myDisplay.fillImage(myImage, MMapSource(*myMMapMap,
+		    myZoomState->getIgnoreBits()),
+		myHScrollBar->value(),
+		myVScrollBar->value());
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
