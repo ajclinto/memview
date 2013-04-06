@@ -39,8 +39,6 @@ DisplayLayout::~DisplayLayout()
 {
 }
 
-static const int64	theBlockSpacing = 1;
-
 // A callback for recursive block traversal
 class Traverser {
 public:
@@ -234,34 +232,47 @@ DisplayLayout::update(
     }
     else
     {
-	int64 r = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
-	    if (zoom > 0)
+	    int64 r = it->myAddr / width;
+	    int64 c = it->myAddr % width;
+	    int64 nr = 1 + (c + it->mySize - 1) / width;
+
+	    it->myBox.initBounds(0, r, width, r+nr);
+	    it->myDisplayBox = it->myBox;
+	}
+
+	myWidth = width;
+	myHeight = myBlocks.size() ? myBlocks.back().myBox.h[1] : 0;
+
+	// Compact only in the vertical direction for linear
+	if (myCompact)
+	    compactBoxes<1>(myHeight);
+
+	if (zoom > 0)
+	{
+	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	    {
+		// Update the address range
 		int a = (1 << zoom) - 1;
 		uint64 end = it->myAddr + it->mySize;
 		end += a;
 		end >>= zoom;
 		it->myAddr >>= zoom;
 		it->mySize = end - it->myAddr;
+
+		// Update the block size
+		it->myBox.l[1] >>= zoom;
+		adjustZoom(it->myBox.h[1], zoom);
+
+		it->myDisplayBox.l[1] >>= zoom;
+		adjustZoom(it->myDisplayBox.h[1], zoom);
 	    }
 
-	    if (!myCompact)
-		r = it->myAddr / width;
-
-	    int64 c = it->myAddr % width;
-	    int64 nr = 1 + (c + it->mySize - 1) / width;
-
-	    it->myBox.initBounds(0, r, width, r+nr);
-	    it->myDisplayBox = it->myBox;
-	    it->myStartCol = c;
-
-	    r += nr + theBlockSpacing;
+	    adjustZoom(myHeight, zoom);
 	}
-	myWidth = width;
-	myHeight = r;
     }
+
 }
 
 struct Edge {
@@ -508,12 +519,14 @@ DisplayLayout::fillImage(
 	if (myVisualization == LINEAR)
 	{
 	    uint64	addr = it->myAddr;
-	    int64	c = it->myStartCol;
+	    int64	startcol = addr % it->myDisplayBox.width();
+	    int64	c = startcol;
 
 	    if (ibox.ymin() > it->myDisplayBox.ymin())
 	    {
-		addr += (ibox.ymin() - it->myDisplayBox.ymin())*it->myDisplayBox.width();
-		addr -= it->myStartCol;
+		addr += (ibox.ymin() - it->myDisplayBox.ymin()) *
+			    it->myDisplayBox.width();
+		addr -= startcol;
 		c = it->myDisplayBox.xmin();
 	    }
 	    if (ibox.xmin() > c)

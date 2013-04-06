@@ -93,7 +93,6 @@ private:
 
 	Box<int64>	myBox;
 	Box<int64>	myDisplayBox;
-	int		myStartCol;
     };
 
     Visualization		myVisualization;
