@@ -535,13 +535,6 @@ Loader::loadMMap(const MV_Header &header, const char *buf)
 	myMMapMap->insert(
 		header.myMMap.myStart,
 		header.myMMap.myEnd, MMapInfo{info,idx,true});
-
-	// Mark any blocks covered by the map as active in the
-	// memory state
-	myState->setRangeExists(header.myMMap.myStart, header.myMMap.myEnd);
-	if (myZoomState)
-	    myZoomState->setRangeExists(
-		    header.myMMap.myStart, header.myMMap.myEnd);
     }
     else
     {
