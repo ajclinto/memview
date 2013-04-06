@@ -439,7 +439,13 @@ MemViewWidget::resizeImage(int zoom)
 static void
 setScrollMax(QScrollBar *scroll, int64 size, bool with_margin = true)
 {
-    int64 margin = with_margin ? (scroll->pageStep() >> 1) : 0;
+    int64 margin = 0;
+
+    // Allow up to half the state to be hidden outside the window
+    if (with_margin)
+	margin = scroll->pageStep() -
+	    (SYSmin(size, (int64)scroll->pageStep()) >> 1);
+
     int64 nmax = SYSmax(size - scroll->pageStep() + margin, 0ll);
 
     scroll->setMaximum(SYSclamp32(nmax));
