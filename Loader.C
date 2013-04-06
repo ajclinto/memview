@@ -339,6 +339,13 @@ Loader::run()
 #endif
 }
 
+static inline void
+decodeAddr(uint64 addr, uint64 &size, uint64 &type)
+{
+    size = (addr & MV_SizeMask) >> MV_SizeShift,
+    type = addr >> MV_DataShift;
+}
+
 bool
 Loader::loadFromLackey(int max_read)
 {
@@ -373,10 +380,10 @@ Loader::loadFromLackey(int max_read)
 
 	switch (type_str[0])
 	{
-	    case 'L': type = MV_TypeRead; break;
+	    case 'L': type = MV_ShiftedRead; break;
 	    case 'S':
-	    case 'M': type = MV_TypeWrite; break;
-	    case 'I': type = MV_TypeInstr; break;
+	    case 'M': type = MV_ShiftedWrite; break;
+	    case 'I': type = MV_ShiftedInstr; break;
 	    default: continue;
 	}
 
@@ -384,6 +391,7 @@ Loader::loadFromLackey(int max_read)
 	if (!addr_str)
 	    continue;
 	addr = strtoull(addr_str, 0, 16); // Hex value
+	addr &= MV_AddrMask;
 
 	size_str = strtok_r(0, delim, &saveptr);
 	if (!size_str)
@@ -392,6 +400,23 @@ Loader::loadFromLackey(int max_read)
 
 	if (strtok_r(0, delim, &saveptr))
 	    continue;
+
+	// Set the data type
+	if (size < 4)
+	    type |= (uint64)MV_DataChar8 << MV_DataShift;
+	else if (size > 4)
+	    type |= (uint64)MV_DataInt64 << MV_DataShift;
+	else
+	    type |= (uint64)MV_DataInt32 << MV_DataShift;
+
+	size <<= MV_SizeShift;
+
+	// Set the thread id to thread 1
+	type |= 1ull << MV_ThreadShift;
+
+	addr |= size | type;
+	decodeAddr(addr, size, type);
+	addr &= MV_AddrMask;
 
 	myState->updateAddress(addr, size, type);
 	if (myZoomState)
@@ -404,13 +429,6 @@ Loader::loadFromLackey(int max_read)
 	free(buf);
 
     return max_read;
-}
-
-static inline void
-decodeAddr(uint64 addr, uint64 &size, uint64 &type)
-{
-    size = (addr & MV_SizeMask) >> MV_SizeShift,
-    type = addr >> MV_DataShift;
 }
 
 bool
