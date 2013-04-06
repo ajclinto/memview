@@ -117,10 +117,18 @@ public:
     }
     T    find(uint64 addr, uint64 &start, uint64 &end) const
     {
+	T rval = findAfter(addr, start, end);
+	return start > addr ? T() : rval;
+    }
+
+    // Returns the first interval that starts after addr or the interval
+    // that contains addr.
+    T    findAfter(uint64 addr, uint64 &start, uint64 &end) const
+    {
 	QMutexLocker lock(&myLock);
 	auto it = myMap.upper_bound(addr);
 
-	if (it != myMap.end() && !dist2(it, addr))
+	if (it != myMap.end())
 	{
 	    start = it->second.start;
 	    end = it->first;

@@ -447,18 +447,18 @@ public:
 
 	if (level <= theLUTLevels)
 	{
+	    uint64 size = (uint64)bsize*(uint64)bsize;
 	    uint64 off;
-	    auto page = mySource.getPage(idx, off);
 
-	    if (!mySource.exists(page))
-		return false;
-
-	    int	size = bsize*bsize;
+	    auto page = mySource.getPage(idx, size, off);
 
 	    // This can happen when zoomed out, since the addresses no
 	    // longer align perfectly with the display blocks.
 	    if (off + size > page.size())
 		return true;
+
+	    if (!mySource.exists(page))
+		return false;
 
 	    const int *lut = hilbert ?
 		theBlockLUT.getIHilbert(level, rotate, flip) :
@@ -527,19 +527,19 @@ DisplayLayout::fillImage(
 		while (c < ibox.xmax() && addr < it->end())
 		{
 		    uint64  off;
-		    auto    page = src.getPage(addr, off);
-		    int64   nc = ibox.xmax() - c;
+		    uint64  nc = SYSmin((uint64)ibox.xmax() - c,
+					it->end() - addr);
+		    auto    page = src.getPage(addr, nc, off);
 		   
-		    nc = SYSmin((uint64)nc, page.size() - off);
-		    nc = SYSmin((uint64)nc, it->end() - addr);
-
-		    addr += nc;
+		    nc = SYSmin(nc, page.size() - off);
 		    if (src.exists(page))
 		    {
 			src.setScanline(
 				image.getScanline(r-roff) + c-coff,
 				page, off, nc);
 		    }
+
+		    addr += nc;
 		    c += nc;
 		}
 		addr += it->myDisplayBox.width() - ibox.width();

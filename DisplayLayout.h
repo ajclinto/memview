@@ -109,7 +109,7 @@ class StateSource {
 public:
     StateSource(MemoryState &state) : myState(state) {}
 
-    MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
+    MemoryState::DisplayPage getPage(uint64 addr, uint64, uint64 &off) const
     { return myState.getPage(addr, off); }
 
     inline bool exists(const MemoryState::DisplayPage &page) const
@@ -134,7 +134,7 @@ class AddressSource {
 public:
     AddressSource(MemoryState &state) : myState(state) {}
 
-    MemoryState::DisplayPage getPage(uint64 addr, uint64 &off) const
+    MemoryState::DisplayPage getPage(uint64 addr, uint64, uint64 &off) const
     { return myState.getPage(addr, off); }
 
     inline bool exists(const MemoryState::DisplayPage &) const
@@ -176,24 +176,27 @@ public:
 	uint32	myIdx;
     };
 
-    Page getPage(uint64 addr, uint64 &off) const
+    Page getPage(uint64 addr, uint64 size, uint64 &off) const
     {
-	addr <<= myIgnoreBits;
-
 	uint64	    start, end;
-	MMapInfo    info = myMMap.find(addr, start, end);
+	MMapInfo    info = myMMap.findAfter(addr << myIgnoreBits, start, end);
 
-	if (end > start && info.myMapped)
-	{
-	    off = addr - start;
-	    return Page(end-start, info.myIdx);
-	}
+	start >>= myIgnoreBits;
+	end += (1 << myIgnoreBits) - 1;
+	end >>= myIgnoreBits;
 
+	// addr does not overlap the range - return an empty page
 	off = 0;
-	return Page();
+	if (end <= addr)
+	    return Page(size, 0);
+	if (start > addr)
+	    return Page(start-addr, 0);
+
+	off = addr - start;
+	return Page(end-start, info.myIdx);
     }
 
-    inline bool exists(const Page &page) const { return page.size(); }
+    inline bool exists(const Page &page) const { return page.myIdx; }
 
     inline void setPixel(GLImage<uint32> &image, int c, int r,
 	    const Page &page, uint64) const
