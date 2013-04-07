@@ -467,7 +467,7 @@ MemViewWidget::paintGL()
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, myImage.width(), SYSmax(myZoom, 0));
+    myDisplay.update(*myState, width(), myImage.width(), myZoom);
     if (myDisplayMode != 3)
 	myDisplay.fillImage(myImage, StateSource(*myZoomState),
 		myHScrollBar->value(),
@@ -923,7 +923,7 @@ magScrollLinear(QScrollBar *scroll, int64 x,
 {
     x = (((x*pheight)/winheight + scroll->value())*pwidth)/nwidth -
 	(x*nheight)/winheight;
-    size = (size * pheight) / nheight;
+    size = (size * pwidth) / nwidth;
 
     setScrollMax(scroll, size);
     scroll->setValue(SYSclamp32(x));

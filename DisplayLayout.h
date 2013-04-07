@@ -52,7 +52,9 @@ public:
 
     // Build the block display layout from state
     void	    update(MemoryState &state,
-			   int64 width, int zoom);
+			   int64 winwidth,
+			   int64 width,
+			   int zoom);
 
     // Get the resolution of the full layout
     int64	    width() const { return myWidth; }
@@ -202,10 +204,7 @@ public:
     { image.setPixel(c, r, page.myIdx); }
 
     inline void setScanline(uint32 *scan, Page &page, uint64, int n) const
-    {
-	for (int i = 0; i < n; i++)
-	    scan[i] = page.myIdx;
-    }
+    { std::fill_n(scan, n, page.myIdx); }
 
 private:
     MMapMap &myMMap;

@@ -29,6 +29,10 @@
 #include "GLImage.h"
 #include <assert.h>
 
+// The margin of pixels to leave empty between display blocks in compact
+// mode
+static const int	theCompactSpacing = 1;
+
 DisplayLayout::DisplayLayout()
     : myVisualization(HILBERT)
     , myCompact(true)
@@ -135,17 +139,30 @@ public:
     Box<int64>	myBox;
 };
 
-static void
-adjustZoom(int64 &val, int zoom)
+static inline void
+linearBox(Box<int64> &box, uint64 addr, uint64 size, uint64 width)
 {
-    int a = (1 << zoom) - 1;
+    int64 r = addr / width;
+    int64 c = addr % width;
+    int64 nr = 1 + (c + size - 1) / width;
+
+    box.initBounds(0, r, width, r+nr);
+}
+
+template <typename T>
+static inline void
+adjustZoom(T &val, int zoom)
+{
+    T a = (1 << zoom) - 1;
     val = (val + a) >> zoom;
 }
 
 void
 DisplayLayout::update(
 	MemoryState &state,
-	int64 width, int zoom)
+	int64 winwidth,
+	int64 width,
+	int zoom)
 {
     //StopWatch	timer;
     myBlocks.clear();
@@ -205,10 +222,8 @@ DisplayLayout::update(
 	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	    {
 		// Update the address range
-		int a = (1 << zoom) - 1;
 		uint64 end = it->myAddr + it->mySize;
-		end += a;
-		end >>= zoom;
+		adjustZoom(end, zoom);
 		it->myAddr >>= zoom;
 		it->mySize = end - it->myAddr;
 
@@ -232,18 +247,12 @@ DisplayLayout::update(
     }
     else
     {
+	// Layout based on the window width
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
-	    int64 r = it->myAddr / width;
-	    int64 c = it->myAddr % width;
-	    int64 nr = 1 + (c + it->mySize - 1) / width;
-
-	    it->myBox.initBounds(0, r, width, r+nr);
+	    linearBox(it->myBox, it->myAddr, it->mySize, winwidth);
 	    it->myDisplayBox = it->myBox;
 	}
-
-	myWidth = width;
-	myHeight = myBlocks.size() ? myBlocks.back().myBox.h[1] : 0;
 
 	// Compact only in the vertical direction for linear
 	if (myCompact)
@@ -254,10 +263,8 @@ DisplayLayout::update(
 	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	    {
 		// Update the address range
-		int a = (1 << zoom) - 1;
 		uint64 end = it->myAddr + it->mySize;
-		end += a;
-		end >>= zoom;
+		adjustZoom(end, zoom);
 		it->myAddr >>= zoom;
 		it->mySize = end - it->myAddr;
 
@@ -268,9 +275,19 @@ DisplayLayout::update(
 		it->myDisplayBox.l[1] >>= zoom;
 		adjustZoom(it->myDisplayBox.h[1], zoom);
 	    }
-
-	    adjustZoom(myHeight, zoom);
 	}
+	else if (zoom < 0)
+	{
+	    for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
+	    {
+		uint64 daddr = it->myDisplayBox.l[1] * winwidth +
+		    (it->myAddr % winwidth);
+		linearBox(it->myDisplayBox, daddr, it->mySize, width);
+	    }
+	}
+
+	myWidth = width;
+	myHeight = myBlocks.size() ? myBlocks.back().myDisplayBox.h[1] : 0;
     }
 
 }
@@ -298,12 +315,12 @@ DisplayLayout::compactBoxes(int64 &maxval)
     std::sort(edges.begin(), edges.end());
 
     int64   off = 0;
-    int64   pval = 0;
+    int64   pval = -theCompactSpacing;
     int	    in = 0;
     for (auto it = edges.begin(); it != edges.end(); ++it)
     {
 	if (!in)
-	    off += it->myVal - pval;
+	    off += it->myVal - pval - theCompactSpacing;
 
 	pval = it->myVal;
 	it->myVal -= off;
