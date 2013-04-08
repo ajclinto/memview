@@ -509,12 +509,13 @@ public:
 
 	    for (int r = 0, rc = 0; r < bsize; r++)
 	    {
-		for (int c = 0; c < bsize; c++, rc++)
-		    mySource.setPixel(myImage,
-			    c+coff, r+roff, page, off+lut[rc]);
+		mySource.gatherScanline(
+			myImage.getScanline(r+roff) + coff,
+			page, off, lut+rc, bsize);
+
 		// The LUT might have been created for a different size
 		// block
-		rc += theLUTWidth - bsize;
+		rc += theLUTWidth;
 	    }
 
 	    return false;

@@ -117,14 +117,18 @@ public:
     inline bool exists(const MemoryState::DisplayPage &page) const
     { return page.exists(); }
 
-    inline void setPixel(GLImage<uint32> &image, int c, int r,
-	    const MemoryState::DisplayPage &page, uint64 off) const
-    { image.setPixel(c, r, page.state(off).uval); }
-
     inline void setScanline(uint32 *scan,
 	    MemoryState::DisplayPage &page, uint64 off, int n) const
     {
 	memcpy(scan, page.stateArray() + off, n*sizeof(uint32));
+    }
+    inline void gatherScanline(uint32 *scan,
+	    MemoryState::DisplayPage &page, uint64 off,
+	    const int *lut, int n) const
+    {
+	const uint32	*state = (const uint32 *)page.stateArray() + off;
+	for (int i = 0; i < n; i++)
+	    scan[i] = state[lut[i]];
     }
 
 private:
@@ -142,15 +146,18 @@ public:
     inline bool exists(const MemoryState::DisplayPage &) const
     { return true; }
 
-    inline void setPixel(GLImage<uint64> &image, int c, int r,
-	    const MemoryState::DisplayPage &page, uint64 off) const
-    { image.setPixel(c, r, page.addr() + off); }
-
     inline void setScanline(uint64 *scan,
 	    MemoryState::DisplayPage &page, uint64 off, int n) const
     {
 	for (int i = 0; i < n; i++)
 	    scan[i] = page.addr() + off + i;
+    }
+    inline void gatherScanline(uint64 *scan,
+	    MemoryState::DisplayPage &page, uint64 off,
+	    const int *lut, int n) const
+    {
+	for (int i = 0; i < n; i++)
+	    scan[i] = page.addr() + off + lut[i];
     }
 
 private:
@@ -200,11 +207,12 @@ public:
 
     inline bool exists(const Page &page) const { return page.myIdx; }
 
-    inline void setPixel(GLImage<uint32> &image, int c, int r,
-	    const Page &page, uint64) const
-    { image.setPixel(c, r, page.myIdx); }
-
     inline void setScanline(uint32 *scan, Page &page, uint64, int n) const
+    { std::fill_n(scan, n, page.myIdx); }
+
+    inline void gatherScanline(uint32 *scan,
+	    Page &page, uint64,
+	    const int *, int n) const
     { std::fill_n(scan, n, page.myIdx); }
 
 private:
