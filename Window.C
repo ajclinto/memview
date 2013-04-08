@@ -478,11 +478,14 @@ MemViewWidget::paintGL()
 		myHScrollBar->value(),
 		myVScrollBar->value());
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
 #ifdef USE_PBUFFER
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+#endif
 
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_RECTANGLE, myTexture);
+
+#ifdef USE_PBUFFER
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
 	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
 	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
