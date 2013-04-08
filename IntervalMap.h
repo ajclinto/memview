@@ -139,6 +139,18 @@ public:
 	return T();
     }
 
+    // Return the entire interval covered by the map
+    void    getTotalInterval(uint64 &start, uint64 &end) const
+    {
+	if (myMap.size())
+	{
+	    start = myMap.begin()->second.start;
+	    end = myMap.rbegin()->first;
+	}
+	else
+	    start = end = 0;
+    }
+
     void    dump() const
     {
 	for (auto it = myMap.begin(); it != myMap.end(); ++it)

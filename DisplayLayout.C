@@ -160,6 +160,7 @@ adjustZoom(T &val, int zoom)
 void
 DisplayLayout::update(
 	MemoryState &state,
+	const MMapMap &mmapmap,
 	int64 winwidth,
 	int64 width,
 	int zoom)
@@ -167,20 +168,34 @@ DisplayLayout::update(
     //StopWatch	timer;
     myBlocks.clear();
 
-    for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
+    if (myCompact)
     {
-	auto page(it.page());
-	if (!myBlocks.size())
-	    myBlocks.push_back(DisplayBlock(page.addr(), page.size()));
-	else
+	for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
 	{
-	    uint64 vacant = page.addr() -
-		(myBlocks.back().myAddr + myBlocks.back().mySize);
-	    if (vacant >= (myBlocks.back().mySize >> 3))
+	    auto page(it.page());
+	    if (!myBlocks.size())
 		myBlocks.push_back(DisplayBlock(page.addr(), page.size()));
 	    else
-		myBlocks.back().mySize += page.size() + vacant;
+	    {
+		uint64 vacant = page.addr() -
+		    (myBlocks.back().myAddr + myBlocks.back().mySize);
+
+		if (vacant >= (myBlocks.back().mySize >> 3))
+		    myBlocks.push_back(DisplayBlock(page.addr(), page.size()));
+		else
+		    myBlocks.back().mySize += page.size() + vacant;
+	    }
 	}
+    }
+    else
+    {
+	uint64	start, end;
+
+	mmapmap.getTotalInterval(start, end);
+	start >>= state.getIgnoreBits();
+	end >>= state.getIgnoreBits();
+
+	myBlocks.push_back(DisplayBlock(start, end-start));
     }
 
     if (myVisualization != LINEAR)

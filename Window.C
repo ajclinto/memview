@@ -467,7 +467,7 @@ MemViewWidget::paintGL()
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, width(), myImage.width(), myZoom);
+    myDisplay.update(*myState, *myMMapMap, width(), myImage.width(), myZoom);
     if (myDisplayMode != 3)
 	myDisplay.fillImage(myImage, StateSource(*myZoomState),
 		myHScrollBar->value(),
