@@ -12,7 +12,7 @@ uniform int theStale;
 uniform int theHalfLife;
 
 uniform int theDisplayMode;
-uniform int theDisplayStack;
+uniform int theDisplayDimmer;
 
 uniform int theWindowResX;
 uniform int theWindowResY;
@@ -156,7 +156,6 @@ void main(void)
     uint type = (val >> 3u) & 3u;
     bool freed = ((val >> 3u) & 4u) > 0u;
     uint tid = (val >> 6u) & 0x3FFu;
-    bool hasstack = (val & (1u << 16u)) > 0u;
 
     int ival = int(val >> 17u);
 
@@ -185,6 +184,10 @@ void main(void)
 
 	frag_color = 0.5*texture(theColors, (float(val)+0.5)/size);
     }
+    else if (theDisplayMode == 4)
+    {
+	frag_color = vec4(1, 1, val == 1u ? 1 : 0, 1);
+    }
     else
     {
 	vec3 hi[4];
@@ -205,16 +208,10 @@ void main(void)
     if (theDisplayMode != 3 && freed)
 	frag_color *= 0.5;
 
-    if (theDisplayStack > 0)
+    if (theDisplayDimmer > 0)
     {
-	if (hasstack)
-	    frag_color = vec4(1, 1, 0.5, 1);
-	else
-	{
-	    // Change to grayscale
-	    frag_color = vec4(luminance(vec3(frag_color))*0.25);
-	    frag_color = min(frag_color, vec4(0.25, 0.25, 0.25, 1));
-	}
+	// Limit to 0.25 luminance
+	frag_color /= 4*max(luminance(vec3(frag_color)), 0.25);
     }
 
     frag_color = round_block(frag_color, texsize);

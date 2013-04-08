@@ -68,11 +68,11 @@ private:
     QActionGroup	*myLayoutGroup;
     QAction		*myLayout[theLayoutCount];
 
-    static const int	 theDisplayCount = 4;
+    static const int	 theDisplayCount = 5;
     QMenu		*myDisplayMenu;
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];
-    QAction		*myDisplayStack;
+    QAction		*myDisplayDimmer;
 
     static const int	 theDataTypeCount = 6;
     QMenu		*myDataTypeMenu;
@@ -147,7 +147,7 @@ private slots:
     void    display(QAction *action);
     void    datatype(QAction *action);
 
-    void    stackdisplay();
+    void    dimmer();
 
 private:
     GLImage<uint32>	 myImage;
@@ -165,6 +165,8 @@ private:
     MemoryState		*myState;
     MemoryState		*myZoomState;
     StackTraceMap	*myStackTrace;
+    std::string		 myStackString;
+    uint64		 myStackSelection;
     MMapMap		*myMMapMap;
     Loader		*myLoader;
     QString		 myEventInfo;
@@ -173,7 +175,7 @@ private:
     int			 myFastTimer;
     int			 mySlowTimer;
     int			 myDisplayMode;
-    int			 myDisplayStack;
+    int			 myDisplayDimmer;
     int			 myDataType;
 
     struct Velocity {

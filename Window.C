@@ -87,6 +87,7 @@ Window::Window(int argc, char *argv[])
 	"&Thread Id",
 	"&Data Type",
 	"&Mapped Regions",
+	"&Stack Traces",
     };
 
     myDisplayMenu = menuBar()->addMenu(tr("&Display"));
@@ -94,15 +95,15 @@ Window::Window(int argc, char *argv[])
 	    myDisplayMenu, theDisplayNames, myDisplay, theDisplayCount, 0);
 
     myDisplayMenu->addSeparator();
-    myDisplayStack = new QAction(tr("&Inspect Stacks"), this);
-    myDisplayStack->setCheckable(true);
-    myDisplayMenu->addAction(myDisplayStack);
+    myDisplayDimmer = new QAction(tr("&Limit Brightness"), this);
+    myDisplayDimmer->setCheckable(true);
+    myDisplayMenu->addAction(myDisplayDimmer);
 
     connect(myDisplayGroup, SIGNAL(triggered(QAction *)),
 	    myMemView, SLOT(display(QAction *)));
 
-    connect(myDisplayStack, SIGNAL(triggered()),
-	    myMemView, SLOT(stackdisplay()));
+    connect(myDisplayDimmer, SIGNAL(triggered()),
+	    myMemView, SLOT(dimmer()));
 
     // This menu should be ordered the same as the MV_Data* defines in
     // mv_ipc.h
@@ -173,7 +174,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     , myPrevEvents(0)
     , myZoom(0)
     , myDisplayMode(0)
-    , myDisplayStack(0)
+    , myDisplayDimmer(0)
     , myDataType(-1)
     , myStopWatch(false)
     , myPaintInterval(false)
@@ -207,6 +208,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     myState = new MemoryState(ignorebits);
     myZoomState = myState;
     myStackTrace = new StackTraceMap;
+    myStackSelection = 0;
     myMMapMap = new MMapMap;
     myLoader = new Loader(myState, myStackTrace, myMMapMap);
 
@@ -275,7 +277,7 @@ void MemViewWidget::display(QAction *action)
     myDisplayMode = action->actionGroup()->actions().indexOf(action);
 }
 
-void MemViewWidget::stackdisplay() { myDisplayStack = !myDisplayStack; }
+void MemViewWidget::dimmer() { myDisplayDimmer = !myDisplayDimmer; }
 
 void MemViewWidget::datatype(QAction *action)
 {
@@ -468,15 +470,27 @@ MemViewWidget::paintGL()
 #endif
 
     myDisplay.update(*myState, *myMMapMap, width(), myImage.width(), myZoom);
-    if (myDisplayMode != 3)
-	myDisplay.fillImage(myImage, StateSource(*myZoomState),
+    switch (myDisplayMode)
+    {
+    case 3:
+	myDisplay.fillImage(myImage, IntervalSource<MMapInfo>(
+		    *myMMapMap, 0, myZoomState->getIgnoreBits()),
 		myHScrollBar->value(),
 		myVScrollBar->value());
-    else
-	myDisplay.fillImage(myImage, MMapSource(*myMMapMap,
+	break;
+    case 4:
+	myDisplay.fillImage(myImage, IntervalSource<std::string>(
+		    *myStackTrace, myStackSelection,
 		    myZoomState->getIgnoreBits()),
 		myHScrollBar->value(),
 		myVScrollBar->value());
+	break;
+    default:
+	myDisplay.fillImage(myImage, StateSource(*myZoomState),
+		myHScrollBar->value(),
+		myVScrollBar->value());
+	break;
+    }
 
 #ifdef USE_PBUFFER
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
@@ -507,7 +521,7 @@ MemViewWidget::paintGL()
     myProgram->setUniformValue("theStale", MemoryState::theStale);
     myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
     myProgram->setUniformValue("theDisplayMode", myDisplayMode);
-    myProgram->setUniformValue("theDisplayStack", myDisplayStack);
+    myProgram->setUniformValue("theDisplayDimmer", myDisplayDimmer);
 
     myProgram->setUniformValue("theTime", myState->getTime());
 
@@ -736,24 +750,8 @@ MemViewWidget::event(QEvent *event)
     {
         QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
 
-	QPoint  pos = zoomPos(helpEvent->pos(), myZoom);
-	uint64	qaddr = myDisplay.queryPixelAddress(*myZoomState,
-		myHScrollBar->value() + pos.x(),
-		myVScrollBar->value() + pos.y());
-
-	uint64 off;
-	auto page = myZoomState->getPage(qaddr, off);
-
-	if (qaddr && page.exists() && page.state(off).time())
-	{
-	    qaddr <<= myZoomState->getIgnoreBits();
-
-	    std::string trace = myStackTrace->findClosest(qaddr);
-	    if (!trace.empty())
-		QToolTip::showText(helpEvent->globalPos(), trace.c_str());
-	    else
-		QToolTip::hideText();
-	}
+	if (myStackSelection)
+	    QToolTip::showText(helpEvent->globalPos(), myStackString.c_str());
 	else
 	    QToolTip::hideText();
 
@@ -1084,6 +1082,26 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 	myStatusBar->clearMessage();
     else
 	myStatusBar->showMessage(message);
+
+    // Find and stash the closest stack trace
+    uint64 off;
+    auto page = myZoomState->getPage(qaddr, off);
+
+    if (qaddr && page.exists() && page.state(off).time())
+    {
+	qaddr <<= myZoomState->getIgnoreBits();
+
+	uint64  qend;
+	myStackString = myStackTrace->findClosest(
+		qaddr, myStackSelection, qend);
+	if (myStackString.empty())
+	    myStackSelection = 0;
+    }
+    else
+    {
+	myStackString = "";
+	myStackSelection = 0;
+    }
 }
 
 bool

@@ -613,7 +613,8 @@ DisplayLayout::fillImage(
 
 INST_FUNC(uint32, StateSource)
 INST_FUNC(uint64, AddressSource)
-INST_FUNC(uint32, MMapSource)
+INST_FUNC(uint32, IntervalSource<MMapInfo>)
+INST_FUNC(uint32, IntervalSource<std::string>)
 
 uint64
 DisplayLayout::queryPixelAddress(

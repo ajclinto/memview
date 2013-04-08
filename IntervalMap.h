@@ -87,7 +87,7 @@ public:
 
     // Finds the element above and below the query address, and returns the
     // closer of the two.
-    T    findClosest(uint64 addr) const
+    T    findClosest(uint64 addr, uint64 &start, uint64 &end) const
     {
 	QMutexLocker lock(&myLock);
 	auto hi = myMap.upper_bound(addr);
@@ -95,16 +95,24 @@ public:
 	{
 	    auto lo = hi;
 	    --lo;
-	    if (lo != myMap.end())
-	    {
-		return dist2(hi, addr) <= dist2(lo, addr) ?
-		    hi->second.obj : lo->second.obj;
-	    }
+
+	    if (lo != myMap.end() &&
+		    dist2(hi, addr) > dist2(lo, addr))
+		hi = lo;
+
+	    start = hi->second.start;
+	    end = hi->first;
 	    return hi->second.obj;
 	}
 	else if (myMap.size())
-	    return myMap.rbegin()->second.obj;
+	{
+	    auto lo = myMap.rbegin();
+	    start = lo->second.start;
+	    end = lo->first;
+	    return lo->second.obj;
+	}
 
+	start = end = 0;
 	return T();
     }
 

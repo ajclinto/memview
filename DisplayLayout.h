@@ -66,7 +66,8 @@ public:
     // there are explicit instantiations for:
     //	- uint32, StateSource
     //	- uint64, AddressSource
-    //	- uint32, MMapSource
+    //	- uint32, IntervalSource<MMapInfo>
+    //  - uint32, IntervalSource<std::string>
     template <typename T, typename Source>
     void	    fillImage(GLImage<T> &image,
 			  const Source &src,
@@ -166,10 +167,13 @@ private:
 
 // Fill indices representing which MMap segment each mapped address
 // corresponds to
-class MMapSource {
+template <typename T>
+class IntervalSource {
 public:
-    MMapSource(MMapMap &mmap, int ignorebits)
-	: myMMap(mmap)
+    IntervalSource(const IntervalMap<T> &intervals,
+	    uint64 selection, int ignorebits)
+	: myIntervals(intervals)
+	, mySelection(selection)
         , myIgnoreBits(ignorebits)
 	{}
 
@@ -185,10 +189,16 @@ public:
 	uint32	myIdx;
     };
 
+    static inline int getIndex(const MMapInfo &info, bool)
+    { return info.myIdx; }
+    static inline int getIndex(const std::string &, bool selected)
+    { return selected ? 2 : 1; }
+
     Page getPage(uint64 addr, uint64 size, uint64 &off) const
     {
-	uint64	    start, end;
-	MMapInfo    info = myMMap.findAfter(addr << myIgnoreBits, start, end);
+	uint64  start, end;
+	T	info = myIntervals.findAfter(addr << myIgnoreBits, start, end);
+	bool	selected = mySelection == start;
 
 	start >>= myIgnoreBits;
 	end += (1 << myIgnoreBits) - 1;
@@ -202,7 +212,7 @@ public:
 	    return Page(start-addr, 0);
 
 	off = addr - start;
-	return Page(end-start, info.myIdx);
+	return Page(end-start, getIndex(info, selected));
     }
 
     inline bool exists(const Page &page) const { return page.myIdx; }
@@ -216,8 +226,9 @@ public:
     { std::fill_n(scan, n, page.myIdx); }
 
 private:
-    MMapMap &myMMap;
-    int	     myIgnoreBits;
+    const IntervalMap<T>  &myIntervals;
+    uint64		   mySelection;
+    int			   myIgnoreBits;
 };
 
 #endif
