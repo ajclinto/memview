@@ -179,16 +179,17 @@ public:
 
     struct Page {
 	Page() : mySize(0) {}
-	Page(uint64 size, uint32 idx)
+	Page(uint64 size, bool exists)
 	    : mySize(size)
-	    , myIdx(idx) {}
+	    , myExists(exists) {}
 
 	uint64 size() const { return mySize; }
 
 	uint64	mySize;
-	uint32	myIdx;
+	bool	myExists;
     };
 
+    // These are the values used by the fragment shader
     static inline int getIndex(const MMapInfo &info, bool)
     { return info.myIdx; }
     static inline int getIndex(const std::string &, bool selected)
@@ -196,39 +197,69 @@ public:
 
     Page getPage(uint64 addr, uint64 size, uint64 &off) const
     {
-	uint64  start, end;
-	T	info = myIntervals.findAfter(addr << myIgnoreBits, start, end);
-	bool	selected = mySelection == start;
+	IntervalMapReader<T>	reader(myIntervals);
+	auto	it = reader.findAfter(addr << myIgnoreBits);
 
-	start >>= myIgnoreBits;
-	end += (1 << myIgnoreBits) - 1;
-	end >>= myIgnoreBits;
+	off = 0;
 
 	// addr does not overlap the range - return an empty page
-	off = 0;
-	if (end <= addr)
-	    return Page(size, 0);
-	if (start > addr)
-	    return Page(start-addr, 0);
+	if (it == reader.end() || (it.start()>>myIgnoreBits) >= addr + size)
+	    return Page(size, false);
 
-	off = addr - start;
-	return Page(end-start, getIndex(info, selected));
+	myBuffer.assign(size, 0);
+
+	while ((it.start()>>myIgnoreBits) < addr + size)
+	{
+	    const uint64	a = (1 << myIgnoreBits) - 1;
+	    const bool		selected = mySelection == it.start();
+	    uint64		start = it.start() >> myIgnoreBits;
+	    uint64		end = (it.end()+a) >> myIgnoreBits;
+
+	    start = SYSmax(start, addr);
+
+	    for (uint64 i = start-addr; i < SYSmin(end-addr, size); i++)
+		myBuffer[i] = getIndex(it.value(), selected);
+
+	    ++it;
+	    if (it == reader.end())
+		break;
+
+	    // When zoomed out there may be many intervals overlapping a
+	    // single pixel.  Check if the next interval would end at the
+	    // same address and if so perform another binary search to
+	    // advance to the next pixel.
+	    if (((it.end()+a)>>myIgnoreBits) == end)
+	    {
+		it = reader.findAfter(end << myIgnoreBits);
+		if (it == reader.end())
+		    break;
+	    }
+	}
+
+	return Page(size, true);
     }
 
-    inline bool exists(const Page &page) const { return page.myIdx; }
+    inline bool exists(const Page &page) const { return page.myExists; }
 
-    inline void setScanline(uint32 *scan, Page &page, uint64, int n) const
-    { std::fill_n(scan, n, page.myIdx); }
+    inline void setScanline(uint32 *scan, Page &, uint64 off, int n) const
+    {
+	memcpy(scan, &myBuffer[off], n*sizeof(uint32));
+    }
 
     inline void gatherScanline(uint32 *scan,
-	    Page &page, uint64,
-	    const int *, int n) const
-    { std::fill_n(scan, n, page.myIdx); }
+	    Page &, uint64 off,
+	    const int *lut, int n) const
+    {
+	const uint32	*state = &myBuffer[off];
+	for (int i = 0; i < n; i++)
+	    scan[i] = state[lut[i]];
+    }
 
 private:
-    const IntervalMap<T>  &myIntervals;
-    uint64		   mySelection;
-    int			   myIgnoreBits;
+    const IntervalMap<T>	  &myIntervals;
+    mutable std::vector<uint32>	   myBuffer;
+    uint64			   mySelection;
+    int	    			   myIgnoreBits;
 };
 
 #endif

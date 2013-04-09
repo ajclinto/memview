@@ -33,12 +33,19 @@
 #include <assert.h>
 #include <iostream>
 
+template <typename T> class IntervalMapReader;
+template <typename T> class IntervalMapWriter;
+
 // This class stores a map of non-overlapping intervals [start, end).  The
 // manipulator methods ensure that the interval map is always
-// non-overlapping.
+// non-overlapping.  Access is through IntervalMapReader and
+// IntervalMapWriter to guarantee thread-safety.
 template <typename T>
 class IntervalMap {
 private:
+    friend class IntervalMapReader<T>;
+    friend class IntervalMapWriter<T>;
+
     struct Entry {
 	uint64	start;
 	T	obj;
@@ -46,50 +53,49 @@ private:
 
     typedef std::map<uint64, Entry> MapType;
 
+    MapType	      myMap;
+    mutable QMutex    myLock;
+};
+
+// This class locks access to the interval map, so scope it appropriately.
+// This allows multiple operations on the map within the same lock
+template <typename T>
+class IntervalMapReader {
+    typedef typename IntervalMap<T>::MapType MapType;
 public:
-    void    insert(uint64 start, uint64 end, const T &val)
-    {
-	QMutexLocker lock(&myLock);
-
-	clearOverlappingIntervals(start, end);
-
-	myMap[end].start = start;
-	myMap[end].obj = val;
-    }
-
-    void    erase(uint64 start, uint64 end)
-    {
-	QMutexLocker lock(&myLock);
-
-	clearOverlappingIntervals(start, end);
-    }
-
-    // Apply the function to all intervals in [start, end).  If any
-    // intervals overlap the boundary values, they are split and the
-    // function is applied only to the included values.
-    template <typename Func>
-    void    apply(uint64 start, uint64 end, const Func func)
-    {
-	typename MapType::iterator first, last;
-	getOverlappingIntervals(start, end, first, last);
-
-	for (; first != last; ++first)
-	    func(first->second.obj);
-    }
+    IntervalMapReader(const IntervalMap<T> &imap)
+	: myMap(imap.myMap)
+	, myLock(&imap.myLock) {}
 
     size_t  size() const { return myMap.size(); }
 
-    //
-    // Note that these methods return elements by value.  This is to ensure
-    // thread safety in the case where another thread erases or overwrites
-    // an element after it has been queried by the display thread.
-    //
+    class iterator {
+    public:
+	iterator(typename MapType::const_iterator it) : myIt(it) {}
+
+	uint64	 start() const { return myIt->second.start; }
+	uint64	 end() const { return myIt->first; }
+	const T	&value() const { return myIt->second.obj; }
+
+	iterator& operator++() { ++myIt; return *this; }
+	iterator operator++(int)
+	{ iterator tmp(*this); operator++(); return tmp; }
+
+	bool operator==(const iterator& rhs) {return myIt == rhs.myIt;}
+	bool operator!=(const iterator& rhs) {return myIt != rhs.myIt;}
+
+    private:
+	friend class IntervalMap<T>;
+	typename MapType::const_iterator   myIt;
+    };
+
+    iterator	begin() const { return iterator(myMap.begin()); }
+    iterator	end() const { return iterator(myMap.end()); }
 
     // Finds the element above and below the query address, and returns the
     // closer of the two.
-    T    findClosest(uint64 addr, uint64 &start, uint64 &end) const
+    iterator    findClosest(uint64 addr) const
     {
-	QMutexLocker lock(&myLock);
 	auto hi = myMap.upper_bound(addr);
 	if (hi != myMap.end())
 	{
@@ -100,51 +106,31 @@ public:
 		    dist2(hi, addr) > dist2(lo, addr))
 		hi = lo;
 
-	    start = hi->second.start;
-	    end = hi->first;
-	    return hi->second.obj;
+	    return iterator(hi);
 	}
 	else if (myMap.size())
 	{
-	    auto lo = myMap.rbegin();
-	    start = lo->second.start;
-	    end = lo->first;
-	    return lo->second.obj;
+	    auto lo = hi;
+	    --lo;
+	    return iterator(lo);
 	}
 
-	start = end = 0;
-	return T();
+	return iterator(hi);
     }
 
     // Returns the element whose interval contains addr if it exists -
     // otherwise 0.
-    T    find(uint64 addr) const
+    iterator    find(uint64 addr) const
     {
-	uint64 start, end;
-	return find(addr, start, end);
-    }
-    T    find(uint64 addr, uint64 &start, uint64 &end) const
-    {
-	T rval = findAfter(addr, start, end);
-	return start > addr ? T() : rval;
+	iterator rval = findAfter(addr);
+	return (rval == end() || rval.start() > addr) ? end() : rval;
     }
 
     // Returns the first interval that starts after addr or the interval
     // that contains addr.
-    T    findAfter(uint64 addr, uint64 &start, uint64 &end) const
+    iterator    findAfter(uint64 addr) const
     {
-	QMutexLocker lock(&myLock);
-	auto it = myMap.upper_bound(addr);
-
-	if (it != myMap.end())
-	{
-	    start = it->second.start;
-	    end = it->first;
-	    return it->second.obj;
-	}
-
-	start = end = 0;
-	return T();
+	return iterator(myMap.upper_bound(addr));
     }
 
     // Return the entire interval covered by the map
@@ -182,6 +168,48 @@ private:
 	return 0;
     }
 
+private:
+    const MapType   &myMap;
+    QMutexLocker     myLock;
+};
+
+// This class locks access to the interval map, so scope it appropriately.
+// This allows multiple operations on the map within the same lock
+template <typename T>
+class IntervalMapWriter : public IntervalMapReader<T> {
+    typedef typename IntervalMap<T>::MapType MapType;
+public:
+    IntervalMapWriter(IntervalMap<T> &imap)
+	: IntervalMapReader<T>(imap)
+	, myMap(imap.myMap) {}
+
+    void    insert(uint64 start, uint64 end, const T &val)
+    {
+	clearOverlappingIntervals(start, end);
+
+	myMap[end].start = start;
+	myMap[end].obj = val;
+    }
+
+    void    erase(uint64 start, uint64 end)
+    {
+	clearOverlappingIntervals(start, end);
+    }
+
+    // Apply the function to all intervals in [start, end).  If any
+    // intervals overlap the boundary values, they are split and the
+    // function is applied only to the included values.
+    template <typename Func>
+    void    apply(uint64 start, uint64 end, const Func func)
+    {
+	typename MapType::iterator first, last;
+	getOverlappingIntervals(start, end, first, last);
+
+	for (; first != last; ++first)
+	    func(first->second.obj);
+    }
+
+private:
     // Find all intervals that overlap [start, end).  If any intervals
     // overlapped these boundary values, split the intervals to eliminate
     // overlap.
@@ -219,11 +247,13 @@ private:
     }
 
 private:
-    MapType	      myMap;
-    mutable QMutex    myLock;
+    MapType   &myMap;
 };
 
-typedef IntervalMap<std::string> StackTraceMap;
+#define MAP_TYPE(NAME, TYPE) \
+    typedef IntervalMap<TYPE> NAME; \
+    typedef IntervalMapReader<TYPE> NAME##Reader; \
+    typedef IntervalMapWriter<TYPE> NAME##Writer;
 
 struct MMapInfo {
     std::string	myStr;
@@ -231,6 +261,9 @@ struct MMapInfo {
     bool	myMapped;
 };
 
-typedef IntervalMap<MMapInfo> MMapMap;
+MAP_TYPE(StackTraceMap, std::string)
+MAP_TYPE(MMapMap, MMapInfo)
+
+#undef MAP_TYPE
 
 #endif

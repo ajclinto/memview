@@ -191,7 +191,8 @@ DisplayLayout::update(
     {
 	uint64	start, end;
 
-	mmapmap.getTotalInterval(start, end);
+	MMapMapReader reader(mmapmap);
+	reader.getTotalInterval(start, end);
 	start >>= state.getIgnoreBits();
 	end >>= state.getIgnoreBits();
 
@@ -538,6 +539,7 @@ DisplayLayout::fillImage(
 	const Source &src,
 	int64 coff, int64 roff) const
 {
+    //StopWatch	timer;
     image.zero();
 
     for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)

@@ -48,6 +48,7 @@ Loader::Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap)
     , mySharedData(0)
     , myIdx(0)
     , mySource(NONE)
+    , myTestType(0)
     , myAbort(false)
 {
     // Start a timer to increment the access time counter.  This timer runs
@@ -88,6 +89,11 @@ Loader::openPipe(int argc, char *argv[])
 	    mySource = LACKEY;
 	else if (!strcmp(tool, "test"))
 	    mySource = TEST;
+	else if (!strcmp(tool, "teststack"))
+	{
+	    mySource = TEST;
+	    myTestType = 1;
+	}
     }
 
     // Allow overriden valgrind binary
@@ -317,7 +323,7 @@ Loader::run()
 		waitForInput(timeout_ms);
 		break;
 	    case TEST:
-		rval = loadFromTest();
+		rval = loadFromTest(myTestType == 1);
 		break;
 	    case LACKEY:
 		if (waitForInput(timeout_ms))
@@ -463,7 +469,8 @@ Loader::loadFromPipe()
 	    addr = header.myStack.myAddr;
 	    decodeAddr(addr, size, type);
 	    addr &= MV_AddrMask;
-	    myStackTrace->insert(addr, addr + size, stack);
+	    StackTraceMapWriter writer(*myStackTrace);
+	    writer.insert(addr, addr + size, stack);
 	    return true;
 	}
     }
@@ -499,6 +506,7 @@ public:
 void
 Loader::loadMMap(const MV_Header &header, const char *buf)
 {
+    MMapMapWriter writer(*myMMapMap);
     if (header.myMMap.myType != MV_UNMAP)
     {
 	std::string	info;
@@ -532,13 +540,13 @@ Loader::loadMMap(const MV_Header &header, const char *buf)
 	if (!idx)
 	    idx = (int)myMMapNames.size();
 
-	myMMapMap->insert(
+	writer.insert(
 		header.myMMap.myStart,
 		header.myMMap.myEnd, MMapInfo{info,idx,true});
     }
     else
     {
-	myMMapMap->apply(
+	writer.apply(
 		header.myMMap.myStart,
 		header.myMMap.myEnd,
 #if HAS_LAMBDA
@@ -558,9 +566,10 @@ Loader::loadFromSharedMemory()
 }
 
 bool
-Loader::loadFromTest()
+Loader::loadFromTest(bool with_stacks)
 {
     static const uint64 theSize = 32*1024;
+    static const uint64 theStackRate = 63;
     static uint64 theCount = 0;
 
     if (theCount >= theSize)
@@ -574,6 +583,18 @@ Loader::loadFromTest()
 	block->myAddr[j] |= (uint64)MV_DataInt32 << MV_DataShift;
 	block->myAddr[j] |= (uint64)MV_TypeRead << MV_TypeShift;
 	block->myAddr[j] |= (uint64)4 << MV_SizeShift;
+
+	// Insert a stack
+	if (with_stacks && !(j & theStackRate))
+	{
+	    uint64 addr, size, type;
+	    addr = block->myAddr[j];
+	    decodeAddr(addr, size, type);
+	    addr &= MV_AddrMask;
+
+	    StackTraceMapWriter writer(*myStackTrace);
+	    writer.insert(addr, addr + size, "");
+	}
     }
     loadBlock(block);
 

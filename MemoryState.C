@@ -113,7 +113,12 @@ MemoryState::appendAddressInfo(
     QString	tmp;
     uint64	paddr = addr << myIgnoreBits;
 
-    MMapInfo	mmapinfo = map.find(paddr);
+    MMapMapReader reader(map);
+    auto	it = reader.find(paddr);
+    MMapInfo	mmapinfo;
+
+    if (it != reader.end())
+	mmapinfo = it.value();
     if (mmapinfo.myStr.empty())
 	mmapinfo.myStr = "Address";
 

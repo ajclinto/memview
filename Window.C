@@ -1091,11 +1091,17 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     {
 	qaddr <<= myZoomState->getIgnoreBits();
 
-	uint64  qend;
-	myStackString = myStackTrace->findClosest(
-		qaddr, myStackSelection, qend);
-	if (myStackString.empty())
+	StackTraceMapReader reader(*myStackTrace);
+	auto it = reader.findClosest(qaddr);
+	if (it == reader.end())
+	{
 	    myStackSelection = 0;
+	}
+	else
+	{
+	    myStackSelection = it.start();
+	    myStackString = it.value();
+	}
     }
     else
     {

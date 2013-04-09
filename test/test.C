@@ -1,53 +1,50 @@
 #include "../IntervalMap.h"
 
-#define FIND(IDX, STR) \
-    if (map.find(IDX) != STR) \
+#define FIND(METHOD, IDX, STR) \
     { \
-	fprintf(stderr, "find: %d %s\n", IDX, STR); \
-	return false; \
-    }
-
-#define CLOSEST(IDX, STR) \
-    if (map.findClosest(IDX) != STR) \
-    { \
-	fprintf(stderr, "findClosest: %d %s\n", IDX, STR); \
-	return false; \
+	auto it = writer.METHOD(IDX); \
+	if ((it != writer.end() ? it.value() : "") != STR) \
+	{ \
+	    fprintf(stderr, #METHOD ": %d %s\n", IDX, STR); \
+	    return false; \
+	} \
     }
 
 bool
 testBasic()
 {
     StackTraceMap   map;
+    StackTraceMapWriter	writer(map);
 
-    map.insert(1, 2, "test1");
-    map.insert(10, 20, "test2");
+    writer.insert(1, 2, "test1");
+    writer.insert(10, 20, "test2");
 
-    FIND(0, "")
-    FIND(1, "test1")
-    FIND(2, "")
-    FIND(15, "test2")
-    FIND(20, "")
-    FIND(100, "")
+    FIND(find, 0, "")
+    FIND(find, 1, "test1")
+    FIND(find, 2, "")
+    FIND(find, 15, "test2")
+    FIND(find, 20, "")
+    FIND(find, 100, "")
 
-    CLOSEST(0, "test1")
-    CLOSEST(1, "test1")
-    CLOSEST(8, "test2")
-    CLOSEST(100, "test2")
+    FIND(findClosest, 0, "test1")
+    FIND(findClosest, 1, "test1")
+    FIND(findClosest, 8, "test2")
+    FIND(findClosest, 100, "test2")
 
-    map.erase(1, 2);
+    writer.erase(1, 2);
 
-    FIND(1, "")
+    FIND(find, 1, "")
 
-    map.erase(10, 20);
+    writer.erase(10, 20);
 
-    if (map.size())
+    if (writer.size())
     {
 	fprintf(stderr, "map should be empty\n");
 	return false;
     }
 
-    FIND(15, "")
-    CLOSEST(15, "")
+    FIND(find, 15, "")
+    FIND(findClosest, 15, "")
 
     return true;
 }
@@ -56,18 +53,19 @@ bool
 testOverlap()
 {
     StackTraceMap   map;
+    StackTraceMapWriter	writer(map);
 
-    map.insert(0, 10, "test1");
-    map.insert(5, 15, "test2");
-    map.insert(10, 12, "test3");
+    writer.insert(0, 10, "test1");
+    writer.insert(5, 15, "test2");
+    writer.insert(10, 12, "test3");
 
     fprintf(stderr, "Overlapping intervals:\n");
-    map.dump();
+    writer.dump();
 
-    map.apply(0, 15, [](std::string &str) { str = ""; });
+    writer.apply(0, 15, [](std::string &str) { str = ""; });
 
     fprintf(stderr, "After apply:\n");
-    map.dump();
+    writer.dump();
 
     return true;
 }

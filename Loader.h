@@ -74,7 +74,7 @@ private:
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
     bool	loadFromSharedMemory();
-    bool	loadFromTest();
+    bool	loadFromTest(bool with_Stacks);
 
     bool	loadBlock(const TraceBlockHandle &block);
     void	loadMMap(const MV_Header &header, const char *buf);
@@ -117,6 +117,7 @@ private:
     };
 
     LoadSource	 mySource;
+    int		 myTestType;
     bool	 myAbort;
 };
 
