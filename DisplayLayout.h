@@ -104,6 +104,7 @@ private:
     int64			myWidth;
     int64			myHeight;
     int				myStartLevel;
+    int				myStopLevel;
     bool			myCompact;
 };
 

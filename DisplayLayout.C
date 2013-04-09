@@ -53,7 +53,7 @@ public:
 
 static void
 blockTraverse(uint64 idx, uint64 size, int roff, int coff,
-	Traverser &traverser, int level,
+	Traverser &traverser, int level, int stoplevel,
 	bool hilbert, int rotate, bool flip)
 {
     // Only calls the traverser for full blocks
@@ -73,7 +73,7 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
     // Switch over to recursive block for 4x4 and smaller tiles even in
     // hilbert mode.  The hilbert pattern is a little difficult to follow
     // for small blocks.
-    if (hilbert && level > 2)
+    if (hilbert && (level + stoplevel) > 2)
     {
 	for (int i = 0; i < 4; i++)
 	    map[i] = (rotate + i) & 3;
@@ -112,6 +112,7 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
 		    coff + cs[i],
 		    traverser,
 		    level-1,
+		    stoplevel,
 		    hilbert,
 		    (i == 3) ? (rotate ^ 2) : rotate,
 		    flip ^ (i == 0 || i == 3));
@@ -202,13 +203,14 @@ DisplayLayout::update(
     if (myVisualization != LINEAR)
     {
 	myStartLevel = 31 - (state.getIgnoreBits() >> 1);
+	myStopLevel = 0;
 	myWidth = 0;
 	myHeight = 0;
 	for (auto it = myBlocks.begin(); it != myBlocks.end(); ++it)
 	{
 	    BlockSizer  sizer;
 	    blockTraverse(it->myAddr, it->mySize, 0, 0, sizer,
-		    myStartLevel,
+		    myStartLevel, myStopLevel,
 		    myVisualization == HILBERT, 0, false);
 
 	    it->myBox = sizer.myBox;
@@ -259,6 +261,7 @@ DisplayLayout::update(
 	    adjustZoom(myHeight, zoom2);
 
 	    myStartLevel -= zoom2;
+	    myStopLevel = zoom2;
 	}
     }
     else
@@ -420,7 +423,7 @@ public:
 		    BlockFill   fill(
 			    myHilbert[level][r][f],
 			    myIHilbert[level][r][f]);
-		    blockTraverse(0, theLUTSize, 0, 0, fill, level, true, r, f);
+		    blockTraverse(0, theLUTSize, 0, 0, fill, level, 0, true, r, f);
 		}
 	    }
 	}
@@ -603,7 +606,7 @@ DisplayLayout::fillImage(
 		    -(coff + cboff));
 
 	    blockTraverse(it->myAddr, it->mySize, 0, 0, plot,
-		    myStartLevel,
+		    myStartLevel, myStopLevel,
 		    myVisualization == HILBERT, 0, false);
 	}
     }
