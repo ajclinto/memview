@@ -210,7 +210,7 @@ public:
 
 	while ((it.start()>>myIgnoreBits) < addr + size)
 	{
-	    const uint64	a = (1 << myIgnoreBits) - 1;
+	    const uint64	a = (1ull << myIgnoreBits) - 1;
 	    const bool		selected = mySelection == it.start();
 	    uint64		start = it.start() >> myIgnoreBits;
 	    uint64		end = (it.end()+a) >> myIgnoreBits;
