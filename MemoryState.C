@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <vector>
 
 MemoryState::MemoryState(int ignorebits)
     : myTime(2)

@@ -28,6 +28,7 @@
 #include "Color.h"
 #include "GLImage.h"
 #include <assert.h>
+#include <algorithm>
 
 // The margin of pixels to leave empty between display blocks in compact
 // mode
