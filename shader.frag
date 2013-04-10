@@ -159,8 +159,18 @@ void main(void)
 
     int ival = int(val >> 17u);
 
-    int diff = ival == theStale ? theHalfLife :
-	((theTime > ival) ? theTime-ival+1 : ival-theTime+1);
+    int diff;
+    if (ival == theStale)
+	diff = 2*theHalfLife;
+    else
+    {
+	if (theTime >= theHalfLife)
+	    diff = theTime - ival + 1;
+	else if (ival >= theHalfLife)
+	    diff = 2*theHalfLife - ival + theTime - 1;
+	else
+	    diff = theTime - ival + 1;
+    }
 
     float interp = 1-log2(float(diff))/32;
 
