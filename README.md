@@ -1,5 +1,4 @@
-Summary
--------
+## Summary
 
 Memview is a real-time visualization program that will show the memory
 state of another running program as a graphical image.  Memory addresses
@@ -12,12 +11,11 @@ programs use their address space, and to serve as a visual debugger to help
 find memory performance problems relating to locality.  It can also be
 plain fun to watch the memory of a complex algorithm!
 
-Building
---------
+## Building
 
 Before you start, you'll need:
-    - Qt4: libqt4-dev libqt4-opengl-dev
-    - A GPU with OpenGL 3.0 support
+* Qt4: libqt4-dev libqt4-opengl-dev
+* A GPU with OpenGL 3.0 support
 
 Build the visualizer front end:
 
@@ -36,8 +34,7 @@ the patches in the valgrind/ director, and then build valgrind.  Here,
     ./configure --prefix=<valgrind-install-dir>
     make -j<nprocs> install
 
-Execution
----------
+## Execution
 
 Test the tool:
 
@@ -56,27 +53,26 @@ Lackey is orders of magnitude slower than the memview tool, and doesn't
 support stack traces and allocation tracking - but you can get an idea of
 how the memory trace visualization works.
 
-Details
--------
+## Details
 
 Different colors indicate different types of memory accesses:
-- Bright green   : Recently read
-- Dark blue      : Previously read
-- Bright yellow	 : Recently written
-- Dark red       : Previously written
-- Bright pink    : Recent instruction read
-- Dark purple    : Previous instruction read
-- Gray           : Allocated, unreferenced memory
-- Dimmed         : Freed memory
+* Bright green   : Recently read
+* Dark blue      : Previously read
+* Bright yellow	 : Recently written
+* Dark red       : Previously written
+* Bright pink    : Recent instruction read
+* Dark purple    : Previous instruction read
+* Gray           : Allocated, unreferenced memory
+* Dimmed         : Freed memory
 
 Brighter colors indicate more recent references.  You can point at a pixel
 and look at the status bar to see the address corresponding to that pixel,
 as well as the type of the most recent memory operation.
 
 Navigating the address space uses controls similar to google maps:
-- Left click to pan
-- Mouse wheel to zoom (each step is a factor of 2)
-- Scroll bars to scroll
+* Left click to pan
+* Mouse wheel to zoom (each step is a factor of 2)
+* Scroll bars to scroll
 
 By default, the linear address space is converted to a 2D image using a
 hilbert curve.  This kind of curve tends to map nearby memory addresses to
