@@ -53,9 +53,37 @@ Lackey is orders of magnitude slower than the memview tool, and doesn't
 support stack traces and allocation tracking - but you can get an idea of
 how the memory trace visualization works.
 
-## Details
+## Documentation
 
-Different colors indicate different types of memory accesses:
+### Layout
+
+Memview maps the program address space to pixels in the image.  At the
+initial zoom level of 1, each pixel in the image corresponds to 4 bytes of
+memory.
+
+By default, the 1D address space is converted to a 2D image using a hilbert
+curve.  This kind of mapping tends to map nearby memory addresses to nearby
+pixels - so that locality of reference is immediately apparent.  It's
+possible to layout the memory in other ways using the options in the
+'Layout' menu.
+
+To navigate the address space, use controls similar to Google maps:
+* Left click/drag to pan
+* Mouse wheel to zoom (each step is a factor of 2)
+* Scroll bars to scroll
+
+Often there are large holes in the address space (for example, between the
+heap and the stack) - these are automatically collapsed to eliminate empty
+space in the image.  This means that if the program eventually makes use of
+memory in one of these holes, the display will shift the existing data to
+accomodate the newly visible addresses.  If you want to see the entire
+address space without any collapsing, change the layout from 'Compact' to
+'Full Size' in the 'Layout' menu.
+
+### Display
+
+In the default 'Read/Write' display mode, different colors indicate different
+types of memory accesses:
 * Bright green   : Recently read
 * Dark blue      : Previously read
 * Bright yellow	 : Recently written
@@ -66,26 +94,35 @@ Different colors indicate different types of memory accesses:
 * Dimmed         : Freed memory
 
 Brighter colors indicate more recent references.  You can point at a pixel
-and look at the status bar to see the address corresponding to that pixel,
-as well as the type of the most recent memory operation.
+and look at the status bar to see the address and mapping information
+corresponding to that pixel, as well as the type for the most recent memory
+operation at that address.
 
-Navigating the address space uses controls similar to google maps:
-* Left click to pan
-* Mouse wheel to zoom (each step is a factor of 2)
-* Scroll bars to scroll
+The 'Thread Ids' display mode will color the memory based on the thread
+that most recently touched that memory.
 
-By default, the linear address space is converted to a 2D image using a
-hilbert curve.  This kind of curve tends to map nearby memory addresses to
-nearby pixels - so that locality of reference is immediately apparent.
-It's also possible to map the memory in other ways using the options in the
-'Visualization' menu.
+The 'Data Type' display mode will color the memory based on the data type
+that valgrind reported.  Be aware that the data type may not be accurate,
+since machine instructions that access memory do not always specify the
+data type.
 
-Often there are large holes in the address space (for example, between the
-heap and the stack) - these are automatically collapsed to eliminate empty
-space in the image.  This means that if the program eventually makes use of
-memory in one of these holes, the display will shift the existing data to
-accomodate the newly visible addresses.
+The 'Mapped Regions' display mode will show the intervals in memory that
+correspond to the different memory mappings in the program.  Each different
+mapped region will display using a different color.  If you want to see the
+full extent of the mapped regions, change the layout to 'Full Size' -
+otherwise the mapped regions will only appear where memory has been
+referenced.
 
-When using the memview tool, stack traces are periodically sampled and sent
-to the visualizer.  These can be inspected by hovering the cursor over the
-image - the closest stack trace will be displayed as a tooltip.
+During execution, stack traces are periodically sampled and sent to the
+visualizer.  These can be inspected by hovering the cursor over the image -
+the closest stack trace will be displayed as a tooltip.  To view the
+location of the stacks that have been recorded, use the 'Stack Traces'
+display mode.
+
+### Data Type
+
+If you zoom in far enough, memview will populate the zoomed in pixels with
+the actual data that is present in those memory locations.  By default it
+will display the values based on the type reported by valgrind, but you can
+override the data display type using the settings in the 'Data Type' menu.
+
