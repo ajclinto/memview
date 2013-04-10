@@ -24,7 +24,7 @@ Build the visualizer front end:
 
 To build the valgrind tool, check out the latest valgrind baseline, install
 the patches in the valgrind/ director, and then build valgrind.  Here,
-<valgrind-dir> is the location of the valgrind repository.
+`<valgrind-dir>` is the location of the valgrind repository.
 
     svn co svn://svn.valgrind.org/valgrind/trunk <valgrind-dir>
     cd valgrind
