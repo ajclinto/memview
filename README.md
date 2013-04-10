@@ -16,6 +16,7 @@ plain fun to watch the memory of a complex algorithm!
 Before you start, you'll need:
 * Qt4: libqt4-dev libqt4-opengl-dev
 * A GPU with OpenGL 3.0 support
+* Tested compilers are gcc 4.4 and 4.7
 
 Build the visualizer front end:
 
@@ -28,7 +29,7 @@ the patches in the valgrind/ director, and then build valgrind.  Here,
 
     svn co svn://svn.valgrind.org/valgrind/trunk <valgrind-dir>
     cd valgrind
-    make patch_valgrind VALGRIND_SRC=<valgrind-dir>
+    make patch VALGRIND_SRC=<valgrind-dir>
     cd <valgrind-dir>
     ./autogen.sh
     ./configure --prefix=<valgrind-install-dir>

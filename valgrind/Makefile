@@ -1,6 +1,6 @@
 top:
 
-patch_valgrind:
+patch:
 	cp -rf memview $(VALGRIND_SRC)
 	cp -rf patch_memview.diff $(VALGRIND_SRC)
 	cp -rf patch_wrapmalloc.diff $(VALGRIND_SRC)
