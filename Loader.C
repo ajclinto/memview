@@ -29,6 +29,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sstream>
 
 #define	SHARED_NAME "/memview"
 #define	THREAD_LOADS
@@ -525,6 +526,12 @@ Loader::loadMMap(const MV_Header &header, const char *buf)
 		info = "Thread ";
 #if HAS_LAMBDA
 		info += std::to_string(header.myMMap.myThread);
+#else
+		{
+		    std::ostringstream os;
+		    os << header.myMMap.myThread;
+		    info += os.str();
+		}
 #endif
 		info += " stack";
 		break;
