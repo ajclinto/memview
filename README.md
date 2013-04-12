@@ -56,6 +56,8 @@ how the memory trace visualization works.
 
 ## Documentation
 
+![Memview UI](screenshots/memview.png)
+
 ### Layout
 
 Memview maps the program address space to pixels in the image.  At the
@@ -121,6 +123,8 @@ location of the stacks that have been recorded, use the 'Stack Traces'
 display mode.
 
 ### Data Type
+
+![Data display](screenshots/zoom10.png)
 
 If you zoom in far enough, memview will populate the zoomed in pixels with
 the actual data that is present in those memory locations.  By default it
