@@ -193,7 +193,7 @@ Loader::openPipe(int argc, char *argv[])
     // Queue up some tokens
     myNextToken = 1;
     for (int i = 1; i < MV_BufCount; i++)
-	writeToken(i);
+	writeToken(MV_BlockSize);
 
     return true;
 }
@@ -450,11 +450,9 @@ Loader::loadFromPipe()
 
     if (header.myType == MV_BLOCK)
     {
-	TraceBlockHandle block(new MV_TraceBlock);
-	memcpy(block.get(),
-		&mySharedData->myData[myIdx], sizeof(MV_TraceBlock));
+	LoaderBlockHandle block(new LoaderBlock(mySharedData->myData[myIdx]));
 
-	writeToken(myIdx);
+	writeToken(MV_BlockSize);
 
 	incBuf(myIdx);
 
@@ -586,8 +584,7 @@ Loader::loadFromTest(bool with_stacks)
     if (theCount >= theSize)
 	return false;
 
-    TraceBlockHandle	block(new MV_TraceBlock);
-    block->myEntries = MV_BlockSize;
+    LoaderBlockHandle	block(new LoaderBlock(MV_BlockSize));
     for (uint64 j = 0; j < block->myEntries; j++)
     {
 	block->myAddr[j] = theCount*MV_BlockSize + j;
@@ -617,7 +614,7 @@ Loader::loadFromTest(bool with_stacks)
 template <typename HandleType>
 class UpdateState : public QRunnable {
 public:
-    UpdateState(HandleType &state, const TraceBlockHandle &block)
+    UpdateState(HandleType &state, const LoaderBlockHandle &block)
 	: myState(state)
 	, myBlock(block) {}
 
@@ -637,7 +634,7 @@ public:
 
 private:
     HandleType	     myState;
-    TraceBlockHandle myBlock;
+    LoaderBlockHandle myBlock;
 };
 
 #ifdef THREAD_LOADS
@@ -653,7 +650,7 @@ addToPool(QThreadPool *pool, QRunnable *task)
 #endif
 
 bool
-Loader::loadBlock(const TraceBlockHandle &block)
+Loader::loadBlock(const LoaderBlockHandle &block)
 {
     // Basic semantic checking to ensure we received valid data
     uint64 type = (block->myAddr[0] & MV_TypeMask) >> MV_TypeShift;

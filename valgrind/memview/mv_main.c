@@ -97,6 +97,7 @@ static void mv_print_debug_usage(void)
 
 static MV_TraceBlock	*theBlock = 0;
 static unsigned int	 theEntries = 0;
+static unsigned int	 theMaxEntries = 1;
 
 // Data for pipe
 static MV_TraceBlock	 theBlockData;
@@ -178,9 +179,8 @@ static void flush_data(void)
 
 	VG_(write)(clo_pipe, &header, sizeof(MV_Header));
 
-	// Wait for token
-	int token;
-	VG_(read)(clo_inpipe, &token, sizeof(int));
+	// Wait for max entries token
+	VG_(read)(clo_inpipe, &theMaxEntries, sizeof(int));
 
 	theBlockIndex++;
 	if (theBlockIndex == MV_BufCount)
@@ -203,7 +203,7 @@ static void flush_data(void)
 
 static inline void put_data(Addr addr, uint64 type, uint64 size)
 {
-    if (theEntries >= MV_BlockSize)
+    if (theEntries >= theMaxEntries)
 	flush_data();
 
     // This code was written in the hope that it might improve performance
@@ -560,7 +560,7 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
 	    mkIRExprVec_0() );
 
     di->guard =
-	binop(Iop_CmpLT32S, mkU32(MV_BlockSize - size), entries);
+	binop(Iop_CmpLT32S, mkU32(theMaxEntries - size), entries);
 
     addStmtToIRSB( sb, IRStmt_Dirty(di) );
 
@@ -627,11 +627,11 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
 static void flushEventsIR(IRSB *sb)
 {
     Int i;
-    for (i = 0; i < events_used; i += MV_BlockSize)
+    for (i = 0; i < events_used; i += theMaxEntries)
     {
 	Int size = events_used - i;
-	if (size > MV_BlockSize)
-	    size = MV_BlockSize;
+	if (size > theMaxEntries)
+	    size = theMaxEntries;
 
 	flushEventsRange(sb, i, size);
     }
