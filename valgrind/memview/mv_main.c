@@ -532,30 +532,27 @@ static IRAtom* assignNew ( IRSB* sb, IRExpr* e )
    return mkexpr(t);
 }
 
+/* What's the native endianness?  We need to know this. */
+#if defined(VG_BIGENDIAN)
+#define ENDIAN Iend_BE
+#elif defined(VG_LITTLEENDIAN)
+#define ENDIAN Iend_LE
+#else
+#error "Unknown endianness"
+#endif
+
+
 /* This version of flushEvents avoids callbacks entirely, except when the
    number of outstanding events is enough to be flushed - in which case a
    call to flush_data() is made.  In all other cases, events are handled by
    creating IR to encode and store the memory access information to the
    array of outstanding events.  */
-static void flushEventsIR(IRSB* sb)
+static void flushEventsRange(IRSB* sb, Int start, Int size)
 {
-    if (!events_used)
-	return;
-
-    /* What's the native endianness?  We need to know this. */
-    IREndness end;
-#  if defined(VG_BIGENDIAN)
-    end = Iend_BE;
-#  elif defined(VG_LITTLEENDIAN)
-    end = Iend_LE;
-#  else
-#    error "Unknown endianness"
-#  endif
-
     // Conditionally call the flush method if there's not enough room for
     // all the new events.  This may flush an incomplete block.
     IRExpr *entries_addr = mkU64((ULong)&theEntries);
-    IRExpr *entries = load(end, Ity_I32, entries_addr);
+    IRExpr *entries = load(ENDIAN, Ity_I32, entries_addr);
 
     IRDirty*   di =
 	unsafeIRDirty_0_N(0,
@@ -563,27 +560,27 @@ static void flushEventsIR(IRSB* sb)
 	    mkIRExprVec_0() );
 
     di->guard =
-	binop(Iop_CmpLE32S, mkU32(MV_BlockSize - events_used), entries);
+	binop(Iop_CmpLT32S, mkU32(MV_BlockSize - size), entries);
 
     addStmtToIRSB( sb, IRStmt_Dirty(di) );
 
     // Reload entries since it might have been changed by the callback
-    entries = load(end, Ity_I32, entries_addr);
+    entries = load(ENDIAN, Ity_I32, entries_addr);
 
     // Initialize the first address where we'll write trace information.
     // This will be advanced in the loop.
     uint64 addr_size = sizeof(uint64);
     IRExpr *addr =
 	binop(Iop_Add64,
-		load(end, Ity_I64, mkU64((ULong)&theBlock)),
+		load(ENDIAN, Ity_I64, mkU64((ULong)&theBlock)),
 		unop(Iop_32Uto64,
 		    binop(Iop_Mul32, entries, mkU32(addr_size))));
 
     // Grab the thread id
-    IRExpr *thread = load(end, Ity_I64, mkU64((ULong)&theThread));
+    IRExpr *thread = load(ENDIAN, Ity_I64, mkU64((ULong)&theThread));
 
     Int        i;
-    for (i = 0; i < events_used; i++) {
+    for (i = start; i < start+size; i++) {
 
 	Event*     ev = &events[i];
 
@@ -611,7 +608,7 @@ static void flushEventsIR(IRSB* sb)
 		    mkU64(type | ((uint64)ev->size << MV_SizeShift)));
 	data = binop(Iop_Or64, data, thread);
 
-	IRStmt *store = IRStmt_Store(end, addr, data);
+	IRStmt *store = IRStmt_Store(ENDIAN, addr, data);
 
 	addStmtToIRSB( sb, store );
 
@@ -621,11 +618,23 @@ static void flushEventsIR(IRSB* sb)
 
     // Store the new entry count
     IRStmt *entries_store =
-	IRStmt_Store(end, entries_addr,
-		binop(Iop_Add32, entries, mkU32(events_used)));
+	IRStmt_Store(ENDIAN, entries_addr,
+		binop(Iop_Add32, entries, mkU32(size)));
 
     addStmtToIRSB( sb, entries_store );
+}
 
+static void flushEventsIR(IRSB *sb)
+{
+    Int i;
+    for (i = 0; i < events_used; i += MV_BlockSize)
+    {
+	Int size = events_used - i;
+	if (size > MV_BlockSize)
+	    size = MV_BlockSize;
+
+	flushEventsRange(sb, i, size);
+    }
     events_used = 0;
 }
 
