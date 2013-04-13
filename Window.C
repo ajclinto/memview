@@ -1041,11 +1041,19 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 	if (!myLoader->isComplete())
 	{
 	    double	time = myEventTimer.lap();
-	    QString	rate;
+	    double	rate = (total_events - myPrevEvents) / time;
+	    QString	str;
 
-	    rate.sprintf(" (%.1fMev/s)", 
-		    (total_events - myPrevEvents) / (1000000.0 * time));
-	    myEventInfo.append(rate);
+	    if (rate > 5e8)
+		str.sprintf(" (%.1fGev/s)", rate / 1e9);
+	    else if (rate > 5e5)
+		str.sprintf(" (%.1fMev/s)", rate / 1e6);
+	    else if (rate > 5e2)
+		str.sprintf(" (%.1fKev/s)", rate / 1e3);
+	    else
+		str.sprintf(" (%.1fev/s)", rate);
+
+	    myEventInfo.append(str);
 
 	    myPrevEvents = total_events;
 	}
