@@ -255,13 +255,18 @@ private:
     typedef IntervalMapReader<TYPE> NAME##Reader; \
     typedef IntervalMapWriter<TYPE> NAME##Writer;
 
+struct StackInfo {
+    std::string	myStr;
+    uint32      myState;
+};
+
 struct MMapInfo {
     std::string	myStr;
     int	        myIdx;
     bool	myMapped;
 };
 
-MAP_TYPE(StackTraceMap, std::string)
+MAP_TYPE(StackTraceMap, StackInfo)
 MAP_TYPE(MMapMap, MMapInfo)
 
 #undef MAP_TYPE

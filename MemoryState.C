@@ -66,40 +66,54 @@ MemoryState::~MemoryState()
 }
 
 void
-MemoryState::incrementTime()
+MemoryState::incrementTime(StackTraceMap *stacks)
 {
     myTime++;
 
-    // The time wrapped
-    if (myTime == theHalfLife)
+    class Func {
+	bool myFull;
+    public:
+	Func(bool full) : myFull(full) {}
+	void operator()(StackInfo &val) const
+	{
+	    State  sval; sval.uval = val.myState;
+	    uint32 state = sval.time();
+
+	    if (state && ((state >= theHalfLife) ^ myFull))
+	    {
+		sval.setTime(theStale);
+		val.myState = sval.uval;
+	    }
+	}
+    };
+
+    bool half = myTime == theHalfLife;
+    bool full = myTime == theFullLife;
+    if (half || full)
     {
+	// The time wrapped
 	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
 	{
 	    DisplayPage page(it.page());
 	    for (uint64 i = 0; i < page.size(); i++)
 	    {
 		uint32	state = page.state(i).time();
-		if (state &&
-		    state >= theHalfLife &&
-		    state <= theFullLife)
+		if (state && ((state >= theHalfLife) ^ full))
 		    page.state(i).setTime(theStale);
 	    }
 	}
-    }
-    else if (myTime == theFullLife)
-    {
-	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
+
+	if (stacks)
 	{
-	    DisplayPage page(it.page());
-	    for (uint64 i = 0; i < page.size(); i++)
-	    {
-		uint32	state = page.state(i).time();
-		if (state &&
-		    state < theHalfLife)
-		    page.state(i).setTime(theStale);
-	    }
+	    StackTraceMapWriter writer(*stacks);
+	    uint64		start, end;
+
+	    writer.getTotalInterval(start, end);
+	    writer.apply(start, end, Func(full));
 	}
-	myTime = 2;
+
+	if (full)
+	    myTime = 2;
     }
 }
 

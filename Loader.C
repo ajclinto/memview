@@ -470,8 +470,12 @@ Loader::loadFromPipe()
 	    addr = header.myStack.myAddr;
 	    decodeAddr(addr, size, type);
 	    addr &= MV_AddrMask;
+
+	    MemoryState::State	state;
+	    state.init(myState->getTime(), type);
+
 	    StackTraceMapWriter writer(*myStackTrace);
-	    writer.insert(addr, addr + size, stack);
+	    writer.insert(addr, addr + size, StackInfo{stack, state.uval});
 	    return true;
 	}
     }
@@ -600,7 +604,8 @@ Loader::loadFromTest(bool with_stacks)
 	    addr &= MV_AddrMask;
 
 	    StackTraceMapWriter writer(*myStackTrace);
-	    writer.insert(addr, addr + size, "");
+	    writer.insert(addr, addr + size,
+		    StackInfo{"", myState->getTime()});
 	}
     }
     loadBlock(block);
@@ -695,6 +700,6 @@ Loader::timerEvent(QTimerEvent *)
     }
 
     QMutexLocker lock(myState->writeLock());
-    myState->incrementTime();
+    myState->incrementTime(myStackTrace);
 }
 

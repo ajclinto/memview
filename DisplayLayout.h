@@ -67,7 +67,7 @@ public:
     //	- uint32, StateSource
     //	- uint64, AddressSource
     //	- uint32, IntervalSource<MMapInfo>
-    //  - uint32, IntervalSource<std::string>
+    //  - uint32, IntervalSource<StackInfo>
     template <typename T, typename Source>
     void	    fillImage(GLImage<T> &image,
 			  const Source &src,
@@ -193,8 +193,8 @@ public:
     // These are the values used by the fragment shader
     static inline int getIndex(const MMapInfo &info, bool)
     { return info.myIdx; }
-    static inline int getIndex(const std::string &, bool selected)
-    { return selected ? 2 : 1; }
+    static inline int getIndex(const StackInfo &info, bool selected)
+    { return selected ? 1 : info.myState; }
 
     Page getPage(uint64 addr, uint64 size, uint64 &off) const
     {

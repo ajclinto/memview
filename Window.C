@@ -479,7 +479,7 @@ MemViewWidget::paintGL()
 		myVScrollBar->value());
 	break;
     case 4:
-	myDisplay.fillImage(myImage, IntervalSource<std::string>(
+	myDisplay.fillImage(myImage, IntervalSource<StackInfo>(
 		    *myStackTrace, myStackSelection,
 		    myZoomState->getIgnoreBits()),
 		myHScrollBar->value(),
@@ -1100,7 +1100,7 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 	else
 	{
 	    myStackSelection = it.start();
-	    myStackString = it.value();
+	    myStackString = it.value().myStr;
 	}
     }
     else

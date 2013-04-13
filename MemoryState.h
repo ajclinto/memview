@@ -51,7 +51,7 @@ public:
 	static const uint32	theSubTypeMask = (1 << theSubTypeBits) - 1;
 	static const int	theSubThreadBits = 10;
 	static const uint32	theSubThreadMask = (1 << theSubThreadBits) - 1;
-	static const uint32	theSubStackMask = 1 << (theStateShift-1);
+	static const uint32	theSubSelectedMask = 1 << (theStateShift-1);
 
     public:
 	void init(uint32 time, uint32 type)
@@ -60,7 +60,7 @@ public:
 	void setTime(uint32 time)
 	{ uval = (uval & theStateTypeMask) | (time << theStateShift); }
 	void setFree() { uval |= (MV_TypeFree << MV_DataBits); }
-	void setHasStack() { uval |= theSubStackMask; }
+	void setSelected() { uval |= theSubSelectedMask; }
 
 	// Field accessors.  Here type is the sub-type (without the thread
 	// id).
@@ -70,7 +70,7 @@ public:
 	uint32 thread() const { return (uval >> (theSubDataBits +
 					    theSubTypeBits)) &
 					    theSubThreadMask; }
-	uint32 hasStack() const { return uval & theSubStackMask; }
+	uint32 selected() const { return uval & theSubSelectedMask; }
 	uint32 time() const { return uval >> theStateShift; }
 
 	uint32	uval;
@@ -170,7 +170,7 @@ public:
 		    }
 		}
 
-    void	incrementTime();
+    void	incrementTime(StackTraceMap *stacks = 0);
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
     QMutex	*writeLock() { return &myWriteLock; }

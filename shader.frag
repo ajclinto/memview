@@ -172,7 +172,13 @@ void main(void)
 	    diff = theTime - ival + 1;
     }
 
-    float interp = 1-log2(float(diff))/32;
+    float interp = float(diff);
+
+    // Slow down the cooling period for stack traces
+    if (theDisplayMode == 4)
+	interp *= 0.1;
+
+    interp = 1-log2(interp)/32;
 
     if (theDisplayMode == 1)
     {
@@ -194,10 +200,6 @@ void main(void)
 
 	frag_color = 0.5*texture(theColors, (float(val)+0.5)/size);
     }
-    else if (theDisplayMode == 4)
-    {
-	frag_color = vec4(1, 1, val == 1u ? 1 : 0, 1);
-    }
     else
     {
 	vec3 hi[4];
@@ -213,6 +215,9 @@ void main(void)
 	lo[3] = lum1(vec3(0.1, 0.1, 0.5));
 
 	frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
+
+	if (theDisplayMode == 4 && val == 1u)
+	    frag_color = vec4(1, 1, 0, 1);
     }
 
     if (theDisplayMode != 3 && freed)
