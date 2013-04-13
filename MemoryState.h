@@ -275,6 +275,24 @@ public:
     };
 
 private:
+    class StackInfoUpdater {
+	bool myFull;
+    public:
+	StackInfoUpdater(bool full) : myFull(full) {}
+	void operator()(StackInfo &val) const
+	{
+	    State  sval; sval.uval = val.myState;
+	    uint32 state = sval.time();
+
+	    if (state && ((state >= theHalfLife) ^ myFull))
+	    {
+		sval.setTime(theStale);
+		val.myState = sval.uval;
+	    }
+	}
+    };
+
+private:
     // Raw memory state
     State	*myState;
     bool	*myTopExists;

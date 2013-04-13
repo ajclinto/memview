@@ -70,23 +70,6 @@ MemoryState::incrementTime(StackTraceMap *stacks)
 {
     myTime++;
 
-    class Func {
-	bool myFull;
-    public:
-	Func(bool full) : myFull(full) {}
-	void operator()(StackInfo &val) const
-	{
-	    State  sval; sval.uval = val.myState;
-	    uint32 state = sval.time();
-
-	    if (state && ((state >= theHalfLife) ^ myFull))
-	    {
-		sval.setTime(theStale);
-		val.myState = sval.uval;
-	    }
-	}
-    };
-
     bool half = myTime == theHalfLife;
     bool full = myTime == theFullLife;
     if (half || full)
@@ -109,7 +92,7 @@ MemoryState::incrementTime(StackTraceMap *stacks)
 	    uint64		start, end;
 
 	    writer.getTotalInterval(start, end);
-	    writer.apply(start, end, Func(full));
+	    writer.apply(start, end, StackInfoUpdater(full));
 	}
 
 	if (full)
