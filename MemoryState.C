@@ -37,11 +37,15 @@ MemoryState::MemoryState(int ignorebits)
     : myTime(2)
     , myIgnoreBits(ignorebits)
 {
+    uint64 entries = theAllSize >> myIgnoreBits;
+
+    myTopSize = (entries + theBottomMask) >> theBottomBits;
+
     // Map a massive memory buffer to store the state.  This will only
     // translate into physical memory use as we write values to the buffer.
-    size_t ssize = theAllSize*sizeof(State);
-    size_t dsize = theTopSize*theDisplayBlocksPerBottom*sizeof(bool);
-    size_t tsize = theTopSize*sizeof(bool);
+    size_t ssize = entries*sizeof(State);
+    size_t dsize = (myTopSize << theDisplayBits)*sizeof(bool);
+    size_t tsize = myTopSize*sizeof(bool);
 
     mySize = ssize + tsize + dsize;
 

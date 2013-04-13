@@ -287,7 +287,7 @@ Loader::run()
 	{
 	    QMutexLocker lock(&myPendingLock);
 	    pending = myPendingState.release();
-	    pendingclear = pendingclear;
+	    pendingclear = myPendingClear;
 	    myPendingClear = false;
 	}
 

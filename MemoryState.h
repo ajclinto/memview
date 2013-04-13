@@ -86,11 +86,7 @@ private:
     static const uint64	theAllSize = 1ull << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
 
-    static const int	theTopBits = 18;
-    static const uint64	theTopSize = 1ull << theTopBits;
-    static const uint64	theTopMask = theTopSize-1;
-
-    static const int	theBottomBits = theAllBits-theTopBits;
+    static const int	theBottomBits = 18;
     static const uint64	theBottomSize = 1ull << theBottomBits;
     static const uint64	theBottomMask = theBottomSize-1;
 
@@ -234,7 +230,7 @@ public:
 		}
 	bool	atEnd() const
 		{
-		    return myTop >= theTopSize;
+		    return myTop >= myState.myTopSize;
 		}
 	void	advance()
 		{
@@ -251,7 +247,7 @@ public:
     private:
 	void	skipEmpty()
 		{
-		    for (; myTop < theTopSize; myTop++)
+		    for (; myTop < myState.myTopSize; myTop++)
 		    {
 			if (myState.myTopExists[myTop])
 			{
@@ -298,6 +294,7 @@ private:
     bool	*myTopExists;
     bool	*myExists;
     size_t	 mySize;
+    uint64	 myTopSize;
 
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
