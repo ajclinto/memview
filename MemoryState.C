@@ -47,8 +47,8 @@ MemoryState::MemoryState(int ignorebits)
 
     void *addr = mmap(0, mySize,
 	    PROT_WRITE | PROT_READ,
-	    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NONBLOCK | MAP_NORESERVE,
-	    0, 0);
+	    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+	    -1, 0);
     if (addr == MAP_FAILED)
     {
 	perror("mmap");
