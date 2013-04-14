@@ -324,7 +324,10 @@ Loader::run()
 		waitForInput(timeout_ms);
 		break;
 	    case TEST:
-		rval = loadFromTest(myTestType == 1);
+		if (myTestType)
+		    rval = loadFromTest<true>();
+		else
+		    rval = loadFromTest<false>();
 		break;
 	    case LACKEY:
 		if (waitForInput(timeout_ms))
@@ -574,23 +577,26 @@ Loader::loadFromSharedMemory()
     return false;
 }
 
+template <bool with_stacks>
 bool
-Loader::loadFromTest(bool with_stacks)
+Loader::loadFromTest()
 {
-    static const uint64 theSize = 32*1024;
+    static const uint64 theSize = 8*1024;
     static const uint64 theStackRate = 63;
+    static const uint64 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
+				    | ((uint64)MV_TypeRead << MV_TypeShift)
+				    | ((uint64)4 << MV_SizeShift);
+
     static uint64 theCount = 0;
 
     if (theCount >= theSize)
 	return false;
 
     LoaderBlockHandle	block(new LoaderBlock(MV_BlockSize));
-    for (uint64 j = 0; j < block->myEntries; j++)
+    for (uint32 j = 0; j < MV_BlockSize; j++)
     {
-	block->myAddr[j] = theCount*MV_BlockSize + j;
-	block->myAddr[j] |= (uint64)MV_DataInt32 << MV_DataShift;
-	block->myAddr[j] |= (uint64)MV_TypeRead << MV_TypeShift;
-	block->myAddr[j] |= (uint64)4 << MV_SizeShift;
+	block->myAddr[j] = (theCount*MV_BlockSize + j) << 2;
+	block->myAddr[j] |= theTypeInfo;
 
 	// Insert a stack
 	if (with_stacks && !(j & theStackRate))

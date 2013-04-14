@@ -95,7 +95,9 @@ private:
     bool	loadFromLackey(int max_read);
     bool	loadFromPipe();
     bool	loadFromSharedMemory();
-    bool	loadFromTest(bool with_Stacks);
+
+    template <bool with_stacks>
+    bool	loadFromTest();
 
     bool	loadBlock(const LoaderBlockHandle &block);
     void	loadMMap(const MV_Header &header, const char *buf);

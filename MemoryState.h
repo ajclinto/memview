@@ -37,11 +37,11 @@ class MemoryState {
 public:
     class State {
     public:
-	static const int	theStateShift = 17;
+	static const int	theTimeShift = 17;
 
     private:
 	// Here, type is the combined metadata that excludes the time
-	static const uint32	theStateTypeMask = (1 << theStateShift) - 1;
+	static const uint32	theStateTypeMask = (1 << theTimeShift) - 1;
 	static const uint32	theStateTimeMask = ~theStateTypeMask;
 
 	// Sub-fields of type
@@ -51,14 +51,15 @@ public:
 	static const uint32	theSubTypeMask = (1 << theSubTypeBits) - 1;
 	static const int	theSubThreadBits = 10;
 	static const uint32	theSubThreadMask = (1 << theSubThreadBits) - 1;
-	static const uint32	theSubSelectedMask = 1 << (theStateShift-1);
+	static const uint32	theSubSelectedMask = 1 << (theTimeShift-1);
 
     public:
 	void init(uint32 time, uint32 type)
-       	{ uval = type | (time << theStateShift); }
+       	{ uval = type | (time << theTimeShift); }
 
 	void setTime(uint32 time)
-	{ uval = (uval & theStateTypeMask) | (time << theStateShift); }
+	{ uval = (uval & theStateTypeMask) | (time << theTimeShift); }
+
 	void setFree() { uval |= (MV_TypeFree << MV_DataBits); }
 	void setSelected() { uval |= theSubSelectedMask; }
 
@@ -71,13 +72,13 @@ public:
 					    theSubTypeBits)) &
 					    theSubThreadMask; }
 	uint32 selected() const { return uval & theSubSelectedMask; }
-	uint32 time() const { return uval >> theStateShift; }
+	uint32 time() const { return uval >> theTimeShift; }
 
 	uint32	uval;
     };
 
     static const uint32	theStale	= 1;
-    static const uint32	theFullLife	= 1 << (32-State::theStateShift);
+    static const uint32	theFullLife	= 1 << (32-State::theTimeShift);
     static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
