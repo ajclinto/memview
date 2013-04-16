@@ -128,12 +128,16 @@ Window::Window(int argc, char *argv[])
 
     myScrollArea->setViewport(myMemView);
     setCentralWidget(myScrollArea);
-
-    resize(theDefaultSize);
 }
 
 Window::~Window()
 {
+}
+
+QSize
+Window::sizeHint() const
+{
+    return theDefaultSize;
 }
 
 QActionGroup *

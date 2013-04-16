@@ -47,6 +47,8 @@ public:
 	     Window(int argc, char *argv[]);
     virtual ~Window();
 
+    QSize		 sizeHint() const;
+
 private:
     QActionGroup	*createActionGroup(QMenu *menu,
 					   const char *names[],
