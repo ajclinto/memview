@@ -1,4 +1,4 @@
 *.o
-Makefile
+/Makefile
 memview
 moc_Window.cpp

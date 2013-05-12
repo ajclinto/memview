@@ -1,0 +1,10 @@
+Package: memview
+Version: <<version>>
+Section: devel
+Priority: optional
+Architecture: <<architecture>>
+Depends: valgrind (>= 3.8), libc6 (>= 2.15), libgcc1 (>= 1:4.1.1), libqt4-opengl (>= 4:4.6.1), libqtcore4 (>= 4:4.8.0), libqtgui4 (>= 4:4.5.3), libstdc++6 (>= 4.6)
+Maintainer: Andrew Clinton <ajclinto@gmail.com>
+Homepage: https://github.com/ajclinto/memview
+Description: A real-time memory trace visualizer using valgrind
+ Memview is a real-time visualization program that will show the memory state of another running program as a graphical image.  Memory addresses correspond to pixels in the image, and as memory is accessed the display will animate to show what parts of the address space are currently being referenced by the program.

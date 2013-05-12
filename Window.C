@@ -360,9 +360,17 @@ void MemViewWidget::batchSize(int value)
 // Load a file into a buffer.  The buffer is owned by the caller, and
 // should be freed with delete[].
 static char *
-loadTextFile(const char *filename)
+loadTextFile(const char *filename, const std::vector<std::string> &paths)
 {
-    std::ifstream   is(filename);
+    std::ifstream   is;
+    for (auto it = paths.begin(); it != paths.end(); ++it)
+    {
+	std::string path = *it + filename;
+
+	is.open(path.c_str());
+	if (is.good())
+	    break;
+    }
     if (!is.good())
 	return 0;
 
@@ -450,17 +458,18 @@ MemViewWidget::initializeGL()
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MIN_FILTER, type);
     glTexParameteri(GL_TEXTURE_RECTANGLE, GL_TEXTURE_MAG_FILTER, type);
 
-    std::string shader_path;
+    std::vector<std::string> paths;
+    paths.push_back("");
+    paths.push_back(myPath);
+    paths.push_back("/usr/share/memview/");
 
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
-    shader_path = myPath + "shader.vert";
-    const char *vsrc = loadTextFile(shader_path.c_str());
+    const char *vsrc = loadTextFile("shader.vert", paths);
     vshader->compileSourceCode(vsrc);
     delete [] vsrc;
 
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    shader_path = myPath + "shader.frag";
-    const char *fsrc = loadTextFile(shader_path.c_str());
+    const char *fsrc = loadTextFile("shader.frag", paths);
     fshader->compileSourceCode(fsrc);
     delete [] fsrc;
 
