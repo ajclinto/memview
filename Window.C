@@ -34,8 +34,55 @@
 
 static const QSize	theDefaultSize(800, 600);
 
+LogSlider::LogSlider(const char *name, int maxlogval, int deflogval)
+{
+    mySlider = new QSlider(Qt::Horizontal);
+    mySlider->setRange(0, maxlogval);
+    mySlider->setSingleStep(1);
+    mySlider->setPageStep(5);
+    mySlider->setTickPosition(QSlider::TicksBothSides);
+    mySlider->setTracking(true);
+    mySlider->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Ignored);
+    mySlider->setFixedWidth(300);
+
+    myLabel = new QLabel(name);
+    myNumber = new QLabel;
+    myNumber->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Ignored);
+    myNumber->setFixedWidth(50);
+    myNumber->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+
+    QHBoxLayout	*layout = new QHBoxLayout;
+
+    layout->addWidget(myLabel);
+    layout->addWidget(mySlider);
+    layout->addWidget(myNumber);
+
+    setLayout(layout);
+
+    connect(mySlider, SIGNAL(valueChanged(int)), this, SLOT(fromLog(int)));
+
+    mySlider->setValue(deflogval);
+    fromLog(mySlider->value());
+}
+
+void
+LogSlider::setLogValue(int value)
+{
+    mySlider->setValue(value);
+}
+
+void LogSlider::fromLog(int value)
+{
+    value = 1 << value;
+    myNumber->setNum(value);
+    emit valueChanged(value);
+}
+
+
 Window::Window(int argc, char *argv[])
 {
+    const char	*batchsize = extractOption(argc, argv, "--batch-size=");
+
     myScrollArea = new MemViewScroll(this);
 
     setStatusBar(statusBar());
@@ -128,6 +175,22 @@ Window::Window(int argc, char *argv[])
 
     myScrollArea->setViewport(myMemView);
     setCentralWidget(myScrollArea);
+
+    myToolBar = new QToolBar("Tools");
+    myToolBar->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+    addToolBar(Qt::TopToolBarArea, myToolBar);
+
+    LogSlider *slider = new LogSlider("Batch Size", 15, 15);
+
+    myToolBar->addWidget(slider);
+
+    connect(slider, SIGNAL(valueChanged(int)), myMemView, SLOT(batchSize(int)));
+
+    if (batchsize)
+    {
+	int value = (int)(log((double)atoi(batchsize))/log(2.0));
+	slider->setLogValue(value);
+    }
 }
 
 Window::~Window()
@@ -287,6 +350,11 @@ void MemViewWidget::datatype(QAction *action)
 {
     // Subtract 1 so that auto-detect types is -1
     myDataType = action->actionGroup()->actions().indexOf(action) - 1;
+}
+
+void MemViewWidget::batchSize(int value)
+{
+    myLoader->setBlockSize(value);
 }
 
 // Load a file into a buffer.  The buffer is owned by the caller, and

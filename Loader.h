@@ -78,6 +78,12 @@ public:
 		    myPendingClear = true;
 		}
 
+    // Regulates the interval between stack traces
+    void	setBlockSize(int size)
+		{
+		    myBlockSize = SYSclamp(size, 1, MV_BlockSize);
+		}
+
     MemoryState	*getBaseState() const { return myState; }
 
     uint64	getTotalEvents() const { return myTotalEvents; }
@@ -117,6 +123,8 @@ private:
     QMutex		 myPendingLock;
     std::unique_ptr<MemoryState> myPendingState;
     bool		 myPendingClear;
+
+    int			 myBlockSize;
 
     // Child process
     pid_t	 myChild;

@@ -41,6 +41,7 @@ Loader::Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap)
     , myMMapMap(mmapmap)
     , myTotalEvents(0)
     , myPendingClear(false)
+    , myBlockSize(MV_BlockSize)
     , myChild(-1)
     , myPipeFD(0)
     , myPipe(0)
@@ -193,7 +194,7 @@ Loader::openPipe(int argc, char *argv[])
     // Queue up some tokens
     myNextToken = 1;
     for (int i = 1; i < MV_BufCount; i++)
-	writeToken(MV_BlockSize);
+	writeToken(myBlockSize);
 
     return true;
 }
@@ -455,7 +456,7 @@ Loader::loadFromPipe()
     {
 	LoaderBlockHandle block(new LoaderBlock(mySharedData->myData[myIdx]));
 
-	writeToken(MV_BlockSize);
+	writeToken(myBlockSize);
 
 	incBuf(myIdx);
 

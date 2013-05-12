@@ -40,9 +40,28 @@ class MemViewWidget;
 class MemViewScroll;
 class Loader;
 
-class Window : public QMainWindow {
-    Q_OBJECT
+// A horizontal slider widget with a label to the left and right.  The
+// right label shows the numeric value of the slider.  The slider values
+// are mapped to powers of 2.
+class LogSlider : public QWidget { Q_OBJECT
+public:
+    LogSlider(const char *name, int maxlogval, int deflogval);
 
+    void    setLogValue(int value);
+
+signals:
+    void    valueChanged(int value);
+
+public slots:
+    void    fromLog(int value);
+
+private:
+    QLabel	*myLabel;
+    QSlider	*mySlider;
+    QLabel	*myNumber;
+};
+
+class Window : public QMainWindow { Q_OBJECT
 public:
 	     Window(int argc, char *argv[]);
     virtual ~Window();
@@ -81,6 +100,8 @@ private:
     QActionGroup	*myDataTypeGroup;
     QAction		*myDataType[theDataTypeCount];
 
+    QToolBar		*myToolBar;
+
     MemViewWidget	*myMemView;
     MemViewScroll	*myScrollArea;
 };
@@ -97,9 +118,7 @@ public:
 };
 
 // A widget to render the memory visualization.
-class MemViewWidget : public QGLWidget {
-    Q_OBJECT
-
+class MemViewWidget : public QGLWidget { Q_OBJECT
 public:
 	     MemViewWidget(int argc, char *argv[],
 			    QWidget *parent,
@@ -150,6 +169,8 @@ private slots:
     void    datatype(QAction *action);
 
     void    dimmer();
+
+    void    batchSize(int value);
 
 private:
     GLImage<uint32>	 myImage;

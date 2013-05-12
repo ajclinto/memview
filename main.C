@@ -31,6 +31,9 @@ usage()
     fprintf(stderr, "\t--ignore-bits=n\n"
 	"\t\tDrop the n least significant bits in memory addresses.\n"
 	"\t\tThis option can be used to optimize memory use. [2]\n");
+    fprintf(stderr, "\t--batch-size=n\n"
+	"\t\tTake a stack trace sample after every n events.\n"
+	"\t\tThis value must be between 1 and 32768. [32768]\n");
     fprintf(stderr, "\t--tool=[memview|lackey]\n"
 	"\t\tBy default, memview will use the 'memview' valgrind\n"
 	"\t\ttool.  If you have an unpatched valgrind, you can force the\n"

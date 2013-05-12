@@ -554,13 +554,17 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
     IRExpr *entries_addr = mkU64((ULong)&theEntries);
     IRExpr *entries = load(ENDIAN, Ity_I32, entries_addr);
 
+    IRExpr *max_entries_addr = mkU64((ULong)&theMaxEntries);
+    IRExpr *max_entries = load(ENDIAN, Ity_I32, max_entries_addr);
+
     IRDirty*   di =
 	unsafeIRDirty_0_N(0,
 	    "flush_data", VG_(fnptr_to_fnentry)( flush_data ),
 	    mkIRExprVec_0() );
 
     di->guard =
-	binop(Iop_CmpLT32S, mkU32(theMaxEntries - size), entries);
+	binop(Iop_CmpLT32S, max_entries,
+		binop(Iop_Add32, entries, mkU32(size)));
 
     addStmtToIRSB( sb, IRStmt_Dirty(di) );
 
