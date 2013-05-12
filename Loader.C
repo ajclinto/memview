@@ -34,12 +34,16 @@
 #define	SHARED_NAME "/memview"
 #define	THREAD_LOADS
 
-Loader::Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap)
+Loader::Loader(MemoryState *state,
+	       StackTraceMap *stack,
+	       MMapMap *mmapmap,
+	       const std::string &path)
     : QThread(0)
     , myState(state)
     , myStackTrace(stack)
     , myMMapMap(mmapmap)
     , myTotalEvents(0)
+    , myPath(path)
     , myPendingClear(false)
     , myBlockSize(MV_BlockSize)
     , myChild(-1)
@@ -168,6 +172,16 @@ Loader::openPipe(int argc, char *argv[])
 	for (int i = 0; i < argc; i++)
 	    args[i+vg_args] = argv[i];
 	args[argc+vg_args] = NULL;
+
+	if (myPath != "/usr/bin/")
+	{
+	    // If the executable is not executing from the install
+	    // directory, look for valgrind in the source tree.
+	    std::string valgrind_dir =
+		myPath + "valgrind/valgrind_src/.in_place";
+
+	    setenv("VALGRIND_LIB", valgrind_dir.c_str(), 1);
+	}
 
 	if (execvp(valgrind, (char * const *)args) == -1)
 	{

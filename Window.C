@@ -277,7 +277,7 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     myStackTrace = new StackTraceMap;
     myStackSelection = 0;
     myMMapMap = new MMapMap;
-    myLoader = new Loader(myState, myStackTrace, myMMapMap);
+    myLoader = new Loader(myState, myStackTrace, myMMapMap, myPath);
 
     if (myLoader->openPipe(argc, argv))
     {

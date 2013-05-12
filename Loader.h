@@ -62,7 +62,10 @@ typedef std::shared_ptr<LoaderBlock> LoaderBlockHandle;
 
 class Loader : public QThread {
 public:
-     Loader(MemoryState *state, StackTraceMap *stack, MMapMap *mmapmap);
+     Loader(MemoryState *state,
+	    StackTraceMap *stack,
+	    MMapMap *mmapmap,
+	    const std::string &path);
     ~Loader();
 
     bool	openPipe(int argc, char *argv[]);
@@ -119,6 +122,7 @@ private:
     MMapMap		*myMMapMap;
     MMapNameMap		 myMMapNames;
     uint64		 myTotalEvents;
+    std::string		 myPath;
 
     QMutex		 myPendingLock;
     std::unique_ptr<MemoryState> myPendingState;

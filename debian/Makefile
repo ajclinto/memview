@@ -4,7 +4,7 @@ BIN_INSTALL_DIR = debian/usr/bin
 SHARE_INSTALL_DIR = debian/usr/share/memview
 VALGRIND_INSTALL_DIR = debian/usr/lib/valgrind
 
-VALGRIND_SRC = ~/projects/repo/valgrind
+VALGRIND_SRC = ../valgrind/valgrind_src
 
 # depends: dpkg-shlibdeps --ignore-missing-info -O debian/usr/bin/memview
 

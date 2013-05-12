@@ -23,29 +23,20 @@ Build the visualizer front end:
     qmake
     make -j<nprocs>
 
-To build the valgrind tool, check out the latest valgrind baseline, install
-the patches in the valgrind/ director, and then build valgrind.  Here,
-`<valgrind-dir>` is the location of the valgrind repository.
+Build the valgrind tool. This will automatically download the valgrind
+source code prior to patching and building it:
 
-    svn co svn://svn.valgrind.org/valgrind/trunk <valgrind-dir>
     cd valgrind
-    make patch VALGRIND_SRC=<valgrind-dir>
-    cd <valgrind-dir>
-    ./autogen.sh
-    ./configure --prefix=<valgrind-install-dir>
-    make -j<nprocs> install
+    make -j<nprocs>
 
 ## Execution
 
-Test the tool:
-
-    valgrind --tool=memview ls
-
-Test the front end:
+If you built the front and tool successfully, the following command should
+work:
 
     ./memview ls
 
-If you were unable to patch the valgrind tool but you have a valgrind
+If you were unable to build the valgrind tool but you have a valgrind
 binary installed, you can try the front end (without the tool) using:
 
     ./memview --tool=lackey ls
