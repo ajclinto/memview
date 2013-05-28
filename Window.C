@@ -142,15 +142,23 @@ Window::Window(int argc, char *argv[])
 	    myDisplayMenu, theDisplayNames, myDisplay, theDisplayCount, 0);
 
     myDisplayMenu->addSeparator();
+
     myDisplayDimmer = new QAction(tr("&Limit Brightness"), this);
     myDisplayDimmer->setCheckable(true);
     myDisplayMenu->addAction(myDisplayDimmer);
+
+    myDisplayShowToolBar = new QAction(tr("&Show Toolbar"), this);
+    myDisplayShowToolBar->setCheckable(true);
+    myDisplayMenu->addAction(myDisplayShowToolBar);
 
     connect(myDisplayGroup, SIGNAL(triggered(QAction *)),
 	    myMemView, SLOT(display(QAction *)));
 
     connect(myDisplayDimmer, SIGNAL(triggered()),
 	    myMemView, SLOT(dimmer()));
+
+    connect(myDisplayShowToolBar, SIGNAL(toggled(bool)),
+	    this, SLOT(toolbar(bool)));
 
     // This menu should be ordered the same as the MV_Data* defines in
     // mv_ipc.h
@@ -178,7 +186,6 @@ Window::Window(int argc, char *argv[])
 
     myToolBar = new QToolBar("Tools");
     myToolBar->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
-    addToolBar(Qt::TopToolBarArea, myToolBar);
 
     LogSlider *slider = new LogSlider("Batch Size", 15, 15);
 
@@ -201,6 +208,18 @@ QSize
 Window::sizeHint() const
 {
     return theDefaultSize;
+}
+
+void
+Window::toolbar(bool value)
+{
+    if (value)
+    {
+	addToolBar(Qt::TopToolBarArea, myToolBar);
+	myToolBar->show();
+    }
+    else
+	removeToolBar(myToolBar);
 }
 
 QActionGroup *

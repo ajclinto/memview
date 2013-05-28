@@ -75,6 +75,9 @@ private:
 					   int count,
 					   int def_action);
 
+public slots:
+    void    toolbar(bool value);
+
 private:
     QMenu		*myFileMenu;
     QAction		*myQuit;
@@ -94,6 +97,7 @@ private:
     QActionGroup	*myDisplayGroup;
     QAction		*myDisplay[theDisplayCount];
     QAction		*myDisplayDimmer;
+    QAction		*myDisplayShowToolBar;
 
     static const int	 theDataTypeCount = 6;
     QMenu		*myDataTypeMenu;
