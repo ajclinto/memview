@@ -12,16 +12,16 @@ Index: Makefile.am
  
  EXP_TOOLS = 	exp-sgcheck \
  		exp-bbv \
-Index: configure.in
+Index: configure.ac
 ===================================================================
---- configure.in	(revision 13221)
-+++ configure.in	(working copy)
-@@ -2536,6 +2536,8 @@
-    exp-bbv/tests/arm-linux/Makefile
-    exp-dhat/Makefile
-    exp-dhat/tests/Makefile
+--- configure.ac	(revision 13715)
++++ configure.ac	(working copy)
+@@ -2839,6 +2839,8 @@
+    massif/Makefile
+    massif/tests/Makefile
+    massif/ms_print
 +   memview/Makefile
 +   memview/tests/Makefile
- ])
- AC_CONFIG_FILES([coregrind/link_tool_exe_linux],
-                 [chmod +x coregrind/link_tool_exe_linux])
+    lackey/Makefile
+    lackey/tests/Makefile
+    none/Makefile
