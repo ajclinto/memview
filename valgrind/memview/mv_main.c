@@ -81,6 +81,7 @@ static void mv_print_usage(void)
 {  
     VG_(printf)(
 	    "    --pipe=<fd>                pipe to fd [0]\n"
+	    "    --inpipe=<fd>              input pipe from fd [0]\n"
 	    "    --shared-mem=<file>        shared memory output file [""]\n"
 	    "    --trace-instrs=yes         trace instruction memory [no]\n"
 	    );

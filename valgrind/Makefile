@@ -22,12 +22,11 @@ $(VALGRIND_SRC): $(VALGRIND_TARBALL)
 	cd $(VALGRIND_SRC)/VEX; \
 	    patch -p0 < patch_vex_floattypes.diff
 	cp -rf memview $(VALGRIND_SRC)
-	# Make symbolic links for mv_ipc.h and mv_main.c for simpler
-	# development
-	rm -f $(VALGRIND_SRC)/mv_ipc.h
-	rm -f $(VALGRIND_SRC)/mv_main.c
-	ln -s memview/mv_ipc.h $(VALGRIND_SRC)/mv_ipc.h
-	ln -s memview/mv_main.c $(VALGRIND_SRC)/mv_main.c
+	# Make links for mv_ipc.h and mv_main.c for simpler development
+	rm -f $(VALGRIND_SRC)/memview/mv_ipc.h
+	rm -f $(VALGRIND_SRC)/memview/mv_main.c
+	ln ../mv_ipc.h $(VALGRIND_SRC)/memview/mv_ipc.h
+	ln memview/mv_main.c $(VALGRIND_SRC)/memview/mv_main.c
 	cd $(VALGRIND_SRC); ./autogen.sh; ./configure
 
 clean:

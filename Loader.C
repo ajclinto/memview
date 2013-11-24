@@ -93,6 +93,8 @@ Loader::openPipe(int argc, char *argv[])
     {
 	if (!strcmp(tool, "lackey"))
 	    mySource = LACKEY;
+	else if (!strcmp(tool, "pin"))
+	    mySource = PIN;
 	else if (!strcmp(tool, "test"))
 	    mySource = TEST;
 	else if (!strcmp(tool, "teststack"))
@@ -104,7 +106,12 @@ Loader::openPipe(int argc, char *argv[])
 
     // Allow overriden valgrind binary
     if (!valgrind)
-	valgrind = "valgrind";
+    {
+	if (mySource == PIN)
+	    valgrind = "pin";
+	else
+	    valgrind = "valgrind";
+    }
 
     if (mySource == TEST)
 	return true;
@@ -143,13 +150,49 @@ Loader::openPipe(int argc, char *argv[])
 	const char		*args[theMaxArgs];
 	char			 pipearg[64];
 	char			 outpipearg[64];
+	char			 memrange[128];
 	int			 vg_args = 0;
 
 	args[vg_args++] = valgrind;
-	if (mySource != LACKEY)
+	switch (mySource)
 	{
-	    args[vg_args++] = "--tool=memview";
+	case PIN:
+	    sprintf(memrange, "0x0:0x%llx", MV_AddrMask+1);
+	    args[vg_args++] = "-injection";
+	    args[vg_args++] = "child";
+	    // This option seems to be broken - the tool allocates memory
+	    // outside this range.
+	    args[vg_args++] = "-pin_memory_range";
+	    args[vg_args++] = memrange;
+	    args[vg_args++] = "-t";
+	    args[vg_args++] = "pin/obj-intel64/mv_pin.so";
 
+	    if (mySharedData)
+	    {
+		args[vg_args++] = "-shared-mem";
+		args[vg_args++] = "/dev/shm" SHARED_NAME;
+	    }
+
+	    sprintf(pipearg, "%d", fd[1]);
+	    args[vg_args++] = "-pipe";
+	    args[vg_args++] = pipearg;
+
+	    sprintf(outpipearg, "%d", outfd[0]);
+	    args[vg_args++] = "-inpipe";
+	    args[vg_args++] = outpipearg;
+
+	    args[vg_args++] = "--";
+	    break;
+	case LACKEY:
+	    // Copy stderr to the output of the pipe
+	    dup2(fd[1], 2);
+
+	    args[vg_args++] = "--tool=lackey";
+	    args[vg_args++] = "--basic-counts=no";
+	    args[vg_args++] = "--trace-mem=yes";
+	    break;
+	default:
+	    args[vg_args++] = "--tool=memview";
 	    if (mySharedData)
 		args[vg_args++] = "--shared-mem=/dev/shm" SHARED_NAME;
 
@@ -158,22 +201,15 @@ Loader::openPipe(int argc, char *argv[])
 
 	    sprintf(outpipearg, "--inpipe=%d", outfd[0]);
 	    args[vg_args++] = outpipearg;
-	}
-	else
-	{
-	    // Copy stderr to the output of the pipe
-	    dup2(fd[1], 2);
-
-	    args[vg_args++] = "--tool=lackey";
-	    args[vg_args++] = "--basic-counts=no";
-	    args[vg_args++] = "--trace-mem=yes";
+	    break;
 	}
 
 	for (int i = 0; i < argc; i++)
-	    args[i+vg_args] = argv[i];
-	args[argc+vg_args] = NULL;
+	    args[vg_args++] = argv[i];
 
-	if (myPath != "/usr/bin/")
+	args[vg_args] = NULL;
+
+	if (mySource != PIN && myPath != "/usr/bin/")
 	{
 	    // If the executable is not executing from the install
 	    // directory, look for valgrind in the source tree.
@@ -349,6 +385,7 @@ Loader::run()
 		    rval = loadFromLackey(MV_BlockSize);
 		break;
 	    case MEMVIEW_PIPE:
+	    case PIN:
 		if (waitForInput(timeout_ms))
 		    rval = loadFromPipe();
 		break;

@@ -26,7 +26,7 @@
 #define Loader_H
 
 #include <QThread>
-#include "valgrind/memview/mv_ipc.h"
+#include "mv_ipc.h"
 #include "Math.h"
 #include "IntervalMap.h"
 #include <unordered_map>
@@ -148,6 +148,7 @@ private:
 	NONE,
 	LACKEY,
 	MEMVIEW_PIPE,
+	PIN,
 	TEST
     };
 
