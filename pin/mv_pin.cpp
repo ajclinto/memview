@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 
 /* ================================================================== */
 // Global variables 
@@ -87,6 +88,9 @@ INT32 Usage()
 static void
 flushEvents()
 {
+    if (!theBlock->myEntries)
+	return;
+
     theTotalEvents += theBlock->myEntries;
 
     // Send the block
@@ -180,6 +184,52 @@ VOID Instruction(INS ins, VOID *v)
     }
 }
 
+static void
+imageEvent(IMG img, bool unload)
+{
+    THREADID	tid = PIN_ThreadId();
+
+    MV_Header		header;
+    MV_MMapType		type = MV_DATA;
+
+    if (unload)
+	type = MV_UNMAP;
+
+    header.myType = MV_MMAP;
+    header.myMMap.myStart = IMG_LowAddress(img);
+    header.myMMap.myEnd = IMG_HighAddress(img);
+    header.myMMap.myType = type;
+    header.myMMap.myThread = tid;
+
+    const char	*filename = IMG_Name(img).c_str();
+
+    header.myMMap.mySize = strlen(filename)+1; // Include terminating '\0'
+
+    PIN_GetLock(&theLock, tid);
+    flushEvents();
+    if (!write(KnobPipe, &header, sizeof(MV_Header)))
+	;
+    if (!write(KnobPipe, filename, header.myMMap.mySize))
+	;
+    PIN_ReleaseLock(&theLock);
+}
+
+// Pin calls this function every time a new img is loaded
+// It can instrument the image, but this example does not
+// Note that imgs (including shared libraries) are loaded lazily
+
+VOID ImageLoad(IMG img, VOID *v)
+{
+    imageEvent(img, false);
+}
+
+// Pin calls this function every time a new img is unloaded
+// You can't instrument an image that is about to be unloaded
+VOID ImageUnload(IMG img, VOID *v)
+{
+    imageEvent(img, true);
+}
+
 /*!
  * Print out analysis results.
  * This function is called when the application exits.
@@ -189,8 +239,7 @@ VOID Instruction(INS ins, VOID *v)
  */
 VOID Fini(INT32 code, VOID *v)
 {
-    if (theBlock->myEntries)
-	flushEvents();
+    flushEvents();
 
     fprintf(stderr, "Total events: %lld\n", theTotalEvents);
 }
@@ -204,6 +253,9 @@ VOID Fini(INT32 code, VOID *v)
  */
 int main(int argc, char *argv[])
 {
+    // Required for image callbacks to work
+    PIN_InitSymbols();
+
     // Initialize PIN library. Print help message if -h(elp) is specified
     // in the command line or the command line is invalid 
     if( PIN_Init(argc,argv) )
@@ -248,11 +300,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    INS_AddInstrumentFunction(Instruction, 0);
+
+    // Register ImageLoad to be called when an image is loaded
+    IMG_AddInstrumentFunction(ImageLoad, 0);
+
+    // Register ImageUnload to be called when an image is unloaded
+    IMG_AddUnloadFunction(ImageUnload, 0);
+    
     // Register function to be called when the application exits
     PIN_AddFiniFunction(Fini, 0);
 
-    INS_AddInstrumentFunction(Instruction, 0);
-    
     // Start the program, never returns
     PIN_StartProgram();
     
