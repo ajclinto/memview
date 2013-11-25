@@ -31,7 +31,6 @@
 #include <unistd.h>
 #include <sstream>
 
-#define	SHARED_NAME "/memview"
 #define	THREAD_LOADS
 
 Loader::Loader(MemoryState *state,
@@ -61,6 +60,9 @@ Loader::Loader(MemoryState *state,
     // faster than the display timer since with this higher resolution it's
     // possible to see gradation in access times within a single frame.
     startTimer(10);
+
+    mySharedName = "/memview";
+    mySharedName += SYStoString(getpid());
 }
 
 Loader::~Loader()
@@ -77,7 +79,7 @@ Loader::~Loader()
     if (myOutPipe) fclose(myOutPipe);
 
     if (mySharedData)
-	shm_unlink(SHARED_NAME);
+	shm_unlink(mySharedName.c_str());
 }
 
 bool
@@ -151,6 +153,7 @@ Loader::openPipe(int argc, char *argv[])
 	char			 pipearg[64];
 	char			 outpipearg[64];
 	char			 memrange[128];
+	char			 sharedfile[128];
 	int			 vg_args = 0;
 
 	args[vg_args++] = valgrind;
@@ -169,8 +172,9 @@ Loader::openPipe(int argc, char *argv[])
 
 	    if (mySharedData)
 	    {
+		sprintf(sharedfile, "/dev/shm%s", mySharedName.c_str());
 		args[vg_args++] = "-shared-mem";
-		args[vg_args++] = "/dev/shm" SHARED_NAME;
+		args[vg_args++] = sharedfile;
 	    }
 
 	    sprintf(pipearg, "%d", fd[1]);
@@ -194,7 +198,11 @@ Loader::openPipe(int argc, char *argv[])
 	default:
 	    args[vg_args++] = "--tool=memview";
 	    if (mySharedData)
-		args[vg_args++] = "--shared-mem=/dev/shm" SHARED_NAME;
+	    {
+		sprintf(sharedfile, "--shared-mem=/dev/shm%s",
+			mySharedName.c_str());
+		args[vg_args++] = sharedfile;
+	    }
 
 	    sprintf(pipearg, "--pipe=%d", fd[1]);
 	    args[vg_args++] = pipearg;
@@ -253,7 +261,7 @@ bool
 Loader::initSharedMemory()
 {
     // Set of shared memory before fork
-    int shm_fd = shm_open(SHARED_NAME,
+    int shm_fd = shm_open(mySharedName.c_str(),
 	    O_CREAT | O_CLOEXEC | O_RDWR,
 	    S_IRUSR | S_IWUSR);
     if (shm_fd == -1)
@@ -581,15 +589,7 @@ Loader::loadMMap(const MV_Header &header, const char *buf)
 	    case MV_HEAP: info = "Heap"; break;
 	    case MV_STACK:
 		info = "Thread ";
-#if HAS_LAMBDA
-		info += std::to_string(header.myMMap.myThread);
-#else
-		{
-		    std::ostringstream os;
-		    os << header.myMMap.myThread;
-		    info += os.str();
-		}
-#endif
+		info += SYStoString(header.myMMap.myThread);
 		info += " stack";
 		break;
 	    case MV_SHM:

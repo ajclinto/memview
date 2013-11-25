@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <limits>
+#include <string>
 
 #define HAS_LAMBDA (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
 
@@ -124,5 +125,19 @@ struct Box {
     T	l[2];
     T	h[2];
 };
+
+#if HAS_LAMBDA
+inline std::string SYStoString(int val)
+{
+    return std::to_string(val);
+}
+#else
+inline std::string SYStoString(int val)
+{
+    std::ostringstream os;
+    os << val;
+    return os.str();
+}
+#endif
 
 #endif

@@ -137,8 +137,7 @@ private:
     int		 myOutPipeFD;
     FILE	*myOutPipe;
 
-    // Shared memory.  This interface is only available as a template for
-    // future work.
+    std::string		 mySharedName;
     MV_SharedData	*mySharedData;
     int			 myIdx;
     int			 myNextToken;
