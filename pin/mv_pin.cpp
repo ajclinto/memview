@@ -99,28 +99,36 @@ flushEvents()
     theBlock->myEntries = 0;
 }
 
+PIN_LOCK    theLock;
+
 static inline void
-recordEvent(void *addr, unsigned long long type)
+recordEvent(VOID *addr, unsigned long long type, UINT32 size, THREADID tid)
 {
+    // This is really inefficient - we need a way to record events into a
+    // thread-specific pool before they are shipped to the visualizer.
+    PIN_GetLock(&theLock, tid);
     unsigned long long val;
-    val = (unsigned long long)addr & MV_AddrMask;
+    val = ((unsigned long long)addr << MV_AddrShift) & MV_AddrMask;
     val |= type;
+    val |= ((unsigned long long)size << MV_SizeShift) & MV_SizeMask;
+    val |= ((unsigned long long)tid << MV_ThreadShift) & MV_ThreadMask;
     theBlock->myAddr[theBlock->myEntries] = val;
     theBlock->myEntries++;
     if (theBlock->myEntries >= theMaxEntries)
 	flushEvents();
+    PIN_ReleaseLock(&theLock);
 }
 
 // Print a memory read record
-VOID RecordMemRead(VOID * ip, VOID * addr)
+VOID RecordMemRead(VOID *addr, UINT32 size, THREADID tid)
 {
-    recordEvent(addr, MV_ShiftedRead);
+    recordEvent(addr, MV_ShiftedRead, size, tid);
 }
 
 // Print a memory write record
-VOID RecordMemWrite(VOID * ip, VOID * addr)
+VOID RecordMemWrite(VOID *addr, UINT32 size, THREADID tid)
 {
-    recordEvent(addr, MV_ShiftedWrite);
+    recordEvent(addr, MV_ShiftedWrite, size, tid);
 }
 
 // Is called for every instruction and instruments reads and writes
@@ -136,23 +144,25 @@ VOID Instruction(INS ins, VOID *v)
     // Iterate over each memory operand of the instruction.
     for (UINT32 memOp = 0; memOp < memOperands; memOp++)
     {
-        if (INS_MemoryOperandIsRead(ins, memOp))
-        {
-            INS_InsertPredicatedCall(
-                ins, IPOINT_BEFORE, (AFUNPTR)RecordMemRead,
-                IARG_INST_PTR,
-                IARG_MEMORYOP_EA, memOp,
-                IARG_END);
-        }
-        // Note that in some architectures a single memory operand can be 
-        // both read and written (for instance incl (%eax) on IA-32)
-        // In that case we instrument it once for read and once for write.
-        if (INS_MemoryOperandIsWritten(ins, memOp))
+	bool read = INS_MemoryOperandIsRead(ins, memOp);
+	bool write = INS_MemoryOperandIsWritten(ins, memOp);
+
+	if (write)
         {
             INS_InsertPredicatedCall(
                 ins, IPOINT_BEFORE, (AFUNPTR)RecordMemWrite,
-                IARG_INST_PTR,
                 IARG_MEMORYOP_EA, memOp,
+		IARG_MEMORYWRITE_SIZE,
+		IARG_THREAD_ID,
+                IARG_END);
+        }
+	else if (read)
+        {
+            INS_InsertPredicatedCall(
+                ins, IPOINT_BEFORE, (AFUNPTR)RecordMemRead,
+                IARG_MEMORYOP_EA, memOp,
+		IARG_MEMORYREAD_SIZE,
+		IARG_THREAD_ID,
                 IARG_END);
         }
     }

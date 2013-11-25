@@ -157,13 +157,13 @@ Loader::openPipe(int argc, char *argv[])
 	switch (mySource)
 	{
 	case PIN:
-	    sprintf(memrange, "0x0:0x%llx", MV_AddrMask+1);
-	    args[vg_args++] = "-injection";
-	    args[vg_args++] = "child";
-	    // This option seems to be broken - the tool allocates memory
-	    // outside this range.
+	    // There seem to be undocumented restrictions on this range:
+	    // - The start address needs to be nonzero
+	    // - The start address needs to be (1<<32) aligned
+	    sprintf(memrange, "0x100000000:0x%llx", 1ull << MV_AddrBits);
 	    args[vg_args++] = "-pin_memory_range";
 	    args[vg_args++] = memrange;
+
 	    args[vg_args++] = "-t";
 	    args[vg_args++] = "pin/obj-intel64/mv_pin.so";
 
