@@ -54,14 +54,17 @@ public:
      // Create an array of size 1<<all_bits
      SparseArray(int all_bits)
      {
+	 // This needs to be at least bottom_bits
+	 all_bits = SYSmax(all_bits, bottom_bits);
+
 	 uint64 entries = 1ull << all_bits;
 
-	 myTopSize = (entries + theBottomMask) >> theBottomBits;
+	 myTopSize = 1ull << (all_bits - bottom_bits);
 
 	 // Map a massive memory buffer to store the state.  This will only
 	 // translate into physical memory use as we write values to the buffer.
 	 size_t ssize = entries*sizeof(T);
-	 size_t dsize = (myTopSize << thePageBits)*sizeof(bool);
+	 size_t dsize = (myTopSize << (bottom_bits-page_bits))*sizeof(bool);
 	 size_t tsize = myTopSize*sizeof(bool);
 
 	 mySize = ssize + tsize + dsize;

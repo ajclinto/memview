@@ -88,7 +88,7 @@ private:
     static const uint64	theAllSize = 1ull << theAllBits;
     static const uint64	theAllMask = theAllSize-1;
 
-    typedef SparseArray<State, 18, 12> StateArray;
+    typedef SparseArray<State, 22, 12> StateArray;
 
 public:
      MemoryState(int ignorebits);

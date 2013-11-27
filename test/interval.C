@@ -10,11 +10,15 @@
 	} \
     }
 
+typedef IntervalMap<std::string> StringMap;
+typedef IntervalMapReader<std::string> StringMapReader;
+typedef IntervalMapWriter<std::string> StringMapWriter;
+
 bool
 testBasic()
 {
-    StackTraceMap   map;
-    StackTraceMapWriter	writer(map);
+    StringMap   map;
+    StringMapWriter	writer(map);
 
     writer.insert(1, 2, "test1");
     writer.insert(10, 20, "test2");
@@ -52,8 +56,8 @@ testBasic()
 bool
 testOverlap()
 {
-    StackTraceMap   map;
-    StackTraceMapWriter	writer(map);
+    StringMap   map;
+    StringMapWriter	writer(map);
 
     writer.insert(0, 10, "test1");
     writer.insert(5, 15, "test2");
