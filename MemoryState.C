@@ -34,39 +34,14 @@
 #include <vector>
 
 MemoryState::MemoryState(int ignorebits)
-    : myTime(2)
+    : myState(theAllBits - ignorebits)
+    , myTime(2)
     , myIgnoreBits(ignorebits)
 {
-    uint64 entries = theAllSize >> myIgnoreBits;
-
-    myTopSize = (entries + theBottomMask) >> theBottomBits;
-
-    // Map a massive memory buffer to store the state.  This will only
-    // translate into physical memory use as we write values to the buffer.
-    size_t ssize = entries*sizeof(State);
-    size_t dsize = (myTopSize << theDisplayBits)*sizeof(bool);
-    size_t tsize = myTopSize*sizeof(bool);
-
-    mySize = ssize + tsize + dsize;
-
-    void *addr = mmap(0, mySize,
-	    PROT_WRITE | PROT_READ,
-	    MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
-	    -1, 0);
-    if (addr == MAP_FAILED)
-    {
-	perror("mmap");
-	exit(EXIT_FAILURE);
-    }
-
-    myState = (State *)addr;
-    myExists = (bool *)((char *)addr + ssize);
-    myTopExists = (bool *)((char *)addr + ssize + dsize);
 }
 
 MemoryState::~MemoryState()
 {
-    munmap(myState, mySize);
 }
 
 void
@@ -79,7 +54,7 @@ MemoryState::incrementTime(StackTraceMap *stacks)
     if (half || full)
     {
 	// The time wrapped
-	for (DisplayIterator it(*this); !it.atEnd(); it.advance())
+	for (DisplayIterator it(myState); !it.atEnd(); it.advance())
 	{
 	    DisplayPage page(it.page());
 	    for (uint64 i = 0; i < page.size(); i++)
@@ -199,7 +174,7 @@ MemoryState::downsample(const MemoryState &state)
 
     Downsample *task = 0;
     uint64	bunch_size = 16;
-    for (DisplayIterator it(const_cast<MemoryState &>(state));
+    for (DisplayIterator it(const_cast<StateArray &>(state.myState));
 	    !it.atEnd(); it.advance())
     {
 	// Split up source pages into tasks.  This isn't strictly
@@ -227,8 +202,7 @@ MemoryState::downsamplePage(const DisplayPage &page, int shift, bool fast)
     const   uint64 stride = fast ? 1 : scale;
     uint64  myaddr = page.addr() >> shift;
 
-    myTopExists[myaddr >> theBottomBits] = true;
-    myExists[myaddr >> theDisplayBits] = true;
+    myState.setExists(myaddr);
 
     for (uint64 i = 0; i < page.size(); i += scale)
     {

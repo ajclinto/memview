@@ -172,7 +172,8 @@ DisplayLayout::update(
 
     if (myCompact)
     {
-	for (MemoryState::DisplayIterator it(state); !it.atEnd(); it.advance())
+	for (MemoryState::DisplayIterator it(state.begin());
+		!it.atEnd(); it.advance())
 	{
 	    auto page(it.page());
 	    if (!myBlocks.size())
