@@ -41,7 +41,7 @@ class MemoryState;
 class LoaderBlock {
 public:
     LoaderBlock(uint32 size)
-	: myEntries(size)
+	: myEntries(0)
     {
 	myAddr = new uint64[size];
     }

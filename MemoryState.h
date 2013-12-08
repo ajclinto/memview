@@ -30,6 +30,7 @@
 #include "IntervalMap.h"
 #include "SparseArray.h"
 #include "mv_ipc.h"
+#include <memory>
 
 // Storage for the entire memory state.  This is specifically designed to
 // operate without any locking or atomics for the single writer / many
@@ -90,17 +91,81 @@ private:
 
     typedef SparseArray<State, 22, 12> StateArray;
 
+    // Raw memory state
+    struct LinkItem {
+	LinkItem(uint64 shift, uint64 top, LinkItem *next)
+	    : myState(theAllBits-shift)
+	    , myTop(top)
+	    , myNext(next) {}
+	~LinkItem() { delete myNext; }
+
+	StateArray       myState;
+	uint64		 myTop;
+	LinkItem	*myNext;
+    };
+
+    inline void splitAddr(uint64 &addr, uint64 &top) const
+    {
+	top = addr & myTopMask;
+	addr &= myBottomMask;
+    }
+
 public:
      MemoryState(int ignorebits);
     ~MemoryState();
 
-    void	updateAddress(uint64 addr, uint64 size, uint64 type)
+#if 1
+    class UpdateCache {
+    public:
+	UpdateCache(MemoryState &state)
+	    : myState(state)
+	    , myData(&state.myHead.myState)
+	    , myTop(state.myHead.myTop)
+	    {}
+
+	StateArray &getState(uint64 top)
+	{
+	    if (__builtin_expect(myTop != top, false))
+	    {
+		myTop = top;
+		myData = &myState.findOrCreateState(top);
+	    }
+	    return *myData;
+	}
+
+    private:
+	MemoryState &myState;
+	StateArray  *myData;
+	uint64	     myTop;
+    };
+#else
+    // Implementation that assumes all memory addresses are within
+    // theAllMask, for performance testing
+    class UpdateCache {
+    public:
+	UpdateCache(MemoryState &state) : myState(state) {}
+
+	StateArray &getState(uint64)
+	{
+	    return myState.myHead.myState;
+	}
+
+    private:
+	MemoryState &myState;
+    };
+#endif
+
+    inline void	updateAddress(uint64 addr, uint64 size, uint64 type,
+			      UpdateCache &cache)
 		{
-		    addr &= theAllMask;
 		    addr >>= myIgnoreBits;
 		    size >>= myIgnoreBits;
 
-		    myState.setExists(addr);
+		    uint64  top = 0;
+		    splitAddr(addr, top);
+
+		    StateArray &state = cache.getState(top);
+		    state.setExists(addr);
 
 		    uint64 last;
 		    switch (size)
@@ -108,20 +173,20 @@ public:
 		    case 0:
 		    case 1:
 			if (!(type & (MV_TypeFree << MV_DataBits)))
-			    myState[addr].init(myTime, type);
+			    state[addr].init(myTime, type);
 			else
-			    myState[addr].setFree();
+			    state[addr].setFree();
 			break;
 		    case 2:
 			if (!(type & (MV_TypeFree << MV_DataBits)))
 			{
-			    myState[addr].init(myTime, type);
-			    myState[addr+1].init(myTime, type);
+			    state[addr].init(myTime, type);
+			    state[addr+1].init(myTime, type);
 			}
 			else
 			{
-			    myState[addr].setFree();
-			    myState[addr+1].setFree();
+			    state[addr].setFree();
+			    state[addr+1].setFree();
 			}
 			break;
 		    default:
@@ -129,12 +194,12 @@ public:
 			if (!(type & (MV_TypeFree << MV_DataBits)))
 			{
 			    for (; addr < last; addr++)
-				myState[addr].init(myTime, type);
+				state[addr].init(myTime, type);
 			}
 			else
 			{
 			    for (; addr < last; addr++)
-				myState[addr].setFree();
+				state[addr].setFree();
 			}
 			break;
 		    }
@@ -143,22 +208,85 @@ public:
     void	incrementTime(StackTraceMap *stacks = 0);
     uint32	getTime() const { return myTime; }
     int		getIgnoreBits() const { return myIgnoreBits; }
-    QMutex	*writeLock() { return &myWriteLock; }
 
     // Print status information for a memory address
     void	appendAddressInfo(QString &message, uint64 addr,
 				  const MMapMap &map);
 
-    typedef StateArray::Page DisplayPage;
-    typedef StateArray::Iterator DisplayIterator;
+    // Abstract access to a single page
+    class DisplayPage : public StateArray::Page {
+    public:
+	DisplayPage()
+	    : StateArray::Page()
+	    , myTop(0) {}
+	DisplayPage(const StateArray::Page &src, uint64 top)
+	    : StateArray::Page(src)
+	    , myTop(top) {}
+
+	uint64	addr() const	{ return myTop | StateArray::Page::addr(); }
+
+    private:
+	uint64	     myTop;
+    };
+    
 
     DisplayPage	getPage(uint64 addr, uint64 &off) const
     {
-	return myState.getPage(addr, off);
+	uint64  top;
+	splitAddr(addr, top);
+
+	StateArray *state = findState(top);
+	if (state)
+	    return DisplayPage(state->getPage(addr, off), top);
+	off = 0;
+	return DisplayPage();
     }
+
+    class DisplayIterator {
+    public:
+	DisplayIterator(LinkItem *head)
+	    : myTop(head)
+	{
+	    rewind();
+	}
+
+	bool	atEnd() const
+		{
+		    return !myTop;
+		}
+	void	advance()
+		{
+		    myBottom->advance();
+		    if (myBottom->atEnd())
+		    {
+			myTop = myTop->myNext;
+			rewind();
+		    }
+		}
+
+	DisplayPage page() const
+	{
+	    return DisplayPage(myBottom->page(), myTop->myTop);
+	}
+
+    private:
+	void	rewind()
+		{
+		    if (myTop)
+		    {
+			myBottom.reset(
+				new StateArray::Iterator(myTop->myState));
+		    }
+		}
+
+    private:
+	LinkItem				*myTop;
+	std::unique_ptr<StateArray::Iterator>	 myBottom;
+    };
+
     DisplayIterator begin()
     {
-	return DisplayIterator(myState);
+	return DisplayIterator(&myHead);
     }
 
     // Build a mipmap from another memory state
@@ -183,9 +311,50 @@ private:
 	}
     };
 
+    LinkItem	*findLink(uint64 top, LinkItem *&prev) const
+    {
+	LinkItem    *it = const_cast<LinkItem *>(&myHead);
+
+	prev = 0;
+	while (it && it->myTop < top)
+	{
+	    prev = it;
+	    it = it->myNext;
+	}
+
+	return it;
+    }
+
+    StateArray	*findState(uint64 top) const
+    {
+	LinkItem    *prev;
+	LinkItem    *it = findLink(top, prev);
+	return (it && it->myTop == top) ? &it->myState : 0;
+    }
+
+    StateArray	&findOrCreateState(uint64 top)
+    {
+	LinkItem    *prev;
+	LinkItem    *it = findLink(top, prev);
+
+	if (it && it->myTop == top)
+	    return it->myState;
+
+	// Double checked lock
+	QMutexLocker	lock(&myWriteLock);
+	it = findLink(top, prev);
+	if (it && it->myTop == top)
+	    return it->myState;
+
+	it = new LinkItem(myIgnoreBits, top, it);
+	if (prev)
+	    prev->myNext = it;
+
+	return it->myState;
+    }
+
 private:
-    // Raw memory state
-    StateArray	 myState;
+    LinkItem	 myHead;
 
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
@@ -193,6 +362,8 @@ private:
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
     int		 myIgnoreBits;
+    uint64	 myTopMask;
+    uint64	 myBottomMask;
 };
 
 #endif

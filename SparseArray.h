@@ -54,6 +54,8 @@ public:
      // Create an array of size 1<<all_bits
      SparseArray(int all_bits)
      {
+	 myPageSize = 1ull << SYSmin(all_bits, page_bits);
+
 	 // This needs to be at least bottom_bits
 	 all_bits = SYSmax(all_bits, bottom_bits);
 
@@ -100,12 +102,14 @@ public:
     // Abstract access to a single page
     class Page {
     public:
-	Page(T *arr, uint64 addr)
+	Page() : myArr(0), myAddr(0), mySize(0) {}
+	Page(T *arr, uint64 addr, uint64 size)
 	    : myArr(arr)
-	    , myAddr(addr) {}
+	    , myAddr(addr)
+	    , mySize(size) {}
 
 	uint64	addr() const	{ return myAddr; }
-	uint64	size() const	{ return thePageSize; }
+	uint64	size() const	{ return mySize; }
 
 	T	state(uint64 i) const { return myArr[i]; }
 	T	&state(uint64 i) { return myArr[i]; }
@@ -117,6 +121,7 @@ public:
     private:
 	T	    *myArr;
 	uint64	     myAddr;
+	uint64	     mySize;
     };
 
     Page	getPage(uint64 addr, uint64 &off) const
@@ -125,7 +130,7 @@ public:
 	addr &= ~thePageMask;
 	off -= addr;
 	return Page(myExists[addr >> thePageBits] ?
-		&myState[addr] : 0, addr);
+		&myState[addr] : 0, addr, myPageSize);
     }
 
     // A class to iterate over existing pages.
@@ -158,7 +163,7 @@ public:
 	Page page() const
 	{
 	    uint64 addr = (myTop << theBottomBits) + myBottom;
-	    return Page(&myState.myState[addr], addr);
+	    return Page(&myState.myState[addr], addr, myState.myPageSize);
 	}
 
     private:
@@ -193,6 +198,7 @@ private:
     bool	*myExists;
     size_t	 mySize;
     uint64	 myTopSize;
+    uint64	 myPageSize;
 };
 
 #endif

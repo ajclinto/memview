@@ -34,9 +34,11 @@
 #include <vector>
 
 MemoryState::MemoryState(int ignorebits)
-    : myState(theAllBits - ignorebits)
+    : myHead(ignorebits, 0, 0)
     , myTime(2)
     , myIgnoreBits(ignorebits)
+    , myTopMask(~(theAllMask >> ignorebits))
+    , myBottomMask(theAllMask >> ignorebits)
 {
 }
 
@@ -47,6 +49,8 @@ MemoryState::~MemoryState()
 void
 MemoryState::incrementTime(StackTraceMap *stacks)
 {
+    QMutexLocker	lock(&myWriteLock);
+
     myTime++;
 
     bool half = myTime == theHalfLife;
@@ -54,7 +58,7 @@ MemoryState::incrementTime(StackTraceMap *stacks)
     if (half || full)
     {
 	// The time wrapped
-	for (DisplayIterator it(myState); !it.atEnd(); it.advance())
+	for (DisplayIterator it(begin()); !it.atEnd(); it.advance())
 	{
 	    DisplayPage page(it.page());
 	    for (uint64 i = 0; i < page.size(); i++)
@@ -174,7 +178,7 @@ MemoryState::downsample(const MemoryState &state)
 
     Downsample *task = 0;
     uint64	bunch_size = 16;
-    for (DisplayIterator it(const_cast<StateArray &>(state.myState));
+    for (DisplayIterator it(const_cast<MemoryState &>(state).begin());
 	    !it.atEnd(); it.advance())
     {
 	// Split up source pages into tasks.  This isn't strictly
@@ -202,11 +206,15 @@ MemoryState::downsamplePage(const DisplayPage &page, int shift, bool fast)
     const   uint64 stride = fast ? 1 : scale;
     uint64  myaddr = page.addr() >> shift;
 
-    myState.setExists(myaddr);
+    uint64  mytop;
+    splitAddr(myaddr, mytop);
+
+    StateArray	&state = findOrCreateState(mytop);
+    state.setExists(myaddr);
 
     for (uint64 i = 0; i < page.size(); i += scale)
     {
-	uint    &mystate = myState[myaddr].uval;
+	uint    &mystate = state[myaddr].uval;
 	const State   *arr = page.stateArray();
 	uint64   n = SYSmin(i + stride, page.size());
 	for (uint64 j = i; j < n; j++)

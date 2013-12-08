@@ -155,14 +155,13 @@ template <typename T>
 static inline void
 adjustZoom(T &val, int zoom)
 {
-    T a = (1 << zoom) - 1;
+    T a = (T(1) << zoom) - T(1);
     val = (val + a) >> zoom;
 }
 
 void
 DisplayLayout::update(
 	MemoryState &state,
-	const MMapMap &mmapmap,
 	int64 winwidth,
 	int64 width,
 	int zoom)
@@ -192,12 +191,16 @@ DisplayLayout::update(
     }
     else
     {
-	uint64	start, end;
+	uint64	start = 0;
+	uint64	end = 0;
 
-	MMapMapReader reader(mmapmap);
-	reader.getTotalInterval(start, end);
-	start >>= state.getIgnoreBits();
-	end >>= state.getIgnoreBits();
+	for (MemoryState::DisplayIterator it(state.begin());
+		!it.atEnd(); it.advance())
+	{
+	    auto page(it.page());
+	    start = end ? start : page.addr();
+	    end = page.addr() + page.size();
+	}
 
 	myBlocks.push_back(DisplayBlock(start, end-start));
     }

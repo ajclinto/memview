@@ -410,10 +410,11 @@ Loader::run()
 }
 
 static inline void
-decodeAddr(uint64 addr, uint64 &size, uint64 &type)
+decodeAddr(uint64 &addr, uint64 &size, uint64 &type)
 {
     size = (addr & MV_SizeMask) >> MV_SizeShift,
     type = addr >> MV_DataShift;
+    addr &= MV_AddrMask;
 }
 
 bool
@@ -425,6 +426,7 @@ Loader::loadFromLackey(int max_read)
     char	*buf = 0;
     size_t	 n = 0;
 
+    LoaderBlockHandle block(new LoaderBlock(MV_BlockSize));
     for (int i = 0; i < max_read; i++)
     {
 	if (getline(&buf, &n, myPipe) <= 0)
@@ -485,20 +487,17 @@ Loader::loadFromLackey(int max_read)
 	type |= 1ull << MV_ThreadShift;
 
 	addr |= size | type;
-	decodeAddr(addr, size, type);
-	addr &= MV_AddrMask;
-
-	myState->updateAddress(addr, size, type);
-	if (myZoomState)
-	    myZoomState->updateAddress(addr, size, type);
+	block->myAddr[block->myEntries++] = addr;
     }
 
-    myTotalEvents += max_read;
+    loadBlock(block);
+
+    myTotalEvents += block->myEntries;
 
     if (buf)
 	free(buf);
 
-    return max_read;
+    return block->myEntries;
 }
 
 bool
@@ -663,6 +662,7 @@ Loader::loadFromTest()
 		    StackInfo{"", myState->getTime()});
 	}
     }
+    block->myEntries = MV_BlockSize;
     loadBlock(block);
 
     theCount++;
@@ -678,15 +678,14 @@ public:
 
     virtual void run()
     {
-	QMutexLocker lock(myState->writeLock());
-
+	MemoryState::UpdateCache cache(*myState);
 	uint32 count = myBlock->myEntries;
 	for (uint32 i = 0; i < count; i++)
 	{
 	    uint64 addr = myBlock->myAddr[i];
 	    uint64 size, type;
 	    decodeAddr(addr, size, type);
-	    myState->updateAddress(addr, size, type);
+	    myState->updateAddress(addr, size, type, cache);
 	}
     }
 
@@ -749,12 +748,8 @@ void
 Loader::timerEvent(QTimerEvent *)
 {
     if (myZoomState)
-    {
-	QMutexLocker lock(myZoomState->writeLock());
 	myZoomState->incrementTime();
-    }
 
-    QMutexLocker lock(myState->writeLock());
     myState->incrementTime(myStackTrace);
 }
 
