@@ -48,12 +48,12 @@ DisplayLayout::~DisplayLayout()
 class Traverser {
 public:
     // Return false if you don't want any further traversal
-    virtual bool	visit(uint64 idx, int r, int c, int level,
+    virtual bool	visit(uint64 idx, int64 r, int64 c, int level,
 			      bool hilbert, int rotate, bool flip) = 0;
 };
 
 static void
-blockTraverse(uint64 idx, uint64 size, int roff, int coff,
+blockTraverse(uint64 idx, uint64 size, int64 roff, int64 coff,
 	Traverser &traverser, int level, int stoplevel,
 	bool hilbert, int rotate, bool flip)
 {
@@ -65,11 +65,11 @@ blockTraverse(uint64 idx, uint64 size, int roff, int coff,
 	    return;
     }
 
-    int s = 1 << (level-1);
+    uint64 s = 1ull << (level-1);
     uint64 off = 1ull << 2*(level-1);
 
-    int	rs[4], cs[4];
-    int	map[4];
+    uint64	rs[4], cs[4];
+    int	        map[4];
 
     // Switch over to recursive block for 4x4 and smaller tiles even in
     // hilbert mode.  The hilbert pattern is a little difficult to follow
@@ -130,9 +130,9 @@ public:
 	myBox.initBounds();
     }
 
-    virtual bool visit(uint64, int r, int c, int level, bool, int, bool)
+    virtual bool visit(uint64, int64 r, int64 c, int level, bool, int, bool)
     {
-	int bsize = 1 << level;
+	int64 bsize = 1ll << level;
 	myBox.enlargeBounds(c, r, c+bsize, r+bsize);
 	return false;
     }
@@ -390,7 +390,7 @@ public:
     BlockFill(int *data, int *idata)
 	: myData(data), myIData(idata) {}
 
-    virtual bool visit(uint64 idx, int r, int c, int level, bool, int, bool)
+    virtual bool visit(uint64 idx, int64 r, int64 c, int level, bool, int, bool)
     {
 	if (level == 0)
 	{
@@ -469,19 +469,19 @@ static BlockLUT		theBlockLUT;
 template <typename T, typename Source>
 class PlotImage : public Traverser {
 public:
-    PlotImage(const Source &src, GLImage<T> &image, int roff, int coff)
+    PlotImage(const Source &src, GLImage<T> &image, int64 roff, int64 coff)
 	: mySource(src)
 	, myImage(image)
 	, myRowOff(roff)
 	, myColOff(coff)
 	{}
 
-    virtual bool visit(uint64 idx, int r, int c, int level,
+    virtual bool visit(uint64 idx, int64 r, int64 c, int level,
 		       bool hilbert, int rotate, bool flip)
     {
-	int bsize = 1 << level;
-	int roff = myRowOff + r;
-	int coff = myColOff + c;
+	int64 bsize = 1ll << level;
+	int64 roff = myRowOff + r;
+	int64 coff = myColOff + c;
 
 	// Discard boxes that are outside the valid range
 	if (roff + bsize <= 0 || roff >= myImage.height() ||
@@ -536,8 +536,8 @@ public:
 private:
     const Source  &mySource;
     GLImage<T> &myImage;
-    int	     myRowOff;
-    int	     myColOff;
+    int64     myRowOff;
+    int64     myColOff;
 };
 
 template <typename T, typename Source>
@@ -604,8 +604,8 @@ DisplayLayout::fillImage(
 	}
 	else
 	{
-	    int rboff = it->myBox.ymin() - it->myDisplayBox.ymin();
-	    int cboff = it->myBox.xmin() - it->myDisplayBox.xmin();
+	    int64 rboff = it->myBox.ymin() - it->myDisplayBox.ymin();
+	    int64 cboff = it->myBox.xmin() - it->myDisplayBox.xmin();
 	    PlotImage<T, Source> plot(src, image,
 		    -(roff + rboff),
 		    -(coff + cboff));
