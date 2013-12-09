@@ -25,8 +25,9 @@ $(VALGRIND_SRC): $(VALGRIND_TARBALL)
 	# Make links for mv_ipc.h and mv_main.c for simpler development
 	rm -f $(VALGRIND_SRC)/memview/mv_ipc.h
 	rm -f $(VALGRIND_SRC)/memview/mv_main.c
-	ln ../mv_ipc.h $(VALGRIND_SRC)/memview/mv_ipc.h
-	ln memview/mv_main.c $(VALGRIND_SRC)/memview/mv_main.c
+	cd $(VALGRIND_SRC)/memview; \
+	    ln -s ../../../mv_ipc.h mv_ipc.h; \
+	    ln -s ../../memview/mv_main.c mv_main.c
 	cd $(VALGRIND_SRC); ./autogen.sh; ./configure
 
 clean:
