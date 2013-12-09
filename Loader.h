@@ -36,29 +36,7 @@
 
 class MemoryState;
 
-// This is a MV_TraceBlock that has been dynamically allocated to eliminate
-// wasted space.
-class LoaderBlock {
-public:
-    LoaderBlock(uint32 size)
-	: myEntries(0)
-    {
-	myAddr = new MV_TraceAddr[size];
-    }
-    LoaderBlock(const MV_TraceBlock &block)
-	: myEntries(block.myEntries)
-    {
-	myAddr = new MV_TraceAddr[myEntries];
-	memcpy(myAddr, block.myAddr, myEntries*sizeof(MV_TraceAddr));
-    }
-    ~LoaderBlock() { delete [] myAddr; }
-
-    MV_TraceAddr    *myAddr;
-    uint32	     myEntries;
-};
-
 typedef std::shared_ptr<MemoryState> MemoryStateHandle;
-typedef std::shared_ptr<LoaderBlock> LoaderBlockHandle;
 
 class Loader : public QThread {
 public:
@@ -109,7 +87,7 @@ private:
     bool	loadFromTest();
     bool	loadFromTestExtrema();
 
-    bool	loadBlock(const LoaderBlockHandle &block);
+    bool	loadBlock(const MV_TraceBlock &block);
     void	loadMMap(const MV_Header &header, const char *buf);
 
     void	timerEvent(QTimerEvent *event);

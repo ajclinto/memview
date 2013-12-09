@@ -25,13 +25,10 @@
 #include "Loader.h"
 #include "MemoryState.h"
 #include "StopWatch.h"
-#include <QThreadPool>
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sstream>
-
-#define	THREAD_LOADS
 
 Loader::Loader(MemoryState *state,
 	       StackTraceMap *stack,
@@ -352,13 +349,6 @@ Loader::run()
 
 	if (pending)
 	{
-	    // Threads might be writing to the state or zoom state.  Wait
-	    // for these to finish so we have a consistent state to
-	    // downsample.
-#ifdef THREAD_LOADS
-	    QThreadPool::globalInstance()->waitForDone();
-#endif
-
 	    // Ensure that we clean up the zoom state
 	    MemoryStateHandle zoom(myZoomState);
 
@@ -402,10 +392,6 @@ Loader::run()
 	if (!rval)
 	    mySource = NONE;
     }
-
-#ifdef THREAD_LOADS
-    QThreadPool::globalInstance()->waitForDone();
-#endif
 }
 
 static inline void
@@ -424,7 +410,7 @@ Loader::loadFromLackey(int max_read)
     char	*buf = 0;
     size_t	 n = 0;
 
-    LoaderBlockHandle block(new LoaderBlock(MV_BlockSize));
+    MV_TraceBlock   block;
     for (int i = 0; i < max_read; i++)
     {
 	if (getline(&buf, &n, myPipe) <= 0)
@@ -484,18 +470,19 @@ Loader::loadFromLackey(int max_read)
 	type |= 1u << MV_ThreadShift;
 	type |= size;
 
-	block->myAddr[block->myEntries++].myAddr = addr;
-	block->myAddr[block->myEntries++].myType = type;
+	block.myAddr[block.myEntries].myAddr = addr;
+	block.myAddr[block.myEntries].myType = type;
+	block.myEntries++;
     }
 
     loadBlock(block);
 
-    myTotalEvents += block->myEntries;
+    myTotalEvents += block.myEntries;
 
     if (buf)
 	free(buf);
 
-    return block->myEntries;
+    return block.myEntries;
 }
 
 bool
@@ -510,14 +497,14 @@ Loader::loadFromPipe()
 
     if (header.myType == MV_BLOCK)
     {
-	LoaderBlockHandle block(new LoaderBlock(mySharedData->myData[myIdx]));
+	const MV_TraceBlock	&block = mySharedData->myData[myIdx];
+	if (!block.myEntries || !loadBlock(block))
+	    return false;
 
 	writeToken(myBlockSize);
 
 	incBuf(myIdx);
-
-	if (block->myEntries && loadBlock(block))
-	    return true;
+	return true;
     }
     else if (header.myType == MV_STACKTRACE)
     {
@@ -641,17 +628,17 @@ Loader::loadFromTest()
     if (theCount >= theSize)
 	return false;
 
-    LoaderBlockHandle	block(new LoaderBlock(MV_BlockSize));
+    MV_TraceBlock   block;
     for (uint32 j = 0; j < MV_BlockSize; j++)
     {
-	block->myAddr[j].myAddr = (theCount*MV_BlockSize + j) << 2;
-	block->myAddr[j].myType = theTypeInfo;
+	block.myAddr[j].myAddr = (theCount*MV_BlockSize + j) << 2;
+	block.myAddr[j].myType = theTypeInfo;
 
 	// Insert a stack
 	if (with_stacks && !(j & theStackRate))
 	{
-	    uint64 addr = block->myAddr[j].myAddr;
-	    uint32 type = block->myAddr[j].myType;
+	    uint64 addr = block.myAddr[j].myAddr;
+	    uint32 type = block.myAddr[j].myType;
 	    uint64 size;
 	    decodeType(size, type);
 
@@ -660,7 +647,7 @@ Loader::loadFromTest()
 		    StackInfo{"", myState->getTime()});
 	}
     }
-    block->myEntries = MV_BlockSize;
+    block.myEntries = MV_BlockSize;
     loadBlock(block);
 
     theCount++;
@@ -675,93 +662,72 @@ Loader::loadFromTestExtrema()
 				    | ((uint64)4 << MV_SizeShift);
     const int size = 2;
 
-    LoaderBlockHandle	block(new LoaderBlock(size));
+    MV_TraceBlock   block;
     for (int i = 0; i < size; i++)
     {
-	block->myAddr[i].myAddr = i ? ~0ull : 0ull;
-	block->myAddr[i].myType = theTypeInfo;
+	block.myAddr[i].myAddr = i ? ~0ull : 0ull;
+	block.myAddr[i].myType = theTypeInfo;
     }
-    block->myEntries = size;
+    block.myEntries = size;
     loadBlock(block);
 
     return false;
 }
 
-template <typename HandleType>
-class UpdateState : public QRunnable {
-public:
-    UpdateState(HandleType &state, const LoaderBlockHandle &block)
-	: myState(state)
-	, myBlock(block) {}
-
-    virtual void run()
-    {
-	MemoryState::UpdateCache cache(*myState);
-	uint32 count = myBlock->myEntries;
-	for (uint32 i = 0; i < count; i++)
-	{
-	    uint64 addr = myBlock->myAddr[i].myAddr;
-	    uint32 type = myBlock->myAddr[i].myType;
-	    uint64 size;
-	    decodeType(size, type);
-	    myState->updateAddress(addr, size, type, cache);
-	}
-    }
-
-private:
-    HandleType	     myState;
-    LoaderBlockHandle myBlock;
-};
-
-#ifdef THREAD_LOADS
 static void
-addToPool(QThreadPool *pool, QRunnable *task)
+updateState(MemoryState &state, const MV_TraceBlock &block)
 {
-    if (!pool->tryStart(task))
+    MemoryState::UpdateCache cache(state);
+    uint32 count = block.myEntries;
+    for (uint32 i = 0; i < count; i++)
     {
-	task->run();
-	delete task;
+	uint64 addr = block.myAddr[i].myAddr;
+	uint32 type = block.myAddr[i].myType;
+	uint64 size;
+	decodeType(size, type);
+	state.updateAddress(addr, size, type, cache);
     }
 }
-#endif
+
+static void
+updateState(MemoryState &state, MemoryState &zstate,
+	const MV_TraceBlock &block)
+{
+    MemoryState::UpdateCache cache(state);
+    MemoryState::UpdateCache zcache(zstate);
+    uint32 count = block.myEntries;
+    for (uint32 i = 0; i < count; i++)
+    {
+	uint64 addr = block.myAddr[i].myAddr;
+	uint32 type = block.myAddr[i].myType;
+	uint64 size;
+	decodeType(size, type);
+	state.updateAddress(addr, size, type, cache);
+	zstate.updateAddress(addr, size, type, zcache);
+    }
+}
 
 bool
-Loader::loadBlock(const LoaderBlockHandle &block)
+Loader::loadBlock(const MV_TraceBlock &block)
 {
     // Basic semantic checking to ensure we received valid data
-    uint32 type = (block->myAddr[0].myType & MV_TypeMask) >> MV_TypeShift;
-    if (block->myEntries > MV_BlockSize || type > 7)
+    uint32 type = (block.myAddr[0].myType & MV_TypeMask) >> MV_TypeShift;
+    if (block.myEntries > MV_BlockSize || type > 7)
     {
 	fprintf(stderr, "received invalid block (size %u, type %u)\n",
-		block->myEntries, type);
+		block.myEntries, type);
 	return false;
     }
 
-#ifdef THREAD_LOADS
-    auto pool = QThreadPool::globalInstance();
-    QRunnable *task = new UpdateState<MemoryState *>(myState, block);
-    addToPool(pool, task);
-
     if (myZoomState)
-    {
-	task = new UpdateState<MemoryStateHandle>(myZoomState, block);
-	addToPool(pool, task);
-    }
-#else
-    UpdateState<MemoryState *> state(myState, block);
-    state.run();
+	updateState(*myState, *myZoomState, block);
+    else
+	updateState(*myState, block);
 
-    if (myZoomState)
-    {
-	UpdateState<MemoryStateHandle> zoomstate(myZoomState, block);
-	zoomstate.run();
-    }
-#endif
-
-    myTotalEvents += block->myEntries;
-
+    myTotalEvents += block.myEntries;
     return true;
 }
+
 
 void
 Loader::timerEvent(QTimerEvent *)
