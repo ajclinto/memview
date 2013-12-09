@@ -40,7 +40,7 @@ typedef enum {
 
 #define MV_STR_BUFSIZE 4096
 
-typedef struct {
+typedef struct __attribute__((__packed__)) {
     unsigned long long	myAddr;
     unsigned int	myType;
 } MV_TraceAddr;
