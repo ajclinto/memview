@@ -249,7 +249,7 @@ typedef
       EventKind  ekind;
       IRAtom*    addr;
       Int        size;
-      uint64	 type;
+      Int	 type;
    }
    Event;
 
@@ -292,58 +292,58 @@ static Int   canCreateModify = 0;
 
 static VG_REGPARM(2) void trace_instr(Addr addr, SizeT size)
 {
-    put_data(addr, MV_ShiftedInstr, (uint64)size);
+    put_data(addr, MV_ShiftedInstr, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_2instr(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedInstr, (uint64)size);
-    put_data(addr2, MV_ShiftedInstr, (uint64)size);
+    put_data(addr, MV_ShiftedInstr, (uint32)size);
+    put_data(addr2, MV_ShiftedInstr, (uint32)size);
 }
 
 static VG_REGPARM(2) void trace_load(Addr addr, SizeT size)
 {
-    put_data(addr, MV_ShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_2load(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedRead, (uint64)size);
-    put_data(addr2, MV_ShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint32)size);
+    put_data(addr2, MV_ShiftedRead, (uint32)size);
 }
 
 static VG_REGPARM(2) void trace_store(Addr addr, SizeT size)
 {
-    put_data(addr, MV_ShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_2store(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedWrite, (uint64)size);
-    put_data(addr2, MV_ShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint32)size);
+    put_data(addr2, MV_ShiftedWrite, (uint32)size);
 }
 
 static VG_REGPARM(2) void trace_modify(Addr addr, SizeT size)
 {
-    put_data(addr, MV_ShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_2modify(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedWrite, (uint64)size);
-    put_data(addr2, MV_ShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint32)size);
+    put_data(addr2, MV_ShiftedWrite, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_loadstore(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedRead, (uint64)size);
-    put_data(addr2, MV_ShiftedWrite, (uint64)size);
+    put_data(addr, MV_ShiftedRead, (uint32)size);
+    put_data(addr2, MV_ShiftedWrite, (uint32)size);
 }
 
 static VG_REGPARM(3) void trace_storeload(Addr addr, Addr addr2, SizeT size)
 {
-    put_data(addr, MV_ShiftedWrite, (uint64)size);
-    put_data(addr2, MV_ShiftedRead, (uint64)size);
+    put_data(addr, MV_ShiftedWrite, (uint32)size);
+    put_data(addr2, MV_ShiftedRead, (uint32)size);
 }
 
 /* This version of flushEvents (currently unused) is similar to the one in

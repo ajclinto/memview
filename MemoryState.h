@@ -155,7 +155,7 @@ public:
     };
 #endif
 
-    inline void	updateAddress(uint64 addr, uint64 size, uint64 type,
+    inline void	updateAddress(uint64 addr, uint32 size, uint32 type,
 			      UpdateCache &cache)
 		{
 		    addr >>= myIgnoreBits;

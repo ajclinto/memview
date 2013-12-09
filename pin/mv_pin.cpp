@@ -134,7 +134,7 @@ VOID * BufferFull(BUFFER_ID id, THREADID tid, const CONTEXT *ctxt, VOID *buf,
     for (UINT64 i = 0; i < n; i++)
     {
 	unsigned int type = data[i].type;
-	type |= ((unsigned long long)tid << MV_ThreadShift) & MV_ThreadMask;
+	type |= ((unsigned int)tid << MV_ThreadShift) & MV_ThreadMask;
 	theBlock->myAddr[theBlock->myEntries].myAddr = data[i].ea;
 	theBlock->myAddr[theBlock->myEntries].myType = type;
 	theBlock->myEntries++;
@@ -162,8 +162,8 @@ VOID Instruction(INS ins, VOID *v)
 	bool write = INS_MemoryOperandIsWritten(ins, memOp);
 	UINT32 size = INS_MemoryOperandSize(ins, memOp);
 
-	unsigned long long  type;
-	unsigned long long  datatype;
+	unsigned int    type;
+	unsigned int	datatype;
 
 	if (size <= 1)
 	    datatype = MV_DataChar8;
@@ -173,12 +173,12 @@ VOID Instruction(INS ins, VOID *v)
 	    datatype = MV_DataInt64;
 
 	type = write ? MV_ShiftedWrite : MV_ShiftedRead;
-	type |= ((unsigned long long)size << MV_SizeShift) & MV_SizeMask;
+	type |= (size << MV_SizeShift) & MV_SizeMask;
 	type |= datatype << MV_DataShift;
 
 	INS_InsertFillBuffer(ins, IPOINT_BEFORE, theBuffer,
 		     IARG_MEMORYOP_EA, memOp, offsetof(struct BufferData, ea),
-		     IARG_ADDRINT, type, offsetof(struct BufferData, type),
+		     IARG_UINT32, type, offsetof(struct BufferData, type),
 		     IARG_END);
     }
 }
