@@ -97,12 +97,10 @@ MemoryState::appendAddressInfo(
 
     MMapMapReader reader(map);
     auto	it = reader.find(paddr);
-    MMapInfo	mmapinfo;
+    MMapInfo	mmapinfo{"Address", 0, false};
 
     if (it != reader.end())
 	mmapinfo = it.value();
-    if (mmapinfo.myStr.empty())
-	mmapinfo.myStr = "Address";
 
     tmp.sprintf("\t\t%s: 0x%.12llx", mmapinfo.myStr.c_str(), paddr);
 
