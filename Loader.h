@@ -43,18 +43,18 @@ public:
     LoaderBlock(uint32 size)
 	: myEntries(0)
     {
-	myAddr = new uint64[size];
+	myAddr = new MV_TraceAddr[size];
     }
     LoaderBlock(const MV_TraceBlock &block)
 	: myEntries(block.myEntries)
     {
-	myAddr = new uint64[myEntries];
-	memcpy(myAddr, block.myAddr, myEntries*sizeof(uint64));
+	myAddr = new MV_TraceAddr[myEntries];
+	memcpy(myAddr, block.myAddr, myEntries*sizeof(MV_TraceAddr));
     }
     ~LoaderBlock() { delete [] myAddr; }
 
-    uint64	*myAddr;
-    uint32	 myEntries;
+    MV_TraceAddr    *myAddr;
+    uint32	     myEntries;
 };
 
 typedef std::shared_ptr<MemoryState> MemoryStateHandle;

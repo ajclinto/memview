@@ -39,7 +39,7 @@ BUFFER_ID   theBuffer;
 
 struct BufferData {
     ADDRINT     ea;
-    UINT64	type;
+    UINT32	type;
 };
 
 #define NUM_BUF_PAGES 4
@@ -133,11 +133,10 @@ VOID * BufferFull(BUFFER_ID id, THREADID tid, const CONTEXT *ctxt, VOID *buf,
     PIN_GetLock(&theLock, tid);
     for (UINT64 i = 0; i < n; i++)
     {
-	unsigned long long val;
-	val = ((unsigned long long)data[i].ea << MV_AddrShift) & MV_AddrMask;
-	val |= data[i].type;
-	val |= ((unsigned long long)tid << MV_ThreadShift) & MV_ThreadMask;
-	theBlock->myAddr[theBlock->myEntries] = val;
+	unsigned int type = data[i].type;
+	type |= ((unsigned long long)tid << MV_ThreadShift) & MV_ThreadMask;
+	theBlock->myAddr[theBlock->myEntries].myAddr = data[i].ea;
+	theBlock->myAddr[theBlock->myEntries].myType = type;
 	theBlock->myEntries++;
 	if (theBlock->myEntries >= theMaxEntries)
 	    flushEvents();

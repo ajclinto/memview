@@ -152,7 +152,6 @@ Loader::openPipe(int argc, char *argv[])
 	const char		*args[theMaxArgs];
 	char			 pipearg[64];
 	char			 outpipearg[64];
-	char			 memrange[128];
 	char			 sharedfile[128];
 	int			 vg_args = 0;
 
@@ -160,13 +159,6 @@ Loader::openPipe(int argc, char *argv[])
 	switch (mySource)
 	{
 	case PIN:
-	    // There seem to be undocumented restrictions on this range:
-	    // - The start address needs to be nonzero
-	    // - The start address needs to be (1<<32) aligned
-	    sprintf(memrange, "0x100000000:0x%llx", 1ull << MV_AddrBits);
-	    args[vg_args++] = "-pin_memory_range";
-	    args[vg_args++] = memrange;
-
 	    args[vg_args++] = "-t";
 	    args[vg_args++] = "pin/obj-intel64/mv_pin.so";
 
@@ -410,11 +402,10 @@ Loader::run()
 }
 
 static inline void
-decodeAddr(uint64 &addr, uint64 &size, uint64 &type)
+decodeType(uint32 &size, uint32 &type)
 {
-    size = (addr & MV_SizeMask) >> MV_SizeShift,
-    type = addr >> MV_DataShift;
-    addr &= MV_AddrMask;
+    size = (type & MV_SizeMask) >> MV_SizeShift,
+    type >>= MV_DataShift;
 }
 
 bool
@@ -437,8 +428,8 @@ Loader::loadFromLackey(int max_read)
 	}
 
 	uint64		addr;
-	uint64		size;
-	uint64		type;
+	uint32		size;
+	uint32		type;
 
 	char		*saveptr = 0;
 	char		*type_str;
@@ -463,7 +454,6 @@ Loader::loadFromLackey(int max_read)
 	if (!addr_str)
 	    continue;
 	addr = strtoull(addr_str, 0, 16); // Hex value
-	addr &= MV_AddrMask;
 
 	size_str = strtok_r(0, delim, &saveptr);
 	if (!size_str)
@@ -475,19 +465,20 @@ Loader::loadFromLackey(int max_read)
 
 	// Set the data type
 	if (size < 4)
-	    type |= (uint64)MV_DataChar8 << MV_DataShift;
+	    type |= MV_DataChar8 << MV_DataShift;
 	else if (size > 4)
-	    type |= (uint64)MV_DataInt64 << MV_DataShift;
+	    type |= MV_DataInt64 << MV_DataShift;
 	else
-	    type |= (uint64)MV_DataInt32 << MV_DataShift;
+	    type |= MV_DataInt32 << MV_DataShift;
 
 	size <<= MV_SizeShift;
 
 	// Set the thread id to thread 1
-	type |= 1ull << MV_ThreadShift;
+	type |= 1u << MV_ThreadShift;
+	type |= size;
 
-	addr |= size | type;
-	block->myAddr[block->myEntries++] = addr;
+	block->myAddr[block->myEntries++].myAddr = addr;
+	block->myAddr[block->myEntries++].myType = type;
     }
 
     loadBlock(block);
@@ -526,10 +517,10 @@ Loader::loadFromPipe()
 	char	stack[MV_STR_BUFSIZE];
 	if (read(myPipeFD, stack, header.myStack.mySize))
 	{
-	    uint64 addr, size, type;
-	    addr = header.myStack.myAddr;
-	    decodeAddr(addr, size, type);
-	    addr &= MV_AddrMask;
+	    uint64 addr = header.myStack.myAddr.myAddr;
+	    uint32 type = header.myStack.myAddr.myType;
+	    uint32 size;
+	    decodeType(size, type);
 
 	    MemoryState::State	state;
 	    state.init(myState->getTime(), type);
@@ -646,16 +637,16 @@ Loader::loadFromTest()
     LoaderBlockHandle	block(new LoaderBlock(MV_BlockSize));
     for (uint32 j = 0; j < MV_BlockSize; j++)
     {
-	block->myAddr[j] = (theCount*MV_BlockSize + j) << 2;
-	block->myAddr[j] |= theTypeInfo;
+	block->myAddr[j].myAddr = (theCount*MV_BlockSize + j) << 2;
+	block->myAddr[j].myType = theTypeInfo;
 
 	// Insert a stack
 	if (with_stacks && !(j & theStackRate))
 	{
-	    uint64 addr, size, type;
-	    addr = block->myAddr[j];
-	    decodeAddr(addr, size, type);
-	    addr &= MV_AddrMask;
+	    uint64 addr = block->myAddr[j].myAddr;
+	    uint32 type = block->myAddr[j].myType;
+	    uint32 size;
+	    decodeType(size, type);
 
 	    StackTraceMapWriter writer(*myStackTrace);
 	    writer.insert(addr, addr + size,
@@ -682,9 +673,10 @@ public:
 	uint32 count = myBlock->myEntries;
 	for (uint32 i = 0; i < count; i++)
 	{
-	    uint64 addr = myBlock->myAddr[i];
-	    uint64 size, type;
-	    decodeAddr(addr, size, type);
+	    uint64 addr = myBlock->myAddr[i].myAddr;
+	    uint32 type = myBlock->myAddr[i].myType;
+	    uint32 size;
+	    decodeType(size, type);
 	    myState->updateAddress(addr, size, type, cache);
 	}
     }
@@ -710,10 +702,10 @@ bool
 Loader::loadBlock(const LoaderBlockHandle &block)
 {
     // Basic semantic checking to ensure we received valid data
-    uint64 type = (block->myAddr[0] & MV_TypeMask) >> MV_TypeShift;
+    uint32 type = (block->myAddr[0].myType & MV_TypeMask) >> MV_TypeShift;
     if (block->myEntries > MV_BlockSize || type > 7)
     {
-	fprintf(stderr, "received invalid block (size %u, type %lld)\n",
+	fprintf(stderr, "received invalid block (size %u, type %u)\n",
 		block->myEntries, type);
 	return false;
     }

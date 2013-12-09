@@ -106,13 +106,15 @@ static MV_TraceBlock	 theBlockData;
 static MV_SharedData	*theSharedData = 0;
 static int		 theBlockIndex = 0;
 
-typedef unsigned long long uint64;
+typedef unsigned long long  uint64;
+typedef unsigned int	    uint32;
+
 static uint64		 theTotalEvents = 0;
 
 static MV_StackInfo	 theStackInfo;
 static char		 theStackTrace[MV_STR_BUFSIZE];
 
-static uint64		 theThread = 0;
+static uint32		 theThread = 0;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
@@ -195,79 +197,33 @@ static void flush_data(void)
     int i;
     for (i = 0; i < theEntries; i++)
     {
-	VG_(printf)("addr: %llx\n", theBlock->myAddr[i]);
+	VG_(printf)("addr: %llx\n", theBlock->myAddr[i].myAddr);
     }
 #endif
 
     theEntries = 0;
 }
 
-static inline void put_data(Addr addr, uint64 type, uint64 size)
+static inline void put_data(Addr addr, uint32 type, uint32 size)
 {
     if (theEntries >= theMaxEntries)
 	flush_data();
 
-    // This code was written in the hope that it might improve performance
-    // by reducing the amount of data sent on the pipe.  Unfortunately, it
-    // actually decreased performance.
-#if 0
-    if (theEntries > 0)
-    {
-	uint64 last = theBlock->myAddr[theEntries-1];
-	uint64 lasttype = (last & MV_TypeMask) >> MV_TypeShift;
-	uint64 lastsize = last >> MV_SizeShift;
-	uint64 totalsize = lastsize + size;
-	if (type == lasttype && totalsize <= 128)
-	{
-	    uint64 lastaddr = last & MV_AddrMask;
-	    // Sequential
-	    if (addr == lastaddr + lastsize)
-	    {
-		last &= ~MV_SizeMask;
-		last |= totalsize << MV_SizeShift;
-		theBlock->myAddr[theEntries-1] = last;
-		return;
-	    }
-	    // Sequential, reverse
-	    if (lastaddr == addr + size)
-	    {
-		last = addr;
-		last |= type;
-		last |= totalsize << MV_SizeShift;
-		theBlock->myAddr[theEntries-1] = last;
-		return;
-	    }
-	    // Duplicate
-	    if (lastaddr == addr)
-	    {
-		if (size > lastsize)
-		{
-		    last &= ~MV_SizeMask;
-		    last |= size << MV_SizeShift;
-		    theBlock->myAddr[theEntries-1] = last;
-		}
-		return;
-	    }
-	}
-    }
-#endif
-
     // This same encoding is created with VEX IR in flushEventsIR().
-    uint64 data = addr;
-    data |= theThread;
-    data |= type;
-    data |= size << MV_SizeShift;
+    type |= theThread;
+    type |= size << MV_SizeShift;
 
-    theBlock->myAddr[theEntries] = data;
+    theBlock->myAddr[theEntries].myAddr = addr;
+    theBlock->myAddr[theEntries].myType = type;
     theEntries++;
 }
 
-static inline void put_wdata(Addr addr, uint64 type, SizeT size)
+static inline void put_wdata(Addr addr, uint32 type, SizeT size)
 {
-    uint64  part;
+    uint32  part;
     while (size)
     {
-	part = (uint64)(size > 128 ? 128 : size);
+	part = (uint32)(size > 128 ? 128 : size);
 	put_data(addr, type, part);
 	addr += part;
 	size -= part;
@@ -574,22 +530,21 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
 
     // Initialize the first address where we'll write trace information.
     // This will be advanced in the loop.
-    uint64 addr_size = sizeof(uint64);
     IRExpr *addr =
 	binop(Iop_Add64,
 		load(ENDIAN, Ity_I64, mkU64((ULong)&theBlock)),
 		unop(Iop_32Uto64,
-		    binop(Iop_Mul32, entries, mkU32(addr_size))));
+		    binop(Iop_Mul32, entries, mkU32(sizeof(MV_TraceAddr)))));
 
     // Grab the thread id
-    IRExpr *thread = load(ENDIAN, Ity_I64, mkU64((ULong)&theThread));
+    IRExpr *thread = load(ENDIAN, Ity_I32, mkU64((ULong)&theThread));
 
     Int        i;
     for (i = start; i < start+size; i++) {
 
 	Event*     ev = &events[i];
 
-	uint64 type = 0;
+	uint32 type = 0;
 	switch (ev->ekind) {
 	    case Event_Ir:
 		type = MV_ShiftedInstr;
@@ -606,19 +561,24 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
 	}
 
 	type |= ev->type << MV_DataShift;
+	type |= ((uint32)ev->size << MV_SizeShift);
 
 	// Construct the address and store it
-	IRExpr *data =
-	    binop(Iop_Or64, ev->addr,
-		    mkU64(type | ((uint64)ev->size << MV_SizeShift)));
-	data = binop(Iop_Or64, data, thread);
+	IRExpr *data = binop(Iop_Or32, mkU32(type), thread);
 
-	IRStmt *store = IRStmt_Store(ENDIAN, addr, data);
+	IRStmt *store;
 
+	store = IRStmt_Store(ENDIAN, addr, ev->addr);
+	addStmtToIRSB( sb, store );
+
+	// Advance to the type
+	addr = binop(Iop_Add64, addr, mkU64(sizeof(uint64)));
+
+	store = IRStmt_Store(ENDIAN, addr, data);
 	addStmtToIRSB( sb, store );
 
 	// Advance to the next entry
-	addr = binop(Iop_Add64, addr, mkU64(addr_size));
+	addr = binop(Iop_Add64, addr, mkU64(sizeof(MV_TraceAddr)-sizeof(uint64)));
     }
 
     // Store the new entry count
@@ -1116,7 +1076,7 @@ static void mv_die_mem_brk(Addr a, SizeT len)
 
 static void mv_start_client_code(ThreadId tid, ULong blocks_dispatched)
 {
-    theThread = (uint64)tid << MV_ThreadShift;
+    theThread = (uint32)tid << MV_ThreadShift;
 }
 
 static void mv_thread_start(ThreadId tid)

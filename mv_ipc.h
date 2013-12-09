@@ -42,6 +42,11 @@ typedef enum {
 
 typedef struct {
     unsigned long long	myAddr;
+    unsigned int	myType;
+} MV_TraceAddr;
+
+typedef struct {
+    MV_TraceAddr	myAddr;
     int			mySize;
 } MV_StackInfo;
 
@@ -72,32 +77,26 @@ typedef struct {
 
 #define MV_BlockSize	(1024*32)
 
-#define MV_MASK(BITS, SHIFT) (((1ull << BITS)-1) << SHIFT)
-
-// 40 bits are reserved for address space.  This exceeds the current limit
-// in memview of 36 bits.
-#define MV_AddrBits 40
-#define MV_AddrShift 0
-#define MV_AddrMask MV_MASK(MV_AddrBits, MV_AddrShift)
+#define MV_MASK(BITS, SHIFT) (((1u << BITS)-1) << SHIFT)
 
 // Thread, type and data are stored consecutively since during updates
 // these don't need to be separated (and so are treated as a single 16-bit
 // quantity).
 
 #define MV_ThreadBits 10
-#define MV_ThreadShift 54
+#define MV_ThreadShift 14
 #define MV_ThreadMask MV_MASK(MV_ThreadBits, MV_ThreadShift)
 
 #define MV_TypeBits 3
-#define MV_TypeShift 51
+#define MV_TypeShift 11
 #define MV_TypeMask MV_MASK(MV_TypeBits, MV_TypeShift)
 
 #define MV_DataBits 3
-#define MV_DataShift 48
+#define MV_DataShift 8
 #define MV_DataMask MV_MASK(MV_DataBits, MV_DataShift)
 
 #define MV_SizeBits 8
-#define MV_SizeShift 40
+#define MV_SizeShift 0
 #define MV_SizeMask MV_MASK(MV_SizeBits, MV_SizeShift)
 
 // Order is important here - we use a max() for downsampling, which will
@@ -110,11 +109,11 @@ typedef struct {
 #define MV_TypeRead   3
 #define MV_TypeFree   4
 
-#define MV_ShiftedAlloc  ((unsigned long long)MV_TypeAlloc << MV_TypeShift)
-#define MV_ShiftedInstr  ((unsigned long long)MV_TypeInstr << MV_TypeShift)
-#define MV_ShiftedWrite  ((unsigned long long)MV_TypeWrite << MV_TypeShift)
-#define MV_ShiftedRead   ((unsigned long long)MV_TypeRead << MV_TypeShift)
-#define MV_ShiftedFree   ((unsigned long long)MV_TypeFree << MV_TypeShift)
+#define MV_ShiftedAlloc  ((unsigned int)MV_TypeAlloc << MV_TypeShift)
+#define MV_ShiftedInstr  ((unsigned int)MV_TypeInstr << MV_TypeShift)
+#define MV_ShiftedWrite  ((unsigned int)MV_TypeWrite << MV_TypeShift)
+#define MV_ShiftedRead   ((unsigned int)MV_TypeRead << MV_TypeShift)
+#define MV_ShiftedFree   ((unsigned int)MV_TypeFree << MV_TypeShift)
 
 #define MV_DataInt32	0
 #define MV_DataInt64	1
@@ -124,7 +123,7 @@ typedef struct {
 #define MV_DataVec	5
 
 typedef struct {
-    unsigned long long	myAddr[MV_BlockSize];
+    MV_TraceAddr	myAddr[MV_BlockSize];
     unsigned int	myEntries;
 } MV_TraceBlock;
 
