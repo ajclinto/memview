@@ -104,6 +104,11 @@ Loader::openPipe(int argc, char *argv[])
 	    mySource = TEST;
 	    myTestType = 1;
 	}
+	else if (!strcmp(tool, "testextrema"))
+	{
+	    mySource = TEST;
+	    myTestType = 2;
+	}
     }
 
     // Allow overriden valgrind binary
@@ -375,10 +380,12 @@ Loader::run()
 		waitForInput(timeout_ms);
 		break;
 	    case TEST:
-		if (myTestType)
-		    rval = loadFromTest<true>();
-		else
-		    rval = loadFromTest<false>();
+		switch (myTestType)
+		{
+		    case 0: rval = loadFromTest<false>(); break;
+		    case 1: rval = loadFromTest<true>(); break;
+		    case 2: rval = loadFromTestExtrema(); break;
+		}
 		break;
 	    case LACKEY:
 		if (waitForInput(timeout_ms))
@@ -402,7 +409,7 @@ Loader::run()
 }
 
 static inline void
-decodeType(uint32 &size, uint32 &type)
+decodeType(uint64 &size, uint32 &type)
 {
     size = (type & MV_SizeMask) >> MV_SizeShift,
     type >>= MV_DataShift;
@@ -519,7 +526,7 @@ Loader::loadFromPipe()
 	{
 	    uint64 addr = header.myStack.myAddr.myAddr;
 	    uint32 type = header.myStack.myAddr.myType;
-	    uint32 size;
+	    uint64 size;
 	    decodeType(size, type);
 
 	    MemoryState::State	state;
@@ -625,7 +632,7 @@ Loader::loadFromTest()
 {
     static const uint64 theSize = 8*1024;
     static const uint64 theStackRate = 63;
-    static const uint64 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
+    static const uint32 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
 				    | ((uint64)MV_TypeRead << MV_TypeShift)
 				    | ((uint64)4 << MV_SizeShift);
 
@@ -645,7 +652,7 @@ Loader::loadFromTest()
 	{
 	    uint64 addr = block->myAddr[j].myAddr;
 	    uint32 type = block->myAddr[j].myType;
-	    uint32 size;
+	    uint64 size;
 	    decodeType(size, type);
 
 	    StackTraceMapWriter writer(*myStackTrace);
@@ -658,6 +665,26 @@ Loader::loadFromTest()
 
     theCount++;
     return true;
+}
+
+bool
+Loader::loadFromTestExtrema()
+{
+    static const uint32 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
+				    | ((uint64)MV_TypeRead << MV_TypeShift)
+				    | ((uint64)4 << MV_SizeShift);
+    const int size = 2;
+
+    LoaderBlockHandle	block(new LoaderBlock(size));
+    for (int i = 0; i < size; i++)
+    {
+	block->myAddr[i].myAddr = i ? ~0ull : 0ull;
+	block->myAddr[i].myType = theTypeInfo;
+    }
+    block->myEntries = size;
+    loadBlock(block);
+
+    return false;
 }
 
 template <typename HandleType>
@@ -675,7 +702,7 @@ public:
 	{
 	    uint64 addr = myBlock->myAddr[i].myAddr;
 	    uint32 type = myBlock->myAddr[i].myType;
-	    uint32 size;
+	    uint64 size;
 	    decodeType(size, type);
 	    myState->updateAddress(addr, size, type, cache);
 	}

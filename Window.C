@@ -554,6 +554,20 @@ setScrollMax(QScrollBar *scroll, int64 size, bool with_margin = true)
     scroll->setMinimum(SYSclamp32(-margin));
 }
 
+static void
+clampResToInteger(int &off, int &res, int64 off64, uint64 res64)
+{
+    uint64  maxres = 1ull << 30;
+    if (res64 > maxres)
+    {
+	if (off64 > int64(res64>>1))
+	    off64 -= int64(res64 - maxres);
+	res64 = maxres;
+    }
+    off = SYSclamp32(off64);
+    res = SYSclamp32(res64);
+}
+
 void
 MemViewWidget::paintGL()
 {
@@ -569,7 +583,7 @@ MemViewWidget::paintGL()
 	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, width(), myImage.width(), myZoom);
+    myDisplay.update(*myState, *myMMapMap, width(), myImage.width(), myZoom);
     switch (myDisplayMode)
     {
     case 3:
@@ -628,10 +642,18 @@ MemViewWidget::paintGL()
     myProgram->setUniformValue("theWindowResX", width());
     myProgram->setUniformValue("theWindowResY", height());
 
-    myProgram->setUniformValue("theDisplayOffX", (int)myHScrollBar->value());
-    myProgram->setUniformValue("theDisplayOffY", (int)myVScrollBar->value());
-    myProgram->setUniformValue("theDisplayResX", (int)myDisplay.width());
-    myProgram->setUniformValue("theDisplayResY", (int)myDisplay.height());
+    // Since the shader program only uses single precision integers, adjust
+    // the offset and display size so that they are still relatively
+    // correct but fit within the integer precision limit.
+    int	offx, offy;
+    int	resx, resy;
+    clampResToInteger(offx, resx, myHScrollBar->value(), myDisplay.width());
+    clampResToInteger(offy, resy, myVScrollBar->value(), myDisplay.height());
+
+    myProgram->setUniformValue("theDisplayOffX", offx);
+    myProgram->setUniformValue("theDisplayOffY", offy);
+    myProgram->setUniformValue("theDisplayResX", resx);
+    myProgram->setUniformValue("theDisplayResY", resy);
 
     setScrollMax(myVScrollBar, myDisplay.height());
     setScrollMax(myHScrollBar, myDisplay.width(),
@@ -1043,7 +1065,7 @@ MemViewWidget::changeZoom(int zoom)
     if (zoom < 0)
 	zoom = -((-zoom) & ~1);
 
-    zoom = SYSclamp(zoom, -16, 30);
+    zoom = SYSclamp(zoom, -16, 63-myState->getIgnoreBits());
 
     if (zoom != myZoom)
     {
@@ -1175,7 +1197,7 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     QString	zoominfo;
 
     if (myZoom > 0)
-	zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1 << myZoom)));
+	zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1ull << myZoom)));
     else
 	zoominfo.sprintf("\t\t%dx", 1 << (-myZoom >> 1));
 

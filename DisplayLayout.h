@@ -52,6 +52,7 @@ public:
 
     // Build the block display layout from state
     void	    update(MemoryState &state,
+			   MMapMap &mmap,
 			   int64 winwidth,
 			   int64 width,
 			   int zoom);

@@ -142,7 +142,10 @@ public:
 	    end = myMap.rbegin()->first;
 	}
 	else
-	    start = end = 0;
+	{
+	    start = ~0ull;
+	    end = 0ull;
+	}
     }
 
     void    dump() const

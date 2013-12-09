@@ -203,7 +203,7 @@ MemoryState::downsample(const MemoryState &state)
 void
 MemoryState::downsamplePage(const DisplayPage &page, int shift, bool fast)
 {
-    const   uint64 scale = 1 << shift;
+    const   uint64 scale = 1ull << shift;
     const   uint64 stride = fast ? 1 : scale;
     uint64  myaddr = page.addr() >> shift;
 

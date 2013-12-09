@@ -59,6 +59,10 @@ inline int SYSclamp32(int64 val)
 	    (int64)std::numeric_limits<int>::min(),
 	    (int64)std::numeric_limits<int>::max());
 }
+inline int SYSclamp32(uint64 val)
+{
+    return (int)SYSmin(val, (uint64)std::numeric_limits<int>::max());
+}
 template <typename T>
 inline T SYSlerp(T v1, T v2, T bias)
 {
@@ -110,7 +114,8 @@ struct Box {
 
     void dump() const
     {
-	fprintf(stderr, "box: %d %d - %d %d\n", l[0], l[1], h[0], h[1]);
+	fprintf(stderr, "box: %lld %lld - %lld %lld\n",
+		(int64)l[0], (int64)l[1], (int64)h[0], (int64)h[1]);
     }
 
     T xmin() const { return l[0]; }

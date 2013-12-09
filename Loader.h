@@ -107,6 +107,7 @@ private:
 
     template <bool with_stacks>
     bool	loadFromTest();
+    bool	loadFromTestExtrema();
 
     bool	loadBlock(const LoaderBlockHandle &block);
     void	loadMMap(const MV_Header &header, const char *buf);

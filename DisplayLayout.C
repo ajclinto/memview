@@ -162,6 +162,7 @@ adjustZoom(T &val, int zoom)
 void
 DisplayLayout::update(
 	MemoryState &state,
+	MMapMap &mmap,
 	int64 winwidth,
 	int64 width,
 	int zoom)
@@ -191,15 +192,22 @@ DisplayLayout::update(
     }
     else
     {
-	uint64	start = 0;
-	uint64	end = 0;
+	uint64	start, end;
+
+	{
+	    MMapMapReader	reader(mmap);
+	    reader.getTotalInterval(start, end);
+	}
+
+	start >>= state.getIgnoreBits();
+	end >>= state.getIgnoreBits();
 
 	for (MemoryState::DisplayIterator it(state.begin());
 		!it.atEnd(); it.advance())
 	{
 	    auto page(it.page());
-	    start = end ? start : page.addr();
-	    end = page.addr() + page.size();
+	    start = SYSmin(start, page.addr());
+	    end = SYSmax(end, page.addr() + page.size());
 	}
 
 	myBlocks.push_back(DisplayBlock(start, end-start));
@@ -207,7 +215,7 @@ DisplayLayout::update(
 
     if (myVisualization != LINEAR)
     {
-	myStartLevel = 31 - (state.getIgnoreBits() >> 1);
+	myStartLevel = 32 - SYSmax(state.getIgnoreBits() >> 1, 1);
 	myStopLevel = 0;
 	myWidth = 0;
 	myHeight = 0;
