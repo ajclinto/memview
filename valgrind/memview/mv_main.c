@@ -191,6 +191,12 @@ static void flush_data(void)
 
 	theBlock = &theSharedData->myData[theBlockIndex];
     }
+    else
+    {
+	// Use the maximum entry count since we don't have a pipe to tell
+	// us what it is.
+	theMaxEntries = MV_BlockSize;
+    }
 
 #if 0
     VG_(printf)("flush_data: %d\n", theEntries);
