@@ -84,17 +84,15 @@ public:
     static const uint32	theHalfLife	= theFullLife >> 1;
 
 private:
-    // The maximum space is 36 bits or 64Gb of memory.
     static const int	theAllBits = 36;
-    static const uint64	theAllSize = 1ull << theAllBits;
-    static const uint64	theAllMask = theAllSize-1;
+    static const int	thePageBits = 12;
 
-    typedef SparseArray<State, 22, 12> StateArray;
+    typedef SparseArray<State, 22, thePageBits> StateArray;
 
     // Raw memory state
     struct LinkItem {
-	LinkItem(uint64 shift, uint64 top, LinkItem *next)
-	    : myState(theAllBits-shift)
+	LinkItem(uint64 bits, uint64 top, LinkItem *next)
+	    : myState(bits)
 	    , myTop(top)
 	    , myNext(next) {}
 	~LinkItem() { delete myNext; }
@@ -346,7 +344,7 @@ private:
 	if (it && it->myTop == top)
 	    return it->myState;
 
-	it = new LinkItem(myIgnoreBits, top, it);
+	it = new LinkItem(myBottomBits, top, it);
 	if (prev)
 	    prev->myNext = it;
 
@@ -354,16 +352,18 @@ private:
     }
 
 private:
-    LinkItem	 myHead;
-
     QMutex	 myWriteLock;
     uint32	 myTime;	// Rolling counter
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
     int		 myIgnoreBits;
-    uint64	 myTopMask;
+    int		 myBottomBits;
     uint64	 myBottomMask;
+    uint64	 myTopMask;
+
+    // Maps memory for mask 0 on creation
+    LinkItem	 myHead;
 };
 
 #endif

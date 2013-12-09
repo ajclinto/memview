@@ -34,12 +34,13 @@
 #include <vector>
 
 MemoryState::MemoryState(int ignorebits)
-    : myHead(ignorebits, 0, 0)
-    , myTime(2)
+    : myTime(2)
     , myIgnoreBits(ignorebits)
-    , myTopMask(~(theAllMask >> ignorebits))
-    , myBottomMask(theAllMask >> ignorebits)
+    , myBottomBits(SYSmax(theAllBits-ignorebits, thePageBits))
+    , myHead(myBottomBits, 0, 0)
 {
+    myBottomMask = (1ull << myBottomBits)-1;
+    myTopMask = ~myBottomMask;
 }
 
 MemoryState::~MemoryState()
