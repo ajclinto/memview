@@ -247,6 +247,11 @@ public:
 	{
 	    rewind();
 	}
+	DisplayIterator(const DisplayIterator &it)
+	    : myTop(it.myTop)
+	{
+	    rewind();
+	}
 
 	bool	atEnd() const
 		{

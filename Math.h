@@ -137,9 +137,10 @@ inline std::string SYStoString(int val)
     return std::to_string(val);
 }
 #else
+#include <sstream>
 inline std::string SYStoString(int val)
 {
-    std::ostringstream os;
+    std::stringstream os;
     os << val;
     return os.str();
 }
