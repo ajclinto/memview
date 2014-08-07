@@ -36,6 +36,10 @@ static const int	theCompactSpacing = 1;
 
 DisplayLayout::DisplayLayout()
     : myVisualization(HILBERT)
+	, myWidth(0)
+    , myHeight(0)
+    , myStartLevel(0)
+    , myStopLevel(0)
     , myCompact(true)
 {
 }
@@ -47,6 +51,8 @@ DisplayLayout::~DisplayLayout()
 // A callback for recursive block traversal
 class Traverser {
 public:
+	virtual ~Traverser() {}
+
     // Return false if you don't want any further traversal
     virtual bool	visit(uint64 idx, int64 r, int64 c, int level,
 			      bool hilbert, int rotate, bool flip) = 0;

@@ -179,7 +179,7 @@ public:
 	{}
 
     struct Page {
-	Page() : mySize(0) {}
+	Page() : mySize(0), myExists(false) {}
 	Page(uint64 size, bool exists)
 	    : mySize(size)
 	    , myExists(exists) {}

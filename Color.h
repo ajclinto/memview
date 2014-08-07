@@ -29,7 +29,8 @@
 
 class Color {
 public:
-    Color() {}
+    Color()
+	: myR(0), myG(0), myB(0) {}
     Color(float r, float g, float b)
 	: myR(r), myG(g), myB(b) {}
     Color(uint32 val)
