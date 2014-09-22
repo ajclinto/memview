@@ -11,8 +11,8 @@ VALGRIND_SRC = ../valgrind/valgrind_src
 PACKAGE_NAME = memview_$(VERSION)_amd64.deb
 
 MEMVIEW_BIN = ../memview
-MEMVIEW_FRAG = ../shader.frag
-MEMVIEW_VERT = ../shader.vert
+MEMVIEW_FRAG = ../memview.frag
+MEMVIEW_VERT = ../memview.vert
 MEMVIEW_TOOL = $(VALGRIND_SRC)/memview/memview-amd64-linux
 MEMVIEW_PRELOAD = $(VALGRIND_SRC)/memview/vgpreload_memview-amd64-linux.so
 
