@@ -871,14 +871,14 @@ Index: coregrind/Makefile.am
 +libwrapmalloc_toolpreload_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_CPPFLAGS = \
 +	$(AM_CPPFLAGS_@VGCONF_PLATFORM_PRI_CAPS@)
 +libwrapmalloc_toolpreload_@VGCONF_ARCH_PRI@_@VGCONF_OS@_a_CFLAGS = \
-+	$(AM_CFLAGS_@VGCONF_PLATFORM_PRI_CAPS@) $(AM_CFLAGS_PIC)
++	$(AM_CFLAGS_PSO_@VGCONF_PLATFORM_PRI_CAPS@) -O2
 +if VGCONF_HAVE_PLATFORM_SEC
 +libwrapmalloc_toolpreload_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_SOURCES = \
 +	m_replacemalloc/vg_wrap_malloc.c
 +libwrapmalloc_toolpreload_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_CPPFLAGS = \
 +	$(AM_CPPFLAGS_@VGCONF_PLATFORM_SEC_CAPS@)
 +libwrapmalloc_toolpreload_@VGCONF_ARCH_SEC@_@VGCONF_OS@_a_CFLAGS = \
-+	$(AM_CFLAGS_@VGCONF_PLATFORM_SEC_CAPS@) $(AM_CFLAGS_PIC)
++	$(AM_CFLAGS_PSO_@VGCONF_PLATFORM_SEC_CAPS@) -O2
 +endif
 +
 +#----------------------------------------------------------------------------

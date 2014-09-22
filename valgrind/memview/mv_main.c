@@ -120,21 +120,27 @@ static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
     HChar		 tmp[MV_STR_BUFSIZE];
 
-    VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE);
+	InlIPCursor *iipc = VG_(new_IIPC)(ip);
 
-    int available = MV_STR_BUFSIZE - theStackInfo.mySize;
-    int len =
-	VG_(snprintf)(
-		&theStackTrace[theStackInfo.mySize],
-		available,
-		"%s%s %s",
-		( theStackInfo.mySize ? "\n" : ""),
-		( n == 0 ? "at" : "by" ), tmp);
+	do {
+		VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE, iipc);
 
-    if (len >= available)
-	theStackInfo.mySize += available-1;
-    else
-	theStackInfo.mySize += len;
+		int available = MV_STR_BUFSIZE - theStackInfo.mySize;
+		int len =
+			VG_(snprintf)(
+				&theStackTrace[theStackInfo.mySize],
+				available,
+				"%s%s %s",
+				( theStackInfo.mySize ? "\n" : ""),
+				( n == 0 ? "at" : "by" ), tmp);
+
+		if (len >= available)
+			theStackInfo.mySize += available-1;
+		else
+			theStackInfo.mySize += len;
+		n++;
+	} while (VG_(next_IIPC)(iipc));
+	VG_(delete_IIPC)(iipc);
 }
 
 static void flush_data(void)
