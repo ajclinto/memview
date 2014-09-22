@@ -408,6 +408,24 @@ loadTextFile(const char *filename, const std::vector<std::string> &paths)
     return buffer;
 }
 
+void
+loadShaderProgram(QGLShader *shader,
+	const char *filename,
+	const std::vector<std::string> &paths,
+	const unsigned char *def, int deflen)
+{
+    char *vsrc = loadTextFile(filename, paths);
+    if (!vsrc)
+    {
+	vsrc = new char[deflen+1];
+	memcpy(vsrc, def, deflen);
+	vsrc[deflen] = '\0';
+    }
+
+    shader->compileSourceCode(vsrc);
+    delete [] vsrc;
+}
+
 // 512 size texture to accomodate the 500 possible threads supported by
 // valgrind.
 static const int theColorBits = 9;
@@ -483,14 +501,10 @@ MemViewWidget::initializeGL()
     paths.push_back("/usr/share/memview/");
 
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
-    const char *vsrc = loadTextFile("shader.vert", paths);
-    vshader->compileSourceCode(vsrc);
-    delete [] vsrc;
-
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
-    const char *fsrc = loadTextFile("shader.frag", paths);
-    fshader->compileSourceCode(fsrc);
-    delete [] fsrc;
+
+    loadShaderProgram(vshader, "memview.vert", paths, 0, 0);
+    loadShaderProgram(fshader, "memview.frag", paths, 0, 0);
 
     myProgram = new QGLShaderProgram(this);
     myProgram->addShader(vshader);
