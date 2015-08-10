@@ -39,73 +39,73 @@ class MemoryState {
 public:
     class State {
     public:
-	static const int	theTimeShift = 17;
+        static const int        theTimeShift = 17;
 
     private:
-	// Here, type is the combined metadata that excludes the time
-	static const uint32	theStateTypeMask = (1 << theTimeShift) - 1;
-	static const uint32	theStateTimeMask = ~theStateTypeMask;
+        // Here, type is the combined metadata that excludes the time
+        static const uint32     theStateTypeMask = (1 << theTimeShift) - 1;
+        static const uint32     theStateTimeMask = ~theStateTypeMask;
 
-	// Sub-fields of type
-	static const int	theSubDataBits = 3;
-	static const uint32	theSubDataMask = (1 << theSubDataBits) - 1;
-	static const int	theSubTypeBits = 3;
-	static const uint32	theSubTypeMask = (1 << theSubTypeBits) - 1;
-	static const int	theSubThreadBits = 10;
-	static const uint32	theSubThreadMask = (1 << theSubThreadBits) - 1;
-	static const uint32	theSubSelectedMask = 1 << (theTimeShift-1);
+        // Sub-fields of type
+        static const int        theSubDataBits = 3;
+        static const uint32     theSubDataMask = (1 << theSubDataBits) - 1;
+        static const int        theSubTypeBits = 3;
+        static const uint32     theSubTypeMask = (1 << theSubTypeBits) - 1;
+        static const int        theSubThreadBits = 10;
+        static const uint32     theSubThreadMask = (1 << theSubThreadBits) - 1;
+        static const uint32     theSubSelectedMask = 1 << (theTimeShift-1);
 
     public:
-	void init(uint32 time, uint32 type)
-       	{ uval = type | (time << theTimeShift); }
+        void init(uint32 time, uint32 type)
+               { uval = type | (time << theTimeShift); }
 
-	void setTime(uint32 time)
-	{ uval = (uval & theStateTypeMask) | (time << theTimeShift); }
+        void setTime(uint32 time)
+        { uval = (uval & theStateTypeMask) | (time << theTimeShift); }
 
-	void setFree() { uval |= (MV_TypeFree << MV_DataBits); }
-	void setSelected() { uval |= theSubSelectedMask; }
+        void setFree() { uval |= (MV_TypeFree << MV_DataBits); }
+        void setSelected() { uval |= theSubSelectedMask; }
 
-	// Field accessors.  Here type is the sub-type (without the thread
-	// id).
-	uint32 dtype() const { return uval & theSubDataMask; }
-	uint32 type() const { return (uval >> theSubDataBits) &
-					    theSubTypeMask; }
-	uint32 thread() const { return (uval >> (theSubDataBits +
-					    theSubTypeBits)) &
-					    theSubThreadMask; }
-	uint32 selected() const { return uval & theSubSelectedMask; }
-	uint32 time() const { return uval >> theTimeShift; }
+        // Field accessors.  Here type is the sub-type (without the thread
+        // id).
+        uint32 dtype() const { return uval & theSubDataMask; }
+        uint32 type() const { return (uval >> theSubDataBits) &
+                                            theSubTypeMask; }
+        uint32 thread() const { return (uval >> (theSubDataBits +
+                                            theSubTypeBits)) &
+                                            theSubThreadMask; }
+        uint32 selected() const { return uval & theSubSelectedMask; }
+        uint32 time() const { return uval >> theTimeShift; }
 
-	uint32	uval;
+        uint32        uval;
     };
 
-    static const uint32	theStale	= 1;
-    static const uint32	theFullLife	= 1 << (32-State::theTimeShift);
-    static const uint32	theHalfLife	= theFullLife >> 1;
+    static const uint32        theStale        = 1;
+    static const uint32        theFullLife     = 1 << (32-State::theTimeShift);
+    static const uint32        theHalfLife     = theFullLife >> 1;
 
 private:
-    static const int	theAllBits = 36;
-    static const int	thePageBits = 12;
+    static const int        theAllBits = 36;
+    static const int        thePageBits = 12;
 
     typedef SparseArray<State, 22, thePageBits> StateArray;
 
     // Raw memory state
     struct LinkItem {
-	LinkItem(uint64 bits, uint64 top, LinkItem *next)
-	    : myState(bits)
-	    , myTop(top)
-	    , myNext(next) {}
-	~LinkItem() { delete myNext; }
+        LinkItem(uint64 bits, uint64 top, LinkItem *next)
+            : myState(bits)
+            , myTop(top)
+            , myNext(next) {}
+        ~LinkItem() { delete myNext; }
 
-	StateArray       myState;
-	uint64		 myTop;
-	LinkItem	*myNext;
+        StateArray       myState;
+        uint64           myTop;
+        LinkItem        *myNext;
     };
 
     inline void splitAddr(uint64 &addr, uint64 &top) const
     {
-	top = addr & myTopMask;
-	addr &= myBottomMask;
+        top = addr & myTopMask;
+        addr &= myBottomMask;
     }
 
 public:
@@ -115,260 +115,260 @@ public:
 #if 1
     class UpdateCache {
     public:
-	UpdateCache(MemoryState &state)
-	    : myState(state)
-	    , myData(&state.myHead.myState)
-	    , myTop(state.myHead.myTop)
-	    {}
+        UpdateCache(MemoryState &state)
+            : myState(state)
+            , myData(&state.myHead.myState)
+            , myTop(state.myHead.myTop)
+            {}
 
-	StateArray &getState(uint64 top)
-	{
-	    if (__builtin_expect(myTop != top, false))
-	    {
-		myTop = top;
-		myData = &myState.findOrCreateState(top);
-	    }
-	    return *myData;
-	}
+        StateArray &getState(uint64 top)
+        {
+            if (__builtin_expect(myTop != top, false))
+            {
+                myTop = top;
+                myData = &myState.findOrCreateState(top);
+            }
+            return *myData;
+        }
 
     private:
-	MemoryState &myState;
-	StateArray  *myData;
-	uint64	     myTop;
+        MemoryState &myState;
+        StateArray  *myData;
+        uint64       myTop;
     };
 #else
     // Implementation that assumes all memory addresses are within
     // theAllMask, for performance testing
     class UpdateCache {
     public:
-	UpdateCache(MemoryState &state) : myState(state) {}
+        UpdateCache(MemoryState &state) : myState(state) {}
 
-	StateArray &getState(uint64)
-	{
-	    return myState.myHead.myState;
-	}
+        StateArray &getState(uint64)
+        {
+            return myState.myHead.myState;
+        }
 
     private:
-	MemoryState &myState;
+        MemoryState &myState;
     };
 #endif
 
-    inline void	updateAddress(uint64 addr, uint64 size, uint32 type,
-			      UpdateCache &cache)
-		{
-		    addr >>= myIgnoreBits;
-		    size >>= myIgnoreBits;
+    inline void updateAddress(uint64 addr, uint64 size, uint32 type,
+                              UpdateCache &cache)
+                {
+                    addr >>= myIgnoreBits;
+                    size >>= myIgnoreBits;
 
-		    uint64  top = 0;
-		    splitAddr(addr, top);
+                    uint64  top = 0;
+                    splitAddr(addr, top);
 
-		    StateArray &state = cache.getState(top);
-		    state.setExists(addr);
+                    StateArray &state = cache.getState(top);
+                    state.setExists(addr);
 
-		    uint64 last;
-		    switch (size)
-		    {
-		    case 0:
-		    case 1:
-			if (!(type & (MV_TypeFree << MV_DataBits)))
-			    state[addr].init(myTime, type);
-			else
-			    state[addr].setFree();
-			break;
-		    case 2:
-			if (!(type & (MV_TypeFree << MV_DataBits)))
-			{
-			    state[addr].init(myTime, type);
-			    state[addr+1].init(myTime, type);
-			}
-			else
-			{
-			    state[addr].setFree();
-			    state[addr+1].setFree();
-			}
-			break;
-		    default:
-			last = addr + size;
-			if (!(type & (MV_TypeFree << MV_DataBits)))
-			{
-			    for (; addr < last; addr++)
-				state[addr].init(myTime, type);
-			}
-			else
-			{
-			    for (; addr < last; addr++)
-				state[addr].setFree();
-			}
-			break;
-		    }
-		}
+                    uint64 last;
+                    switch (size)
+                    {
+                    case 0:
+                    case 1:
+                        if (!(type & (MV_TypeFree << MV_DataBits)))
+                            state[addr].init(myTime, type);
+                        else
+                            state[addr].setFree();
+                        break;
+                    case 2:
+                        if (!(type & (MV_TypeFree << MV_DataBits)))
+                        {
+                            state[addr].init(myTime, type);
+                            state[addr+1].init(myTime, type);
+                        }
+                        else
+                        {
+                            state[addr].setFree();
+                            state[addr+1].setFree();
+                        }
+                        break;
+                    default:
+                        last = addr + size;
+                        if (!(type & (MV_TypeFree << MV_DataBits)))
+                        {
+                            for (; addr < last; addr++)
+                                state[addr].init(myTime, type);
+                        }
+                        else
+                        {
+                            for (; addr < last; addr++)
+                                state[addr].setFree();
+                        }
+                        break;
+                    }
+                }
 
-    void	incrementTime(StackTraceMap *stacks = 0);
-    uint32	getTime() const { return myTime; }
-    int		getIgnoreBits() const { return myIgnoreBits; }
+    void        incrementTime(StackTraceMap *stacks = 0);
+    uint32      getTime() const { return myTime; }
+    int         getIgnoreBits() const { return myIgnoreBits; }
 
     // Print status information for a memory address
-    void	appendAddressInfo(QString &message, uint64 addr,
-				  const MMapMap &map);
+    void        appendAddressInfo(QString &message, uint64 addr,
+                                  const MMapMap &map);
 
     // Abstract access to a single page
     class DisplayPage : public StateArray::Page {
     public:
-	DisplayPage()
-	    : StateArray::Page()
-	    , myTop(0) {}
-	DisplayPage(const StateArray::Page &src, uint64 top)
-	    : StateArray::Page(src)
-	    , myTop(top) {}
+        DisplayPage()
+            : StateArray::Page()
+            , myTop(0) {}
+        DisplayPage(const StateArray::Page &src, uint64 top)
+            : StateArray::Page(src)
+            , myTop(top) {}
 
-	uint64	addr() const	{ return myTop | StateArray::Page::addr(); }
+        uint64        addr() const        { return myTop | StateArray::Page::addr(); }
 
     private:
-	uint64	     myTop;
+        uint64        myTop;
     };
     
 
-    DisplayPage	getPage(uint64 addr, uint64 &off) const
+    DisplayPage        getPage(uint64 addr, uint64 &off) const
     {
-	uint64  top;
-	splitAddr(addr, top);
+        uint64  top;
+        splitAddr(addr, top);
 
-	StateArray *state = findState(top);
-	if (state)
-	    return DisplayPage(state->getPage(addr, off), top);
-	off = 0;
-	return DisplayPage();
+        StateArray *state = findState(top);
+        if (state)
+            return DisplayPage(state->getPage(addr, off), top);
+        off = 0;
+        return DisplayPage();
     }
 
     class DisplayIterator {
     public:
-	DisplayIterator(LinkItem *head)
-	    : myTop(head)
-	{
-	    rewind();
-	}
-	DisplayIterator(const DisplayIterator &it)
-	    : myTop(it.myTop)
-	{
-	    rewind();
-	}
+        DisplayIterator(LinkItem *head)
+            : myTop(head)
+        {
+            rewind();
+        }
+        DisplayIterator(const DisplayIterator &it)
+            : myTop(it.myTop)
+        {
+            rewind();
+        }
 
-	bool	atEnd() const
-		{
-		    return !myTop;
-		}
-	void	advance()
-		{
-		    myBottom->advance();
-		    if (myBottom->atEnd())
-		    {
-			myTop = myTop->myNext;
-			rewind();
-		    }
-		}
+        bool    atEnd() const
+                {
+                    return !myTop;
+                }
+        void    advance()
+                {
+                    myBottom->advance();
+                    if (myBottom->atEnd())
+                    {
+                        myTop = myTop->myNext;
+                        rewind();
+                    }
+                }
 
-	DisplayPage page() const
-	{
-	    return DisplayPage(myBottom->page(), myTop->myTop);
-	}
-
-    private:
-	void	rewind()
-		{
-		    if (myTop)
-		    {
-			myBottom.reset(
-				new StateArray::Iterator(myTop->myState));
-		    }
-		}
+        DisplayPage page() const
+        {
+            return DisplayPage(myBottom->page(), myTop->myTop);
+        }
 
     private:
-	LinkItem				*myTop;
-	std::unique_ptr<StateArray::Iterator>	 myBottom;
+        void    rewind()
+                {
+                    if (myTop)
+                    {
+                        myBottom.reset(
+                                new StateArray::Iterator(myTop->myState));
+                    }
+                }
+
+    private:
+        LinkItem                                *myTop;
+        std::unique_ptr<StateArray::Iterator>    myBottom;
     };
 
     DisplayIterator begin()
     {
-	return DisplayIterator(&myHead);
+        return DisplayIterator(&myHead);
     }
 
     // Build a mipmap from another memory state
-    void	downsample(const MemoryState &state);
-    void	downsamplePage(const DisplayPage &page, int shift, bool fast);
+    void        downsample(const MemoryState &state);
+    void        downsamplePage(const DisplayPage &page, int shift, bool fast);
 
 private:
     class StackInfoUpdater {
-	bool myFull;
+        bool myFull;
     public:
-	StackInfoUpdater(bool full) : myFull(full) {}
-	void operator()(StackInfo &val) const
-	{
-	    State  sval; sval.uval = val.myState;
-	    uint32 state = sval.time();
+        StackInfoUpdater(bool full) : myFull(full) {}
+        void operator()(StackInfo &val) const
+        {
+            State  sval; sval.uval = val.myState;
+            uint32 state = sval.time();
 
-	    if (state && ((state >= theHalfLife) ^ myFull))
-	    {
-		sval.setTime(theStale);
-		val.myState = sval.uval;
-	    }
-	}
+            if (state && ((state >= theHalfLife) ^ myFull))
+            {
+                sval.setTime(theStale);
+                val.myState = sval.uval;
+            }
+        }
     };
 
-    LinkItem	*findLink(uint64 top, LinkItem *&prev) const
+    LinkItem        *findLink(uint64 top, LinkItem *&prev) const
     {
-	LinkItem    *it = const_cast<LinkItem *>(&myHead);
+        LinkItem    *it = const_cast<LinkItem *>(&myHead);
 
-	prev = 0;
-	while (it && it->myTop < top)
-	{
-	    prev = it;
-	    it = it->myNext;
-	}
+        prev = 0;
+        while (it && it->myTop < top)
+        {
+            prev = it;
+            it = it->myNext;
+        }
 
-	return it;
+        return it;
     }
 
-    StateArray	*findState(uint64 top) const
+    StateArray        *findState(uint64 top) const
     {
-	LinkItem    *prev;
-	LinkItem    *it = findLink(top, prev);
-	return (it && it->myTop == top) ? &it->myState : 0;
+        LinkItem    *prev;
+        LinkItem    *it = findLink(top, prev);
+        return (it && it->myTop == top) ? &it->myState : 0;
     }
 
-    StateArray	&findOrCreateState(uint64 top)
+    StateArray        &findOrCreateState(uint64 top)
     {
-	LinkItem    *prev;
-	LinkItem    *it = findLink(top, prev);
+        LinkItem    *prev;
+        LinkItem    *it = findLink(top, prev);
 
-	if (it && it->myTop == top)
-	    return it->myState;
+        if (it && it->myTop == top)
+            return it->myState;
 
-	// Double checked lock
-	QMutexLocker	lock(&myWriteLock);
-	it = findLink(top, prev);
-	if (it && it->myTop == top)
-	    return it->myState;
+        // Double checked lock
+        QMutexLocker        lock(&myWriteLock);
+        it = findLink(top, prev);
+        if (it && it->myTop == top)
+            return it->myState;
 
-	it = new LinkItem(myBottomBits, top, it);
-	if (prev)
-	    prev->myNext = it;
+        it = new LinkItem(myBottomBits, top, it);
+        if (prev)
+            prev->myNext = it;
 
-	return it->myState;
+        return it->myState;
     }
 
 private:
-    QMutex	 myWriteLock;
-    uint32	 myTime;	// Rolling counter
+    QMutex         myWriteLock;
+    uint32         myTime;        // Rolling counter
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.
-    int		 myIgnoreBits;
-    int		 myBottomBits;
-    uint64	 myBottomMask;
-    uint64	 myTopMask;
+    int            myIgnoreBits;
+    int            myBottomBits;
+    uint64         myBottomMask;
+    uint64         myTopMask;
 
     // Maps memory for mask 0 on creation
-    LinkItem	 myHead;
+    LinkItem       myHead;
 };
 
 #endif

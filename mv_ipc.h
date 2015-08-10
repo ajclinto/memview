@@ -41,13 +41,13 @@ typedef enum {
 #define MV_STR_BUFSIZE 4096
 
 typedef struct __attribute__((__packed__)) {
-    unsigned long long	myAddr;
-    unsigned int	myType;
+    unsigned long long  myAddr;
+    unsigned int        myType;
 } MV_TraceAddr;
 
 typedef struct {
-    MV_TraceAddr	myAddr;
-    int			mySize;
+    MV_TraceAddr        myAddr;
+    int                 mySize;
 } MV_StackInfo;
 
 typedef enum {
@@ -60,22 +60,22 @@ typedef enum {
 } MV_MMapType;
 
 typedef struct {
-    unsigned long long	myStart;
-    unsigned long long	myEnd;
-    MV_MMapType		myType;
-    int			myThread;
-    int			mySize;
+    unsigned long long        myStart;
+    unsigned long long        myEnd;
+    MV_MMapType               myType;
+    int                       myThread;
+    int                       mySize;
 } MV_MMapInfo;
 
 typedef struct {
     MV_MessageType  myType;
     union {
-	MV_StackInfo	myStack;
-	MV_MMapInfo	myMMap;
+        MV_StackInfo       myStack;
+        MV_MMapInfo        myMMap;
     };
 } MV_Header;
 
-#define MV_BlockSize	(1024*32)
+#define MV_BlockSize        (1024*32)
 
 #define MV_MASK(BITS, SHIFT) (((1u << BITS)-1) << SHIFT)
 
@@ -115,16 +115,16 @@ typedef struct {
 #define MV_ShiftedRead   ((unsigned int)MV_TypeRead << MV_TypeShift)
 #define MV_ShiftedFree   ((unsigned int)MV_TypeFree << MV_TypeShift)
 
-#define MV_DataInt32	0
-#define MV_DataInt64	1
-#define MV_DataFlt32	2
-#define MV_DataFlt64	3
-#define MV_DataChar8	4
-#define MV_DataVec	5
+#define MV_DataInt32      0
+#define MV_DataInt64      1
+#define MV_DataFlt32      2
+#define MV_DataFlt64      3
+#define MV_DataChar8      4
+#define MV_DataVec        5
 
 typedef struct {
-    MV_TraceAddr	myAddr[MV_BlockSize];
-    unsigned int	myEntries;
+    MV_TraceAddr        myAddr[MV_BlockSize];
+    unsigned int        myEntries;
 } MV_TraceBlock;
 
 #define MV_BufCount 4

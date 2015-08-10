@@ -58,21 +58,21 @@
 /*--- Command line options                                 ---*/
 /*------------------------------------------------------------*/
 
-static int		 clo_pipe = 0;
-static int		 clo_inpipe = 0;
-static Bool		 clo_trace_instrs = False;
-static const char	*clo_shared_mem = 0;
+static int         clo_pipe = 0;
+static int         clo_inpipe = 0;
+static Bool        clo_trace_instrs = False;
+static const char *clo_shared_mem = 0;
 
 static Bool mv_process_cmd_line_option(const HChar* arg)
 {
-    if VG_INT_CLO(arg, "--pipe",		clo_pipe) {}
-    else if VG_INT_CLO(arg, "--inpipe",		clo_inpipe) {}
-    else if VG_STR_CLO(arg, "--shared-mem",	clo_shared_mem) {}
-    else if VG_BOOL_CLO(arg, "--trace-instrs",	clo_trace_instrs) {}
+    if VG_INT_CLO(arg, "--pipe",                clo_pipe) {}
+    else if VG_INT_CLO(arg, "--inpipe",         clo_inpipe) {}
+    else if VG_STR_CLO(arg, "--shared-mem",     clo_shared_mem) {}
+    else if VG_BOOL_CLO(arg, "--trace-instrs",  clo_trace_instrs) {}
     else
-	// Malloc wrapping supports --trace-malloc but not other malloc
-	// replacement options.
-	return VG_(replacement_malloc_process_cmd_line_option)(arg);
+        // Malloc wrapping supports --trace-malloc but not other malloc
+        // replacement options.
+        return VG_(replacement_malloc_process_cmd_line_option)(arg);
 
     return True;
 }
@@ -80,11 +80,11 @@ static Bool mv_process_cmd_line_option(const HChar* arg)
 static void mv_print_usage(void)
 {  
     VG_(printf)(
-	    "    --pipe=<fd>                pipe to fd [0]\n"
-	    "    --inpipe=<fd>              input pipe from fd [0]\n"
-	    "    --shared-mem=<file>        shared memory output file [""]\n"
-	    "    --trace-instrs=yes         trace instruction memory [no]\n"
-	    );
+            "    --pipe=<fd>                pipe to fd [0]\n"
+            "    --inpipe=<fd>              input pipe from fd [0]\n"
+            "    --shared-mem=<file>        shared memory output file [""]\n"
+            "    --trace-instrs=yes         trace instruction memory [no]\n"
+            );
 }
 
 static void mv_print_debug_usage(void)
@@ -93,54 +93,54 @@ static void mv_print_debug_usage(void)
 }
 
 /*------------------------------------------------------------*/
-/*--- Memory Trace IPC					      */
+/*--- Memory Trace IPC                                              */
 /*------------------------------------------------------------*/
 
-static MV_TraceBlock	*theBlock = 0;
-static unsigned int	 theEntries = 0;
-static unsigned int	 theMaxEntries = 1;
+static MV_TraceBlock        *theBlock = 0;
+static unsigned int          theEntries = 0;
+static unsigned int          theMaxEntries = 1;
 
 // Data for pipe
-static MV_TraceBlock	 theBlockData;
+static MV_TraceBlock         theBlockData;
 // Data for shm
-static MV_SharedData	*theSharedData = 0;
-static int		 theBlockIndex = 0;
+static MV_SharedData        *theSharedData = 0;
+static int                   theBlockIndex = 0;
 
-typedef unsigned long long  uint64;
-typedef unsigned int	    uint32;
+typedef unsigned long long   uint64;
+typedef unsigned int         uint32;
 
-static uint64		 theTotalEvents = 0;
+static uint64                theTotalEvents = 0;
 
-static MV_StackInfo	 theStackInfo;
-static char		 theStackTrace[MV_STR_BUFSIZE];
+static MV_StackInfo          theStackInfo;
+static char                  theStackTrace[MV_STR_BUFSIZE];
 
-static uint32		 theThread = 0;
+static uint32                theThread = 0;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
-    HChar		 tmp[MV_STR_BUFSIZE];
+    HChar tmp[MV_STR_BUFSIZE];
 
-	InlIPCursor *iipc = VG_(new_IIPC)(ip);
+    InlIPCursor *iipc = VG_(new_IIPC)(ip);
 
-	do {
-		VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE, iipc);
+    do {
+        VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE, iipc);
 
-		int available = MV_STR_BUFSIZE - theStackInfo.mySize;
-		int len =
-			VG_(snprintf)(
-				&theStackTrace[theStackInfo.mySize],
-				available,
-				"%s%s %s",
-				( theStackInfo.mySize ? "\n" : ""),
-				( n == 0 ? "at" : "by" ), tmp);
+        int available = MV_STR_BUFSIZE - theStackInfo.mySize;
+        int len =
+            VG_(snprintf)(
+                &theStackTrace[theStackInfo.mySize],
+                available,
+                "%s%s %s",
+                ( theStackInfo.mySize ? "\n" : ""),
+                ( n == 0 ? "at" : "by" ), tmp);
 
-		if (len >= available)
-			theStackInfo.mySize += available-1;
-		else
-			theStackInfo.mySize += len;
-		n++;
-	} while (VG_(next_IIPC)(iipc));
-	VG_(delete_IIPC)(iipc);
+        if (len >= available)
+            theStackInfo.mySize += available-1;
+        else
+            theStackInfo.mySize += len;
+        n++;
+    } while (VG_(next_IIPC)(iipc));
+    VG_(delete_IIPC)(iipc);
 }
 
 static void flush_data(void)
@@ -149,59 +149,59 @@ static void flush_data(void)
 
     if (clo_pipe)
     {
-	MV_Header	header;
+        MV_Header header;
 
-	//
-	// Stack traces are retained until the next block is flushed.  This
-	// is to allow the stack trace to correspond with the first address
-	// in the subsequent data block.
-	//
+        //
+        // Stack traces are retained until the next block is flushed.  This
+        // is to allow the stack trace to correspond with the first address
+        // in the subsequent data block.
+        //
 
-	// Send the pending stack trace
-	if (theStackInfo.mySize)
-	{
-	    header.myType = MV_STACKTRACE;
-	    header.myStack = theStackInfo;
-	    header.myStack.mySize += 1; // Include terminating '\0'
-	    header.myStack.myAddr = theBlock->myAddr[0];
+        // Send the pending stack trace
+        if (theStackInfo.mySize)
+        {
+            header.myType = MV_STACKTRACE;
+            header.myStack = theStackInfo;
+            header.myStack.mySize += 1; // Include terminating '\0'
+            header.myStack.myAddr = theBlock->myAddr[0];
 
-	    VG_(write)(clo_pipe, &header, sizeof(MV_Header));
-	    VG_(write)(clo_pipe, theStackTrace, header.myStack.mySize);
-	}
+            VG_(write)(clo_pipe, &header, sizeof(MV_Header));
+            VG_(write)(clo_pipe, theStackTrace, header.myStack.mySize);
+        }
 
-	// Prepare the next stack trace
-	Int ncallers = VG_(clo_backtrace_size);
-	Addr ips[ncallers];
-	UInt n_ips = VG_(get_StackTrace)(
-		VG_(get_running_tid)(),
-		ips, ncallers,
-		NULL/*array to dump SP values in*/,
-		NULL/*array to dump FP values in*/,
-		0/*first_ip_delta*/);
+        // Prepare the next stack trace
+        Int ncallers = VG_(clo_backtrace_size);
+        Addr ips[ncallers];
+        UInt n_ips = VG_(get_StackTrace)(
+                VG_(get_running_tid)(),
+                ips, ncallers,
+                NULL/*array to dump SP values in*/,
+                NULL/*array to dump FP values in*/,
+                0/*first_ip_delta*/);
 
-	theStackInfo.mySize = 0;
-	VG_(apply_StackTrace)(appendIpDesc, 0, ips, n_ips);
+        theStackInfo.mySize = 0;
+        VG_(apply_StackTrace)(appendIpDesc, 0, ips, n_ips);
 
-	// Send the block
-	header.myType = MV_BLOCK;
-	theBlock->myEntries = theEntries;
+        // Send the block
+        header.myType = MV_BLOCK;
+        theBlock->myEntries = theEntries;
 
-	VG_(write)(clo_pipe, &header, sizeof(MV_Header));
+        VG_(write)(clo_pipe, &header, sizeof(MV_Header));
 
-	// Wait for max entries token
-	VG_(read)(clo_inpipe, &theMaxEntries, sizeof(int));
+        // Wait for max entries token
+        VG_(read)(clo_inpipe, &theMaxEntries, sizeof(int));
 
-	theBlockIndex++;
-	if (theBlockIndex == MV_BufCount)
-	    theBlockIndex = 0;
+        theBlockIndex++;
+        if (theBlockIndex == MV_BufCount)
+            theBlockIndex = 0;
 
-	theBlock = &theSharedData->myData[theBlockIndex];
+        theBlock = &theSharedData->myData[theBlockIndex];
     }
     else
     {
-	// Use the maximum entry count since we don't have a pipe to tell
-	// us what it is.
-	theMaxEntries = MV_BlockSize;
+        // Use the maximum entry count since we don't have a pipe to tell
+        // us what it is.
+        theMaxEntries = MV_BlockSize;
     }
 
 #if 0
@@ -209,7 +209,7 @@ static void flush_data(void)
     int i;
     for (i = 0; i < theEntries; i++)
     {
-	VG_(printf)("addr: %llx\n", theBlock->myAddr[i].myAddr);
+        VG_(printf)("addr: %llx\n", theBlock->myAddr[i].myAddr);
     }
 #endif
 
@@ -219,7 +219,7 @@ static void flush_data(void)
 static inline void put_data(Addr addr, uint32 type, uint32 size)
 {
     if (theEntries >= theMaxEntries)
-	flush_data();
+        flush_data();
 
     // This same encoding is created with VEX IR in flushEventsIR().
     type |= theThread;
@@ -235,10 +235,10 @@ static inline void put_wdata(Addr addr, uint32 type, SizeT size)
     uint32  part;
     while (size)
     {
-	part = (uint32)(size > 128 ? 128 : size);
-	put_data(addr, type, part);
-	addr += part;
-	size -= part;
+        part = (uint32)(size > 128 ? 128 : size);
+        put_data(addr, type, part);
+        addr += part;
+        size -= part;
     }
 }
 
@@ -261,7 +261,7 @@ typedef
       EventKind  ekind;
       IRAtom*    addr;
       Int        size;
-      Int	 type;
+      Int        type;
    }
    Event;
 
@@ -368,102 +368,102 @@ static void flushEventsCB(IRSB* sb)
     Int        i;
     for (i = 0; i < events_used; i++) {
 
-	Event*     ev = &events[i];
+        Event*       ev = &events[i];
 
-	const HChar* helperName;
-	void*      helperAddr;
-	IRExpr**   argv;
-	Event*     ev2;
-	Int        regparms;
+        const HChar* helperName;
+        void*        helperAddr;
+        IRExpr**     argv;
+        Event*       ev2;
+        Int          regparms;
 
-	ev2 = i < events_used-1 ? &events[i+1] : NULL;
+        ev2 = i < events_used-1 ? &events[i+1] : NULL;
 
-	if (ev2 &&
-		ev->ekind == ev2->ekind &&
-		ev->size == ev2->size)
-	{
-	    // Decide on helper fn to call and args to pass it.
-	    switch (ev->ekind) {
-		case Event_Ir: helperName = "trace_2instr";
-			       helperAddr =  trace_2instr;  break;
+        if (ev2 &&
+                ev->ekind == ev2->ekind &&
+                ev->size == ev2->size)
+        {
+            // Decide on helper fn to call and args to pass it.
+            switch (ev->ekind) {
+                case Event_Ir: helperName = "trace_2instr";
+                               helperAddr =  trace_2instr;  break;
 
-		case Event_Dr: helperName = "trace_2load";
-			       helperAddr =  trace_2load;   break;
+                case Event_Dr: helperName = "trace_2load";
+                               helperAddr =  trace_2load;   break;
 
-		case Event_Dw: helperName = "trace_2store";
-			       helperAddr =  trace_2store;  break;
+                case Event_Dw: helperName = "trace_2store";
+                               helperAddr =  trace_2store;  break;
 
-		case Event_Dm: helperName = "trace_2modify";
-			       helperAddr =  trace_2modify; break;
-		default:
-			       tl_assert(0);
-	    }
+                case Event_Dm: helperName = "trace_2modify";
+                               helperAddr =  trace_2modify; break;
+                default:
+                               tl_assert(0);
+            }
 
-	    argv = mkIRExprVec_3( ev->addr,
-				  ev2->addr, mkIRExpr_HWord( ev->size ));
-	    regparms = 3;
+            argv = mkIRExprVec_3( ev->addr,
+                                  ev2->addr, mkIRExpr_HWord( ev->size ));
+            regparms = 3;
 
-	    // Skip the next event, since we paired it
-	    i++;
-	}
-	else if (ev2 &&
-		ev->ekind == Event_Dr &&
-		ev2->ekind == Event_Dw &&
-		ev->size == ev2->size)
-	{
-	    // Load then store
-	    helperName = "trace_loadstore";
-	    helperAddr = trace_loadstore;
+            // Skip the next event, since we paired it
+            i++;
+        }
+        else if (ev2 &&
+                ev->ekind == Event_Dr &&
+                ev2->ekind == Event_Dw &&
+                ev->size == ev2->size)
+        {
+            // Load then store
+            helperName = "trace_loadstore";
+            helperAddr = trace_loadstore;
 
-	    argv = mkIRExprVec_3( ev->addr,
-				  ev2->addr, mkIRExpr_HWord( ev->size ));
-	    regparms = 3;
-	    i++;
-	}
-	else if (ev2 &&
-		ev->ekind == Event_Dw &&
-		ev2->ekind == Event_Dr &&
-		ev->size == ev2->size)
-	{
-	    // Store then load
-	    helperName = "trace_storeload";
-	    helperAddr = trace_storeload;
+            argv = mkIRExprVec_3( ev->addr,
+                                  ev2->addr, mkIRExpr_HWord( ev->size ));
+            regparms = 3;
+            i++;
+        }
+        else if (ev2 &&
+                ev->ekind == Event_Dw &&
+                ev2->ekind == Event_Dr &&
+                ev->size == ev2->size)
+        {
+            // Store then load
+            helperName = "trace_storeload";
+            helperAddr = trace_storeload;
 
-	    argv = mkIRExprVec_3( ev->addr,
-				  ev2->addr, mkIRExpr_HWord( ev->size ));
-	    regparms = 3;
-	    i++;
-	}
-	else
-	{
+            argv = mkIRExprVec_3( ev->addr,
+                                  ev2->addr, mkIRExpr_HWord( ev->size ));
+            regparms = 3;
+            i++;
+        }
+        else
+        {
 
-	    // Decide on helper fn to call and args to pass it.
-	    switch (ev->ekind) {
-		case Event_Ir: helperName = "trace_instr";
-			       helperAddr =  trace_instr;  break;
+            // Decide on helper fn to call and args to pass it.
+            switch (ev->ekind) {
+                case Event_Ir: helperName = "trace_instr";
+                               helperAddr =  trace_instr;  break;
 
-		case Event_Dr: helperName = "trace_load";
-			       helperAddr =  trace_load;   break;
+                case Event_Dr: helperName = "trace_load";
+                               helperAddr =  trace_load;   break;
 
-		case Event_Dw: helperName = "trace_store";
-			       helperAddr =  trace_store;  break;
+                case Event_Dw: helperName = "trace_store";
+                               helperAddr =  trace_store;  break;
 
-		case Event_Dm: helperName = "trace_modify";
-			       helperAddr =  trace_modify; break;
-		default:
-			       tl_assert(0);
-	    }
+                case Event_Dm: helperName = "trace_modify";
+                               helperAddr =  trace_modify; break;
+                default:
+                               tl_assert(0);
+            }
 
-	    argv = mkIRExprVec_2( ev->addr, mkIRExpr_HWord( ev->size ) );
-	    regparms = 2;
-	}
+            argv = mkIRExprVec_2( ev->addr, mkIRExpr_HWord( ev->size ) );
+            regparms = 2;
+        }
 
-	// Add the helper.
-	di   = unsafeIRDirty_0_N(regparms,
-		helperName, VG_(fnptr_to_fnentry)( helperAddr ),
-		argv );
+        // Add the helper.
+        di   = unsafeIRDirty_0_N(regparms,
+                helperName, VG_(fnptr_to_fnentry)( helperAddr ),
+                argv );
 
-	addStmtToIRSB( sb, IRStmt_Dirty(di) );
+        addStmtToIRSB( sb, IRStmt_Dirty(di) );
     }
 
     events_used = 0;
@@ -527,13 +527,13 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
     IRExpr *max_entries = load(ENDIAN, Ity_I32, max_entries_addr);
 
     IRDirty*   di =
-	unsafeIRDirty_0_N(0,
-	    "flush_data", VG_(fnptr_to_fnentry)( flush_data ),
-	    mkIRExprVec_0() );
+        unsafeIRDirty_0_N(0,
+            "flush_data", VG_(fnptr_to_fnentry)( flush_data ),
+            mkIRExprVec_0() );
 
     di->guard =
-	binop(Iop_CmpLT32S, max_entries,
-		binop(Iop_Add32, entries, mkU32(size)));
+        binop(Iop_CmpLT32S, max_entries,
+                binop(Iop_Add32, entries, mkU32(size)));
 
     addStmtToIRSB( sb, IRStmt_Dirty(di) );
 
@@ -543,10 +543,10 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
     // Initialize the first address where we'll write trace information.
     // This will be advanced in the loop.
     IRExpr *addr =
-	binop(Iop_Add64,
-		load(ENDIAN, Ity_I64, mkU64((ULong)&theBlock)),
-		unop(Iop_32Uto64,
-		    binop(Iop_Mul32, entries, mkU32(sizeof(MV_TraceAddr)))));
+        binop(Iop_Add64,
+                load(ENDIAN, Ity_I64, mkU64((ULong)&theBlock)),
+                unop(Iop_32Uto64,
+                    binop(Iop_Mul32, entries, mkU32(sizeof(MV_TraceAddr)))));
 
     // Grab the thread id
     IRExpr *thread = load(ENDIAN, Ity_I32, mkU64((ULong)&theThread));
@@ -554,49 +554,49 @@ static void flushEventsRange(IRSB* sb, Int start, Int size)
     Int        i;
     for (i = start; i < start+size; i++) {
 
-	Event*     ev = &events[i];
+        Event*     ev = &events[i];
 
-	uint32 type = 0;
-	switch (ev->ekind) {
-	    case Event_Ir:
-		type = MV_ShiftedInstr;
-		break;
-	    case Event_Dr:
-		type = MV_ShiftedRead;
-		break;
-	    case Event_Dw:
-	    case Event_Dm:
-		type = MV_ShiftedWrite;
-		break;
-	    default:
-		tl_assert(0);
-	}
+        uint32 type = 0;
+        switch (ev->ekind) {
+            case Event_Ir:
+                type = MV_ShiftedInstr;
+                break;
+            case Event_Dr:
+                type = MV_ShiftedRead;
+                break;
+            case Event_Dw:
+            case Event_Dm:
+                type = MV_ShiftedWrite;
+                break;
+            default:
+                tl_assert(0);
+        }
 
-	type |= ev->type << MV_DataShift;
-	type |= ((uint32)ev->size << MV_SizeShift);
+        type |= ev->type << MV_DataShift;
+        type |= ((uint32)ev->size << MV_SizeShift);
 
-	// Construct the address and store it
-	IRExpr *data = binop(Iop_Or32, mkU32(type), thread);
+        // Construct the address and store it
+        IRExpr *data = binop(Iop_Or32, mkU32(type), thread);
 
-	IRStmt *store;
+        IRStmt *store;
 
-	store = IRStmt_Store(ENDIAN, addr, ev->addr);
-	addStmtToIRSB( sb, store );
+        store = IRStmt_Store(ENDIAN, addr, ev->addr);
+        addStmtToIRSB( sb, store );
 
-	// Advance to the type
-	addr = binop(Iop_Add64, addr, mkU64(sizeof(uint64)));
+        // Advance to the type
+        addr = binop(Iop_Add64, addr, mkU64(sizeof(uint64)));
 
-	store = IRStmt_Store(ENDIAN, addr, data);
-	addStmtToIRSB( sb, store );
+        store = IRStmt_Store(ENDIAN, addr, data);
+        addStmtToIRSB( sb, store );
 
-	// Advance to the next entry
-	addr = binop(Iop_Add64, addr, mkU64(sizeof(MV_TraceAddr)-sizeof(uint64)));
+        // Advance to the next entry
+        addr = binop(Iop_Add64, addr, mkU64(sizeof(MV_TraceAddr)-sizeof(uint64)));
     }
 
     // Store the new entry count
     IRStmt *entries_store =
-	IRStmt_Store(ENDIAN, entries_addr,
-		binop(Iop_Add32, entries, mkU32(size)));
+        IRStmt_Store(ENDIAN, entries_addr,
+                binop(Iop_Add32, entries, mkU32(size)));
 
     addStmtToIRSB( sb, entries_store );
 }
@@ -606,11 +606,11 @@ static void flushEventsIR(IRSB *sb)
     Int i;
     for (i = 0; i < events_used; i += theMaxEntries)
     {
-	Int size = events_used - i;
-	if (size > theMaxEntries)
-	    size = theMaxEntries;
+        Int size = events_used - i;
+        if (size > theMaxEntries)
+            size = theMaxEntries;
 
-	flushEventsRange(sb, i, size);
+        flushEventsRange(sb, i, size);
     }
     events_used = 0;
 }
@@ -624,9 +624,9 @@ static void addEvent_Ir ( IRSB* sb, IRAtom* iaddr, UInt isize )
 {
     Event* evt;
     tl_assert( (VG_MIN_INSTR_SZB <= isize && isize <= VG_MAX_INSTR_SZB)
-	    || VG_CLREQ_SZB == isize );
+            || VG_CLREQ_SZB == isize );
     if (events_used == N_EVENTS)
-	flushEvents(sb);
+        flushEvents(sb);
     tl_assert(events_used >= 0 && events_used < N_EVENTS);
     evt = &events[events_used];
     evt->ekind = Event_Ir;
@@ -643,7 +643,7 @@ void addEvent_Dr ( IRSB* sb, IRAtom* daddr, Int dsize, Int type )
     tl_assert(isIRAtom(daddr));
     tl_assert(dsize >= 1 && dsize <= MAX_DSIZE);
     if (events_used == N_EVENTS)
-	flushEvents(sb);
+        flushEvents(sb);
     tl_assert(events_used >= 0 && events_used < N_EVENTS);
     evt = &events[events_used];
     evt->ekind = Event_Dr;
@@ -665,18 +665,18 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize, Int type )
     // Is it possible to merge this write with the preceding read?
     lastEvt = &events[events_used-1];
     if (canCreateModify && events_used > 0
-	    && lastEvt->ekind == Event_Dr
-	    && lastEvt->size  == dsize
-	    && lastEvt->type == type 
-	    && eqIRAtom(lastEvt->addr, daddr))
+            && lastEvt->ekind == Event_Dr
+            && lastEvt->size  == dsize
+            && lastEvt->type == type 
+            && eqIRAtom(lastEvt->addr, daddr))
     {
-	lastEvt->ekind = Event_Dm;
-	return;
+        lastEvt->ekind = Event_Dm;
+        return;
     }
 
     // No.  Add as normal.
     if (events_used == N_EVENTS)
-	flushEvents(sb);
+        flushEvents(sb);
     tl_assert(events_used >= 0 && events_used < N_EVENTS);
     evt = &events[events_used];
     evt->ekind = Event_Dw;
@@ -694,9 +694,9 @@ void addEvent_Dw ( IRSB* sb, IRAtom* daddr, Int dsize, Int type )
 
 // Nb: first two fields must match core's VgHashNode.
 typedef struct _HP_Chunk {
-    struct _HP_Chunk	*next;
-    Addr		 data;
-    SizeT		 size;
+    struct _HP_Chunk    *next;
+    Addr                 data;
+    SizeT                size;
 } HP_Chunk;
 
 static VgHashTable malloc_list  = NULL;   // HP_Chunks
@@ -705,20 +705,20 @@ static VgHashTable malloc_list  = NULL;   // HP_Chunks
 static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
 {
     if (!p)
-	return;
+        return;
 
-    HP_Chunk	*hc = VG_(HT_lookup)(malloc_list, (UWord)p);
+    HP_Chunk        *hc = VG_(HT_lookup)(malloc_list, (UWord)p);
 
     // Add to the hash table
     if (!hc)
     {
-	hc = (HP_Chunk *)VG_(malloc)("mv_malloc", sizeof(HP_Chunk));
-	hc->data = (Addr)p;
-	hc->size = szB;
+        hc = (HP_Chunk *)VG_(malloc)("mv_malloc", sizeof(HP_Chunk));
+        hc->data = (Addr)p;
+        hc->size = szB;
 
-	VG_(HT_add_node)(malloc_list, hc);
+        VG_(HT_add_node)(malloc_list, hc);
 
-	put_wdata((Addr)p, MV_ShiftedAlloc, szB);
+        put_wdata((Addr)p, MV_ShiftedAlloc, szB);
     }
 }
 
@@ -728,9 +728,9 @@ static void mv_free ( ThreadId tid __attribute__((unused)), void* p )
 
     if (hc)
     {
-	put_wdata((Addr)p, MV_ShiftedFree, hc->size);
+        put_wdata((Addr)p, MV_ShiftedFree, hc->size);
 
-	VG_(free)(hc);
+        VG_(free)(hc);
     }
 }
 
@@ -738,24 +738,24 @@ static void mv_realloc ( ThreadId tid, void* p_new, void* p_old, SizeT new_szB )
 {
     if (p_new != p_old)
     {
-	mv_free(tid, p_old);
-	mv_malloc(tid, p_new, new_szB);
+        mv_free(tid, p_old);
+        mv_malloc(tid, p_new, new_szB);
     }
     else
     {
-	HP_Chunk	*hc = VG_(HT_lookup)(malloc_list, (UWord)p_old);
+        HP_Chunk        *hc = VG_(HT_lookup)(malloc_list, (UWord)p_old);
 
-	if (!hc)
-	    return;
+        if (!hc)
+            return;
    
-	if (new_szB > hc->size)
-	    put_wdata((Addr)p_new + hc->size,
-		    MV_ShiftedAlloc, new_szB - hc->size);
-	else if (new_szB < hc->size)
-	    put_wdata((Addr)p_new + new_szB,
-		    MV_ShiftedFree, hc->size - new_szB);
+        if (new_szB > hc->size)
+            put_wdata((Addr)p_new + hc->size,
+                    MV_ShiftedAlloc, new_szB - hc->size);
+        else if (new_szB < hc->size)
+            put_wdata((Addr)p_new + new_szB,
+                    MV_ShiftedFree, hc->size - new_szB);
 
-	hc->size = new_szB;
+        hc->size = new_szB;
     }
 }
 
@@ -769,31 +769,31 @@ static void mv_post_clo_init(void)
 {
     if (clo_shared_mem)
     {
-	SysRes	o = VG_(open)(clo_shared_mem, VKI_O_RDWR, 0666);
-	if (sr_isError(o))
-	{
-	    VG_(umsg)("cannot open shared memory file \"%s\"\n", clo_shared_mem);
-	    VG_(exit)(1);
-	}
+        SysRes        o = VG_(open)(clo_shared_mem, VKI_O_RDWR, 0666);
+        if (sr_isError(o))
+        {
+            VG_(umsg)("cannot open shared memory file \"%s\"\n", clo_shared_mem);
+            VG_(exit)(1);
+        }
 
-	SysRes	res = VG_(am_shared_mmap_file_float_valgrind)
-	    (sizeof(MV_SharedData), VKI_PROT_READ|VKI_PROT_WRITE,
-	     sr_Res(o), (Off64T)0);
-	if (sr_isError(res))
-	{
-	    VG_(umsg)("mmap failed\n");
-	    VG_(exit)(1);
-	}
+        SysRes        res = VG_(am_shared_mmap_file_float_valgrind)
+            (sizeof(MV_SharedData), VKI_PROT_READ|VKI_PROT_WRITE,
+             sr_Res(o), (Off64T)0);
+        if (sr_isError(res))
+        {
+            VG_(umsg)("mmap failed\n");
+            VG_(exit)(1);
+        }
 
-	theSharedData = (MV_SharedData *)(Addr)sr_Res(res);
-	//VG_(dmsg)("got memory %p\n", theSharedData);
+        theSharedData = (MV_SharedData *)(Addr)sr_Res(res);
+        //VG_(dmsg)("got memory %p\n", theSharedData);
 
-	theBlockIndex = 0;
-	theBlock = &theSharedData->myData[theBlockIndex];
+        theBlockIndex = 0;
+        theBlock = &theSharedData->myData[theBlockIndex];
     }
     else
     {
-	theBlock = &theBlockData;
+        theBlock = &theBlockData;
     }
 }
 
@@ -802,21 +802,21 @@ IRTypeToMVType(IRType type)
 {
     switch (type)
     {
-	case Ity_INVALID:
-	case Ity_I1: return MV_DataInt32;
-	case Ity_I8: return MV_DataChar8;
-	case Ity_I16:
-	case Ity_I32: return MV_DataInt32;
-	case Ity_I64:
-	case Ity_I128: return MV_DataInt64;
-	case Ity_F32: return MV_DataFlt32;
-	case Ity_F64: return MV_DataFlt64;
-	case Ity_D32: return MV_DataInt32;
-	case Ity_D64: return MV_DataInt64;
-	case Ity_D128: return MV_DataVec;
-	case Ity_F128: return MV_DataVec;
-	case Ity_V128: return MV_DataVec;
-	case Ity_V256: return MV_DataVec;
+        case Ity_INVALID:
+        case Ity_I1: return MV_DataInt32;
+        case Ity_I8: return MV_DataChar8;
+        case Ity_I16:
+        case Ity_I32: return MV_DataInt32;
+        case Ity_I64:
+        case Ity_I128: return MV_DataInt64;
+        case Ity_F32: return MV_DataFlt32;
+        case Ity_F64: return MV_DataFlt64;
+        case Ity_D32: return MV_DataInt32;
+        case Ity_D64: return MV_DataInt64;
+        case Ity_D128: return MV_DataVec;
+        case Ity_F128: return MV_DataVec;
+        case Ity_V128: return MV_DataVec;
+        case Ity_V256: return MV_DataVec;
     }
     return MV_DataInt32;
 }
@@ -824,19 +824,19 @@ IRTypeToMVType(IRType type)
 /* This is copied mostly verbatim from lackey */
 static IRSB*
 mv_instrument ( VgCallbackClosure* closure,
-	IRSB* sbIn, 
-	VexGuestLayout* layout, 
-	VexGuestExtents* vge,
+        IRSB* sbIn, 
+        VexGuestLayout* layout, 
+        VexGuestExtents* vge,
         VexArchInfo* archinfo_host,
-	IRType gWordTy, IRType hWordTy )
+        IRType gWordTy, IRType hWordTy )
 {
     Int        i;
     IRSB*      sbOut;
     IRTypeEnv* tyenv = sbIn->tyenv;
 
     if (gWordTy != hWordTy) {
-	/* We don't currently support this case. */
-	VG_(tool_panic)("host/guest word size mismatch");
+        /* We don't currently support this case. */
+        VG_(tool_panic)("host/guest word size mismatch");
     }
 
     //ppIRSB(sbIn);
@@ -847,132 +847,132 @@ mv_instrument ( VgCallbackClosure* closure,
     // Copy verbatim any IR preamble preceding the first IMark
     i = 0;
     while (i < sbIn->stmts_used && sbIn->stmts[i]->tag != Ist_IMark) {
-	addStmtToIRSB( sbOut, sbIn->stmts[i] );
-	i++;
+        addStmtToIRSB( sbOut, sbIn->stmts[i] );
+        i++;
     }
 
     events_used = 0;
 
     for (/*use current i*/; i < sbIn->stmts_used; i++) {
-	IRStmt* st = sbIn->stmts[i];
-	if (!st || st->tag == Ist_NoOp) continue;
+        IRStmt* st = sbIn->stmts[i];
+        if (!st || st->tag == Ist_NoOp) continue;
 
-	switch (st->tag) {
-	    case Ist_NoOp:
-	    case Ist_AbiHint:
-	    case Ist_Put:
-	    case Ist_PutI:
-	    case Ist_MBE:
-		addStmtToIRSB( sbOut, st );
-		break;
+        switch (st->tag) {
+            case Ist_NoOp:
+            case Ist_AbiHint:
+            case Ist_Put:
+            case Ist_PutI:
+            case Ist_MBE:
+                addStmtToIRSB( sbOut, st );
+                break;
 
-	    case Ist_IMark:
-		canCreateModify = False;
-		if (clo_trace_instrs)
-		{
-		    addEvent_Ir( sbOut,
-			    mkIRExpr_HWord( (HWord)st->Ist.IMark.addr ),
-			    st->Ist.IMark.len );
-		}
-		addStmtToIRSB( sbOut, st );
-		break;
+            case Ist_IMark:
+                canCreateModify = False;
+                if (clo_trace_instrs)
+                {
+                    addEvent_Ir( sbOut,
+                            mkIRExpr_HWord( (HWord)st->Ist.IMark.addr ),
+                            st->Ist.IMark.len );
+                }
+                addStmtToIRSB( sbOut, st );
+                break;
 
-	    case Ist_WrTmp:
-		{
-		    IRExpr* data = st->Ist.WrTmp.data;
-		    if (data->tag == Iex_Load) {
-			addEvent_Dr( sbOut, data->Iex.Load.addr,
-				sizeofIRType(data->Iex.Load.ty),
-			       IRTypeToMVType(data->Iex.Load.ty) );
-		    }
-		}
-		addStmtToIRSB( sbOut, st );
-		break;
+            case Ist_WrTmp:
+                {
+                    IRExpr* data = st->Ist.WrTmp.data;
+                    if (data->tag == Iex_Load) {
+                        addEvent_Dr( sbOut, data->Iex.Load.addr,
+                                sizeofIRType(data->Iex.Load.ty),
+                               IRTypeToMVType(data->Iex.Load.ty) );
+                    }
+                }
+                addStmtToIRSB( sbOut, st );
+                break;
 
-	    case Ist_Store:
-		{
-		    IRExpr* data  = st->Ist.Store.data;
-		    addEvent_Dw( sbOut, st->Ist.Store.addr,
-			    sizeofIRType(typeOfIRExpr(tyenv, data)),
-			   IRTypeToMVType(typeOfIRExpr(tyenv, data)) );
-		}
-		addStmtToIRSB( sbOut, st );
-		break;
+            case Ist_Store:
+                {
+                    IRExpr* data  = st->Ist.Store.data;
+                    addEvent_Dw( sbOut, st->Ist.Store.addr,
+                            sizeofIRType(typeOfIRExpr(tyenv, data)),
+                           IRTypeToMVType(typeOfIRExpr(tyenv, data)) );
+                }
+                addStmtToIRSB( sbOut, st );
+                break;
 
-	    case Ist_Dirty:
-		{
-		    Int      dsize;
-		    IRDirty* d = st->Ist.Dirty.details;
-		    if (d->mFx != Ifx_None) {
-			// This dirty helper accesses memory.  Collect the details.
-			tl_assert(d->mAddr != NULL);
-			tl_assert(d->mSize != 0);
-			dsize = d->mSize;
-			if (d->mFx == Ifx_Read || d->mFx == Ifx_Modify)
-			    addEvent_Dr( sbOut, d->mAddr, dsize, MV_DataInt32 );
-			if (d->mFx == Ifx_Write || d->mFx == Ifx_Modify)
-			    addEvent_Dw( sbOut, d->mAddr, dsize, MV_DataInt32 );
-		    } else {
-			tl_assert(d->mAddr == NULL);
-			tl_assert(d->mSize == 0);
-		    }
-		    addStmtToIRSB( sbOut, st );
-		    break;
-		}
+            case Ist_Dirty:
+                {
+                    Int      dsize;
+                    IRDirty* d = st->Ist.Dirty.details;
+                    if (d->mFx != Ifx_None) {
+                        // This dirty helper accesses memory.  Collect the details.
+                        tl_assert(d->mAddr != NULL);
+                        tl_assert(d->mSize != 0);
+                        dsize = d->mSize;
+                        if (d->mFx == Ifx_Read || d->mFx == Ifx_Modify)
+                            addEvent_Dr( sbOut, d->mAddr, dsize, MV_DataInt32 );
+                        if (d->mFx == Ifx_Write || d->mFx == Ifx_Modify)
+                            addEvent_Dw( sbOut, d->mAddr, dsize, MV_DataInt32 );
+                    } else {
+                        tl_assert(d->mAddr == NULL);
+                        tl_assert(d->mSize == 0);
+                    }
+                    addStmtToIRSB( sbOut, st );
+                    break;
+                }
 
-	    case Ist_CAS:
-		{
-		    /* We treat it as a read and a write of the location.  I
-		       think that is the same behaviour as it was before IRCAS
-		       was introduced, since prior to that point, the Vex
-		       front ends would translate a lock-prefixed instruction
-		       into a (normal) read followed by a (normal) write. */
-		    Int    dataSize;
-		    IRType dataTy;
-		    IRCAS* cas = st->Ist.CAS.details;
-		    tl_assert(cas->addr != NULL);
-		    tl_assert(cas->dataLo != NULL);
-		    dataTy   = typeOfIRExpr(tyenv, cas->dataLo);
-		    dataSize = sizeofIRType(dataTy);
-		    if (cas->dataHi != NULL)
-			dataSize *= 2; /* since it's a doubleword-CAS */
-		    addEvent_Dr( sbOut, cas->addr, dataSize,
-			    IRTypeToMVType(dataTy) );
-		    addEvent_Dw( sbOut, cas->addr, dataSize,
-			    IRTypeToMVType(dataTy) );
-		    addStmtToIRSB( sbOut, st );
-		    break;
-		}
+            case Ist_CAS:
+                {
+                    /* We treat it as a read and a write of the location.  I
+                       think that is the same behaviour as it was before IRCAS
+                       was introduced, since prior to that point, the Vex
+                       front ends would translate a lock-prefixed instruction
+                       into a (normal) read followed by a (normal) write. */
+                    Int    dataSize;
+                    IRType dataTy;
+                    IRCAS* cas = st->Ist.CAS.details;
+                    tl_assert(cas->addr != NULL);
+                    tl_assert(cas->dataLo != NULL);
+                    dataTy   = typeOfIRExpr(tyenv, cas->dataLo);
+                    dataSize = sizeofIRType(dataTy);
+                    if (cas->dataHi != NULL)
+                        dataSize *= 2; /* since it's a doubleword-CAS */
+                    addEvent_Dr( sbOut, cas->addr, dataSize,
+                            IRTypeToMVType(dataTy) );
+                    addEvent_Dw( sbOut, cas->addr, dataSize,
+                            IRTypeToMVType(dataTy) );
+                    addStmtToIRSB( sbOut, st );
+                    break;
+                }
 
-	    case Ist_LLSC:
-		{
-		    IRType dataTy;
-		    if (st->Ist.LLSC.storedata == NULL) {
-			/* LL */
-			dataTy = typeOfIRTemp(tyenv, st->Ist.LLSC.result);
-			addEvent_Dr( sbOut, st->Ist.LLSC.addr,
-				sizeofIRType(dataTy),
-			       IRTypeToMVType(dataTy) );
-		    } else {
-			/* SC */
-			dataTy = typeOfIRExpr(tyenv, st->Ist.LLSC.storedata);
-			addEvent_Dw( sbOut, st->Ist.LLSC.addr,
-				sizeofIRType(dataTy),
-				IRTypeToMVType(dataTy) );
-		    }
-		    addStmtToIRSB( sbOut, st );
-		    break;
-		}
+            case Ist_LLSC:
+                {
+                    IRType dataTy;
+                    if (st->Ist.LLSC.storedata == NULL) {
+                        /* LL */
+                        dataTy = typeOfIRTemp(tyenv, st->Ist.LLSC.result);
+                        addEvent_Dr( sbOut, st->Ist.LLSC.addr,
+                                sizeofIRType(dataTy),
+                               IRTypeToMVType(dataTy) );
+                    } else {
+                        /* SC */
+                        dataTy = typeOfIRExpr(tyenv, st->Ist.LLSC.storedata);
+                        addEvent_Dw( sbOut, st->Ist.LLSC.addr,
+                                sizeofIRType(dataTy),
+                                IRTypeToMVType(dataTy) );
+                    }
+                    addStmtToIRSB( sbOut, st );
+                    break;
+                }
 
-	    case Ist_Exit:
-		flushEvents(sbOut);
+            case Ist_Exit:
+                flushEvents(sbOut);
 
-		addStmtToIRSB( sbOut, st );      // Original statement
-		break;
+                addStmtToIRSB( sbOut, st );      // Original statement
+                break;
 
-	    default:
-		tl_assert(0);
-	}
+            default:
+                tl_assert(0);
+        }
     }
 
     /* At the end of the sbIn.  Flush outstandings. */
@@ -1002,14 +1002,14 @@ static void
 mv_mmap_info(Addr a, SizeT len, MV_MMapType type, int thread, const HChar *filename)
 {
     if (!clo_pipe)
-	return;
+        return;
 
     // Flush outstanding events to ensure consistent ordering.  Avoid
     // calling this with 0 entries.
     if (theEntries)
-	flush_data();
+        flush_data();
 
-    MV_Header	header;
+    MV_Header        header;
 
     header.myType = MV_MMAP;
     header.myMMap.myStart = a;
@@ -1018,7 +1018,7 @@ mv_mmap_info(Addr a, SizeT len, MV_MMapType type, int thread, const HChar *filen
     header.myMMap.myThread = thread;
 
     if (!filename)
-	filename = "\0";
+        filename = "\0";
 
     header.myMMap.mySize = VG_(strlen)(filename)+1; // Include terminating '\0'
 
@@ -1027,30 +1027,30 @@ mv_mmap_info(Addr a, SizeT len, MV_MMapType type, int thread, const HChar *filen
 }
 
 static void mv_new_mem_mmap(Addr a, SizeT len,
-	Bool rr, Bool ww, Bool xx,
-	ULong di_handle)
+        Bool rr, Bool ww, Bool xx,
+        ULong di_handle)
 {
     const NSegment  *info = VG_(am_find_nsegment)(a);
-    HChar	    *filename = 0;
-    MV_MMapType	     type = MV_HEAP;
+    HChar           *filename = 0;
+    MV_MMapType      type = MV_HEAP;
 
     switch (info->kind)
     {
-	case SkAnonC: type = MV_HEAP; break;
-	case SkShmC: type = MV_SHM; break;
-	case SkFileC:
-	    if (info->hasX && !info->hasW)
-		type = MV_CODE;
-	    else
-		type = MV_DATA;
-	    filename = VG_(am_get_filename)(info);
-	    break;
-	case SkFree:
-	case SkAnonV:
-	case SkFileV:
-	case SkResvn:
-	    // Uninteresting events
-	    return;
+        case SkAnonC: type = MV_HEAP; break;
+        case SkShmC: type = MV_SHM; break;
+        case SkFileC:
+            if (info->hasX && !info->hasW)
+                type = MV_CODE;
+            else
+                type = MV_DATA;
+            filename = VG_(am_get_filename)(info);
+            break;
+        case SkFree:
+        case SkAnonV:
+        case SkFileV:
+        case SkResvn:
+            // Uninteresting events
+            return;
     }
 
     mv_mmap_info(a, len, type, 0, filename);
@@ -1113,16 +1113,16 @@ static void mv_pre_clo_init(void)
     VG_(details_version)         (NULL);
     VG_(details_description)     ("a memory trace generator");
     VG_(details_copyright_author)(
-	    "Copyright (C) 2011-2012, and GNU GPL'd, by Andrew Clinton.");
+            "Copyright (C) 2011-2012, and GNU GPL'd, by Andrew Clinton.");
     VG_(details_bug_reports_to)  (VG_BUGS_TO);
     VG_(details_avg_translation_sizeB) ( 200 );
 
     VG_(basic_tool_funcs)          (mv_post_clo_init,
-	    mv_instrument,
-	    mv_fini);
+            mv_instrument,
+            mv_fini);
     VG_(needs_command_line_options)(mv_process_cmd_line_option,
-	    mv_print_usage,
-	    mv_print_debug_usage);
+            mv_print_usage,
+            mv_print_debug_usage);
 
     VG_(track_new_mem_startup)(mv_new_mem_mmap);
     VG_(track_new_mem_mmap)(mv_new_mem_mmap);
@@ -1139,9 +1139,9 @@ static void mv_pre_clo_init(void)
 
 #if defined(MV_WRAP_MALLOC)
     VG_(needs_malloc_wrap)(
-	    mv_malloc,
-	    mv_free,
-	    mv_realloc);
+            mv_malloc,
+            mv_free,
+            mv_realloc);
 
     malloc_list = VG_(HT_construct)("Memview's malloc list");
 #endif

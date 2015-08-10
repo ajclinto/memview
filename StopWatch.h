@@ -33,38 +33,38 @@ public:
      StopWatch(bool print = true) : myPrint(print) { start(); }
     ~StopWatch()
     {
-	if (myPrint)
-	    fprintf(stderr, "%f\n", lap());
+        if (myPrint)
+            fprintf(stderr, "%f\n", lap());
     }
 
     void start()
     {
-	myStart = myLap = time();
+        myStart = myLap = time();
     }
     double lap()
     {
-	double	cur = time();
-	double	val = cur - myLap;
-	myLap = cur;
-	return val;
+        double        cur = time();
+        double        val = cur - myLap;
+        myLap = cur;
+        return val;
     }
     double elapsed() const
     {
-	return time()-myStart;
+        return time()-myStart;
     }
 
 private:
     double time() const
     {
-	timespec	ts;
-	clock_gettime(CLOCK_REALTIME, &ts);
-	return ts.tv_sec + (1e-9 * (double)ts.tv_nsec);
+        timespec        ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        return ts.tv_sec + (1e-9 * (double)ts.tv_nsec);
     }
 
 private:
-    double	myStart;
-    double	myLap;
-    bool	myPrint;
+    double      myStart;
+    double      myLap;
+    bool        myPrint;
 };
 
 #endif

@@ -47,13 +47,13 @@ private:
     friend class IntervalMapWriter<T>;
 
     struct Entry {
-	uint64	start;
-	T	obj;
+        uint64   start;
+        T        obj;
     };
 
     typedef std::map<uint64, Entry> MapType;
 
-    MapType	      myMap;
+    MapType           myMap;
     mutable QMutex    myLock;
 };
 
@@ -64,99 +64,99 @@ class IntervalMapReader {
     typedef typename IntervalMap<T>::MapType MapType;
 public:
     IntervalMapReader(const IntervalMap<T> &imap)
-	: myMap(imap.myMap)
-	, myLock(&imap.myLock) {}
+        : myMap(imap.myMap)
+        , myLock(&imap.myLock) {}
 
     size_t  size() const { return myMap.size(); }
 
     class iterator {
     public:
-	iterator(typename MapType::const_iterator it) : myIt(it) {}
+        iterator(typename MapType::const_iterator it) : myIt(it) {}
 
-	uint64	 start() const { return myIt->second.start; }
-	uint64	 end() const { return myIt->first; }
-	const T	&value() const { return myIt->second.obj; }
+        uint64         start() const { return myIt->second.start; }
+        uint64         end() const { return myIt->first; }
+        const T       &value() const { return myIt->second.obj; }
 
-	iterator& operator++() { ++myIt; return *this; }
-	iterator operator++(int)
-	{ iterator tmp(*this); operator++(); return tmp; }
+        iterator& operator++() { ++myIt; return *this; }
+        iterator operator++(int)
+        { iterator tmp(*this); operator++(); return tmp; }
 
-	bool operator==(const iterator& rhs) {return myIt == rhs.myIt;}
-	bool operator!=(const iterator& rhs) {return myIt != rhs.myIt;}
+        bool operator==(const iterator& rhs) {return myIt == rhs.myIt;}
+        bool operator!=(const iterator& rhs) {return myIt != rhs.myIt;}
 
     private:
-	friend class IntervalMap<T>;
-	typename MapType::const_iterator   myIt;
+        friend class IntervalMap<T>;
+        typename MapType::const_iterator   myIt;
     };
 
-    iterator	begin() const { return iterator(myMap.begin()); }
-    iterator	end() const { return iterator(myMap.end()); }
+    iterator        begin() const { return iterator(myMap.begin()); }
+    iterator        end() const { return iterator(myMap.end()); }
 
     // Finds the element above and below the query address, and returns the
     // closer of the two.
     iterator    findClosest(uint64 addr) const
     {
-	auto hi = myMap.upper_bound(addr);
-	if (hi != myMap.end())
-	{
-	    auto lo = hi;
-	    --lo;
+        auto hi = myMap.upper_bound(addr);
+        if (hi != myMap.end())
+        {
+            auto lo = hi;
+            --lo;
 
-	    if (lo != myMap.end() &&
-		    dist2(hi, addr) > dist2(lo, addr))
-		hi = lo;
+            if (lo != myMap.end() &&
+                    dist2(hi, addr) > dist2(lo, addr))
+                hi = lo;
 
-	    return iterator(hi);
-	}
-	else if (myMap.size())
-	{
-	    auto lo = hi;
-	    --lo;
-	    return iterator(lo);
-	}
+            return iterator(hi);
+        }
+        else if (myMap.size())
+        {
+            auto lo = hi;
+            --lo;
+            return iterator(lo);
+        }
 
-	return iterator(hi);
+        return iterator(hi);
     }
 
     // Returns the element whose interval contains addr if it exists -
     // otherwise 0.
     iterator    find(uint64 addr) const
     {
-	iterator rval = findAfter(addr);
-	return (rval == end() || rval.start() > addr) ? end() : rval;
+        iterator rval = findAfter(addr);
+        return (rval == end() || rval.start() > addr) ? end() : rval;
     }
 
     // Returns the first interval that starts after addr or the interval
     // that contains addr.
     iterator    findAfter(uint64 addr) const
     {
-	return iterator(myMap.upper_bound(addr));
+        return iterator(myMap.upper_bound(addr));
     }
 
     // Return the entire interval covered by the map
     void    getTotalInterval(uint64 &start, uint64 &end) const
     {
-	if (myMap.size())
-	{
-	    start = myMap.begin()->second.start;
-	    end = myMap.rbegin()->first;
-	}
-	else
-	{
-	    start = ~0ull;
-	    end = 0ull;
-	}
+        if (myMap.size())
+        {
+            start = myMap.begin()->second.start;
+            end = myMap.rbegin()->first;
+        }
+        else
+        {
+            start = ~0ull;
+            end = 0ull;
+        }
     }
 
     void    dump() const
     {
-	for (auto it = myMap.begin(); it != myMap.end(); ++it)
-	{
-	    std::cerr
-		<< "[" << it->second.start
-		<< ", " << it->first << "): "
-		<< it->second.obj << "\n";
-	}
+        for (auto it = myMap.begin(); it != myMap.end(); ++it)
+        {
+            std::cerr
+                << "[" << it->second.start
+                << ", " << it->first << "): "
+                << it->second.obj << "\n";
+        }
     }
 
 private:
@@ -164,11 +164,11 @@ private:
     template <typename IT>
     uint64 dist2(const IT &e, uint64 addr) const
     {
-	if (addr < e->second.start)
-	    return e->second.start - addr;
-	if (addr >= e->first)
-	    return addr - e->first + 1;
-	return 0;
+        if (addr < e->second.start)
+            return e->second.start - addr;
+        if (addr >= e->first)
+            return addr - e->first + 1;
+        return 0;
     }
 
 private:
@@ -183,20 +183,20 @@ class IntervalMapWriter : public IntervalMapReader<T> {
     typedef typename IntervalMap<T>::MapType MapType;
 public:
     IntervalMapWriter(IntervalMap<T> &imap)
-	: IntervalMapReader<T>(imap)
-	, myMap(imap.myMap) {}
+        : IntervalMapReader<T>(imap)
+        , myMap(imap.myMap) {}
 
     void    insert(uint64 start, uint64 end, const T &val)
     {
-	clearOverlappingIntervals(start, end);
+        clearOverlappingIntervals(start, end);
 
-	myMap[end].start = start;
-	myMap[end].obj = val;
+        myMap[end].start = start;
+        myMap[end].obj = val;
     }
 
     void    erase(uint64 start, uint64 end)
     {
-	clearOverlappingIntervals(start, end);
+        clearOverlappingIntervals(start, end);
     }
 
     // Apply the function to all intervals in [start, end).  If any
@@ -205,11 +205,11 @@ public:
     template <typename Func>
     void    apply(uint64 start, uint64 end, const Func func)
     {
-	typename MapType::iterator first, last;
-	getOverlappingIntervals(start, end, first, last);
+        typename MapType::iterator first, last;
+        getOverlappingIntervals(start, end, first, last);
 
-	for (; first != last; ++first)
-	    func(first->second.obj);
+        for (; first != last; ++first)
+            func(first->second.obj);
     }
 
 private:
@@ -217,36 +217,36 @@ private:
     // overlapped these boundary values, split the intervals to eliminate
     // overlap.
     void getOverlappingIntervals(
-	    uint64 start, uint64 end,
-	    typename MapType::iterator &first,
-	    typename MapType::iterator &it)
+            uint64 start, uint64 end,
+            typename MapType::iterator &first,
+            typename MapType::iterator &it)
     {
-	first = myMap.upper_bound(start);
-	for (it = first; it != myMap.end() && it->second.start < end; )
-	{
-	    if (it->second.start < start)
-	    {
-		// We used upper_bound so this should always be true
-		assert(it->first > start);
+        first = myMap.upper_bound(start);
+        for (it = first; it != myMap.end() && it->second.start < end; )
+        {
+            if (it->second.start < start)
+            {
+                // We used upper_bound so this should always be true
+                assert(it->first > start);
 
-		myMap[start] = it->second;
-		it->second.start = start;
-	    }
-	    else if (it->first > end)
-	    {
-		myMap[end] = it->second;
-		it->second.start = end;
-	    }
-	    else
-		++it;
-	}
+                myMap[start] = it->second;
+                it->second.start = start;
+            }
+            else if (it->first > end)
+            {
+                myMap[end] = it->second;
+                it->second.start = end;
+            }
+            else
+                ++it;
+        }
     }
 
     void clearOverlappingIntervals(uint64 start, uint64 end)
     {
-	typename MapType::iterator first, last;
-	getOverlappingIntervals(start, end, first, last);
-	myMap.erase(first, last);
+        typename MapType::iterator first, last;
+        getOverlappingIntervals(start, end, first, last);
+        myMap.erase(first, last);
     }
 
 private:
@@ -259,14 +259,14 @@ private:
     typedef IntervalMapWriter<TYPE> NAME##Writer;
 
 struct StackInfo {
-    std::string	myStr;
+    std::string myStr;
     uint32      myState;
 };
 
 struct MMapInfo {
-    std::string	myStr;
-    int	        myIdx;
-    bool	myMapped;
+    std::string myStr;
+    int         myIdx;
+    bool        myMapped;
 };
 
 MAP_TYPE(StackTraceMap, StackInfo)

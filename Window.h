@@ -56,58 +56,58 @@ public slots:
     void    fromLog(int value);
 
 private:
-    QLabel	*myLabel;
-    QSlider	*mySlider;
-    QLabel	*myNumber;
+    QLabel        *myLabel;
+    QSlider       *mySlider;
+    QLabel        *myNumber;
 };
 
 class Window : public QMainWindow { Q_OBJECT
 public:
-	     Window(int argc, char *argv[]);
+             Window(int argc, char *argv[]);
     virtual ~Window();
 
-    QSize		 sizeHint() const;
+    QSize                sizeHint() const;
 
 private:
-    QActionGroup	*createActionGroup(QMenu *menu,
-					   const char *names[],
-					   QAction *actions[],
-					   int count,
-					   int def_action);
+    QActionGroup        *createActionGroup(QMenu *menu,
+                                           const char *names[],
+                                           QAction *actions[],
+                                           int count,
+                                           int def_action);
 
 public slots:
     void    toolbar(bool value);
 
 private:
-    QMenu		*myFileMenu;
-    QAction		*myQuit;
+    QMenu                *myFileMenu;
+    QAction              *myQuit;
 
-    QMenu		*myLayoutMenu;
+    QMenu                *myLayoutMenu;
 
-    static const int	 theVisCount = 3;
-    QActionGroup	*myVisGroup;
-    QAction		*myVis[theVisCount];
+    static const int      theVisCount = 3;
+    QActionGroup         *myVisGroup;
+    QAction              *myVis[theVisCount];
 
-    static const int	 theLayoutCount = 2;
-    QActionGroup	*myLayoutGroup;
-    QAction		*myLayout[theLayoutCount];
+    static const int      theLayoutCount = 2;
+    QActionGroup         *myLayoutGroup;
+    QAction              *myLayout[theLayoutCount];
 
-    static const int	 theDisplayCount = 5;
-    QMenu		*myDisplayMenu;
-    QActionGroup	*myDisplayGroup;
-    QAction		*myDisplay[theDisplayCount];
-    QAction		*myDisplayDimmer;
-    QAction		*myDisplayShowToolBar;
+    static const int      theDisplayCount = 5;
+    QMenu                *myDisplayMenu;
+    QActionGroup         *myDisplayGroup;
+    QAction              *myDisplay[theDisplayCount];
+    QAction              *myDisplayDimmer;
+    QAction              *myDisplayShowToolBar;
 
-    static const int	 theDataTypeCount = 6;
-    QMenu		*myDataTypeMenu;
-    QActionGroup	*myDataTypeGroup;
-    QAction		*myDataType[theDataTypeCount];
+    static const int      theDataTypeCount = 6;
+    QMenu                *myDataTypeMenu;
+    QActionGroup         *myDataTypeGroup;
+    QAction              *myDataType[theDataTypeCount];
 
-    QToolBar		*myToolBar;
+    QToolBar             *myToolBar;
 
-    MemViewWidget	*myMemView;
-    MemViewScroll	*myScrollArea;
+    MemViewWidget        *myMemView;
+    MemViewScroll        *myScrollArea;
 };
 
 // A scroll area to contain the memory view.  We'll pass off control over
@@ -115,7 +115,7 @@ private:
 class MemViewScroll : public QAbstractScrollArea {
 public:
     MemViewScroll(QWidget *parent)
-	: QAbstractScrollArea(parent) {}
+        : QAbstractScrollArea(parent) {}
 
     // Viewport events need to be passed directly to the viewport.
     bool    viewportEvent(QEvent *) { return false; }
@@ -124,42 +124,42 @@ public:
 // A widget to render the memory visualization.
 class MemViewWidget : public QGLWidget { Q_OBJECT
 public:
-	     MemViewWidget(int argc, char *argv[],
-			    QWidget *parent,
-			    QScrollBar *vscrollbar,
-			    QScrollBar *hscrollbar,
-			    QStatusBar *status);
+             MemViewWidget(int argc, char *argv[],
+                            QWidget *parent,
+                            QScrollBar *vscrollbar,
+                            QScrollBar *hscrollbar,
+                            QStatusBar *status);
     virtual ~MemViewWidget();
 
-    virtual void	paint(QPaintEvent *event)
-			{ paintEvent(event); }
+    virtual void        paint(QPaintEvent *event)
+                        { paintEvent(event); }
 
 protected:
-    virtual void	initializeGL();
-    virtual void	resizeGL(int width, int height);
-    virtual void	paintGL();
+    virtual void        initializeGL();
+    virtual void        resizeGL(int width, int height);
+    virtual void        paintGL();
 
-    virtual bool	event(QEvent *event);
+    virtual bool        event(QEvent *event);
 
-    virtual void	resizeEvent(QResizeEvent *event);
+    virtual void        resizeEvent(QResizeEvent *event);
 
-    virtual void	mousePressEvent(QMouseEvent *event);
-    virtual void	mouseMoveEvent(QMouseEvent *event);
-    virtual void	mouseReleaseEvent(QMouseEvent *event);
-    virtual void	wheelEvent(QWheelEvent *event);
+    virtual void        mousePressEvent(QMouseEvent *event);
+    virtual void        mouseMoveEvent(QMouseEvent *event);
+    virtual void        mouseReleaseEvent(QMouseEvent *event);
+    virtual void        wheelEvent(QWheelEvent *event);
 
-    virtual void	timerEvent(QTimerEvent *event);
+    virtual void        timerEvent(QTimerEvent *event);
 
-    void	resizeImage(int zoom);
-    void	changeZoom(int zoom);
-    QPoint	zoomPos(QPoint pos, int zoom) const;
+    void        resizeImage(int zoom);
+    void        changeZoom(int zoom);
+    QPoint      zoomPos(QPoint pos, int zoom) const;
 
     // This method will adjust the scroll bars given a delta against the
     // current position.  dir is in absolute pixel coordinates (no
     // zooming).  If a scroll bar value changed, returns true.
-    bool	panBy(QPoint dir);
+    bool        panBy(QPoint dir);
 
-    void	paintText();
+    void        paintText();
 
 private slots:
     void    linear();
@@ -177,67 +177,67 @@ private slots:
     void    batchSize(int value);
 
 private:
-    GLImage<uint32>	 myImage;
-    QScrollBar		*myVScrollBar;
-    QScrollBar		*myHScrollBar;
-    QStatusBar		*myStatusBar;
-    std::string		 myPath;
+    GLImage<uint32>         myImage;
+    QScrollBar             *myVScrollBar;
+    QScrollBar             *myHScrollBar;
+    QStatusBar             *myStatusBar;
+    std::string             myPath;
 
-    QGLShaderProgram	*myProgram;
-    GLuint		 myTexture;
-    GLuint		 myColorTexture;
-    GLuint		 myPixelBuffer;
+    QGLShaderProgram       *myProgram;
+    GLuint                  myTexture;
+    GLuint                  myColorTexture;
+    GLuint                  myPixelBuffer;
 
-    DisplayLayout	 myDisplay;
-    MemoryState		*myState;
-    MemoryState		*myZoomState;
-    StackTraceMap	*myStackTrace;
-    std::string		 myStackString;
-    uint64		 myStackSelection;
-    MMapMap		*myMMapMap;
-    Loader		*myLoader;
-    QString		 myEventInfo;
-    uint64		 myPrevEvents;
-    int			 myZoom;
-    int			 myFastTimer;
-    int			 mySlowTimer;
-    int			 myDisplayMode;
-    int			 myDisplayDimmer;
-    int			 myDataType;
+    DisplayLayout           myDisplay;
+    MemoryState            *myState;
+    MemoryState            *myZoomState;
+    StackTraceMap          *myStackTrace;
+    std::string             myStackString;
+    uint64                  myStackSelection;
+    MMapMap                *myMMapMap;
+    Loader                 *myLoader;
+    QString                 myEventInfo;
+    uint64                  myPrevEvents;
+    int                     myZoom;
+    int                     myFastTimer;
+    int                     mySlowTimer;
+    int                     myDisplayMode;
+    int                     myDisplayDimmer;
+    int                     myDataType;
 
     struct Velocity {
-	Velocity(double a, double b, double t) : x(a), y(b), time(t) {}
-	Velocity operator+(const Velocity &v) const
-	{
-	    return Velocity(v.x + x, v.y + y, v.time + time);
-	}
-	Velocity &operator+=(const Velocity &v)
-	{
-	    x += v.x;
-	    y += v.y;
-	    time += v.time;
-	    return *this;
-	}
-	Velocity &operator*=(double a)
-	{
-	    x *= a;
-	    y *= a;
-	    time *= a;
-	    return *this;
-	}
+        Velocity(double a, double b, double t) : x(a), y(b), time(t) {}
+        Velocity operator+(const Velocity &v) const
+        {
+            return Velocity(v.x + x, v.y + y, v.time + time);
+        }
+        Velocity &operator+=(const Velocity &v)
+        {
+            x += v.x;
+            y += v.y;
+            time += v.time;
+            return *this;
+        }
+        Velocity &operator*=(double a)
+        {
+            x *= a;
+            y *= a;
+            time *= a;
+            return *this;
+        }
 
-	double x;
-	double y;
-	double time;
+        double x;
+        double y;
+        double time;
     };
 
-    StopWatch	 myStopWatch;
-    StopWatch	 myPaintInterval;
-    StopWatch	 myEventTimer;
-    QPoint	 myMousePos;
-    QPoint	 myDragRemainder;
+    StopWatch      myStopWatch;
+    StopWatch      myPaintInterval;
+    StopWatch      myEventTimer;
+    QPoint         myMousePos;
+    QPoint         myDragRemainder;
     std::queue<Velocity> myVelocity;
-    bool	 myDragging;
+    bool           myDragging;
 };
 
 #endif

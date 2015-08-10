@@ -30,91 +30,91 @@
 class Color {
 public:
     Color()
-	: myR(0), myG(0), myB(0) {}
+        : myR(0), myG(0), myB(0) {}
     Color(float r, float g, float b)
-	: myR(r), myG(g), myB(b) {}
+        : myR(r), myG(g), myB(b) {}
     Color(uint32 val)
     {
-	myB = (val & 0xFF) / 255.0F; val >>= 8;
-	myG = (val & 0xFF) / 255.0F; val >>= 8;
-	myR = (val & 0xFF) / 255.0F;
+        myB = (val & 0xFF) / 255.0F; val >>= 8;
+        myG = (val & 0xFF) / 255.0F; val >>= 8;
+        myR = (val & 0xFF) / 255.0F;
     }
 
-    uint32	toInt32() const
-		{
-		    return 0xFF000000 |
-			(ftoc(myB) << 16) |
-			(ftoc(myG) << 8) |
-			(ftoc(myR));
-		}
+    uint32      toInt32() const
+                {
+                    return 0xFF000000 |
+                        (ftoc(myB) << 16) |
+                        (ftoc(myG) << 8) |
+                        (ftoc(myR));
+                }
 
-    float	luminance() const
-		{
-		    return 0.3*myR + 0.6*myG + 0.1*myB;
-		}
+    float       luminance() const
+                {
+                    return 0.3*myR + 0.6*myG + 0.1*myB;
+                }
 
-    Color	operator+(const Color &rhs) const
-		{
-		    return Color(
-			    myR+rhs.myR,
-			    myG+rhs.myG,
-			    myB+rhs.myB);
-		}
-    Color	operator*(float scale) const
-		{
-		    return Color(myR*scale, myG*scale, myB*scale);
-		}
-    Color	lerp(const Color &rhs, float bias) const
-		{
-		    QColor  c1(QColor(toInt32()).toHsv());
-		    QColor  c2(QColor(rhs.toInt32()).toHsv());
+    Color       operator+(const Color &rhs) const
+                {
+                    return Color(
+                            myR+rhs.myR,
+                            myG+rhs.myG,
+                            myB+rhs.myB);
+                }
+    Color       operator*(float scale) const
+                {
+                    return Color(myR*scale, myG*scale, myB*scale);
+                }
+    Color       lerp(const Color &rhs, float bias) const
+                {
+                    QColor  c1(QColor(toInt32()).toHsv());
+                    QColor  c2(QColor(rhs.toInt32()).toHsv());
 
-		    // Lerp in HSV space
-		    float   h = lerpHue((float)c1.hsvHueF(),
-					(float)c2.hsvHueF(), bias);
-		    float   s = SYSlerp((float)c1.hsvSaturationF(),
-					(float)c2.hsvSaturationF(), bias);
-		    float   l = SYSlerp((float)c1.lightnessF(),
-					(float)c2.lightnessF(), bias);
+                    // Lerp in HSV space
+                    float   h = lerpHue((float)c1.hsvHueF(),
+                                        (float)c2.hsvHueF(), bias);
+                    float   s = SYSlerp((float)c1.hsvSaturationF(),
+                                        (float)c2.hsvSaturationF(), bias);
+                    float   l = SYSlerp((float)c1.lightnessF(),
+                                        (float)c2.lightnessF(), bias);
 
-		    QColor  c3(QColor::fromHsvF(h, s, l));
+                    QColor  c3(QColor::fromHsvF(h, s, l));
 
-		    return Color(c3.redF(), c3.greenF(), c3.blueF());
-		}
+                    return Color(c3.redF(), c3.greenF(), c3.blueF());
+                }
 
-    void	fromHSV(float h, float s, float v)
-		{
-		    QColor  c(QColor::fromHsvF(h, s, v));
+    void        fromHSV(float h, float s, float v)
+                {
+                    QColor  c(QColor::fromHsvF(h, s, v));
 
-		    *this = Color(c.redF(), c.greenF(), c.blueF());
-		}
+                    *this = Color(c.redF(), c.greenF(), c.blueF());
+                }
 
 private:
     static uint32 ftoc(float v)
-		{
-		    v *= 255.0F;
-		    return SYSclamp((int)v, 0, 255);
-		}
+                {
+                    v *= 255.0F;
+                    return SYSclamp((int)v, 0, 255);
+                }
 
     static float    lerpHue(float h1, float h2, float bias)
-		    {
-			h1 = SYSclamp(h1, 0.0F, 1.0F);
-			h2 = SYSclamp(h2, 0.0F, 1.0F);
-			if (h2 > h1 + 0.5F)
-			    h1 += 1;
-			else if (h1 > h2 + 0.5F)
-			    h2 += 1;
+                    {
+                        h1 = SYSclamp(h1, 0.0F, 1.0F);
+                        h2 = SYSclamp(h2, 0.0F, 1.0F);
+                        if (h2 > h1 + 0.5F)
+                            h1 += 1;
+                        else if (h1 > h2 + 0.5F)
+                            h2 += 1;
 
-			float   h = SYSlerp(h1, h2, bias);
-			if (h > 1) h -= 1;
-			return h;
-		    }
+                        float   h = SYSlerp(h1, h2, bias);
+                        if (h > 1) h -= 1;
+                        return h;
+                    }
 
 
 private:
-    float	myR;
-    float	myG;
-    float	myB;
+    float        myR;
+    float        myG;
+    float        myB;
 };
 
 #endif

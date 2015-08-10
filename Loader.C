@@ -31,9 +31,9 @@
 #include <sstream>
 
 Loader::Loader(MemoryState *state,
-	       StackTraceMap *stack,
-	       MMapMap *mmapmap,
-	       const std::string &path)
+               StackTraceMap *stack,
+               MMapMap *mmapmap,
+               const std::string &path)
     : QThread(0)
     , myState(state)
     , myStackTrace(stack)
@@ -70,165 +70,165 @@ Loader::~Loader()
     // Lackey doesn't seem to have a SIGINT signal handler, so send it the
     // kill signal.
     if (myChild > 0)
-	kill(myChild, SIGKILL);
+        kill(myChild, SIGKILL);
 
     if (myPipe) fclose(myPipe);
     if (myOutPipe) fclose(myOutPipe);
 
     if (mySharedData)
-	shm_unlink(mySharedName.c_str());
+        shm_unlink(mySharedName.c_str());
 }
 
 bool
 Loader::openPipe(int argc, char *argv[])
 {
-    const char	*tool = extractOption(argc, argv, "--tool=");
-    const char	*valgrind = extractOption(argc, argv, "--valgrind=");
+    const char        *tool = extractOption(argc, argv, "--tool=");
+    const char        *valgrind = extractOption(argc, argv, "--valgrind=");
 
     // Check if we have a --tool argument.  This can override whether to
     // use lackey or the memview tool.
     mySource = MEMVIEW_PIPE;
     if (tool)
     {
-	if (!strcmp(tool, "lackey"))
-	    mySource = LACKEY;
-	else if (!strcmp(tool, "pin"))
-	    mySource = PIN;
-	else if (!strcmp(tool, "test"))
-	    mySource = TEST;
-	else if (!strcmp(tool, "teststack"))
-	{
-	    mySource = TEST;
-	    myTestType = 1;
-	}
-	else if (!strcmp(tool, "testextrema"))
-	{
-	    mySource = TEST;
-	    myTestType = 2;
-	}
+        if (!strcmp(tool, "lackey"))
+            mySource = LACKEY;
+        else if (!strcmp(tool, "pin"))
+            mySource = PIN;
+        else if (!strcmp(tool, "test"))
+            mySource = TEST;
+        else if (!strcmp(tool, "teststack"))
+        {
+            mySource = TEST;
+            myTestType = 1;
+        }
+        else if (!strcmp(tool, "testextrema"))
+        {
+            mySource = TEST;
+            myTestType = 2;
+        }
     }
 
     // Allow overriden valgrind binary
     if (!valgrind)
     {
-	if (mySource == PIN)
-	    valgrind = "pin";
-	else
-	    valgrind = "valgrind";
+        if (mySource == PIN)
+            valgrind = "pin";
+        else
+            valgrind = "valgrind";
     }
 
     if (mySource == TEST)
-	return true;
+        return true;
 
-    int		fd[2];
-    int		outfd[2];
+    int                fd[2];
+    int                outfd[2];
 
     if (pipe(fd) < 0)
     {
-	perror("pipe failed");
-	return false;
+        perror("pipe failed");
+        return false;
     }
     if (pipe(outfd) < 0)
     {
-	perror("pipe failed");
-	return false;
+        perror("pipe failed");
+        return false;
     }
 
     if (!initSharedMemory())
-	return false;
+        return false;
 
     myChild = fork();
     if (myChild == -1)
     {
-	perror("fork failed");
-	return false;
+        perror("fork failed");
+        return false;
     }
 
     if (myChild == 0)
     {
-	// Close input for child
-	close(fd[0]);
-	close(outfd[1]);
+        // Close input for child
+        close(fd[0]);
+        close(outfd[1]);
 
-	static const int	 theMaxArgs = 256;
-	const char		*args[theMaxArgs];
-	char			 pipearg[64];
-	char			 outpipearg[64];
-	char			 sharedfile[128];
-	int			 vg_args = 0;
+        static const int         theMaxArgs = 256;
+        const char              *args[theMaxArgs];
+        char                     pipearg[64];
+        char                     outpipearg[64];
+        char                     sharedfile[128];
+        int                      vg_args = 0;
 
-	args[vg_args++] = valgrind;
-	switch (mySource)
-	{
-	case PIN:
-	    args[vg_args++] = "-t";
-	    args[vg_args++] = "pin/obj-intel64/mv_pin.so";
+        args[vg_args++] = valgrind;
+        switch (mySource)
+        {
+        case PIN:
+            args[vg_args++] = "-t";
+            args[vg_args++] = "pin/obj-intel64/mv_pin.so";
 
-	    if (mySharedData)
-	    {
-		sprintf(sharedfile, "/dev/shm%s", mySharedName.c_str());
-		args[vg_args++] = "-shared-mem";
-		args[vg_args++] = sharedfile;
-	    }
+            if (mySharedData)
+            {
+                sprintf(sharedfile, "/dev/shm%s", mySharedName.c_str());
+                args[vg_args++] = "-shared-mem";
+                args[vg_args++] = sharedfile;
+            }
 
-	    sprintf(pipearg, "%d", fd[1]);
-	    args[vg_args++] = "-pipe";
-	    args[vg_args++] = pipearg;
+            sprintf(pipearg, "%d", fd[1]);
+            args[vg_args++] = "-pipe";
+            args[vg_args++] = pipearg;
 
-	    sprintf(outpipearg, "%d", outfd[0]);
-	    args[vg_args++] = "-inpipe";
-	    args[vg_args++] = outpipearg;
+            sprintf(outpipearg, "%d", outfd[0]);
+            args[vg_args++] = "-inpipe";
+            args[vg_args++] = outpipearg;
 
-	    args[vg_args++] = "--";
-	    break;
-	case LACKEY:
-	    // Copy stderr to the output of the pipe
-	    dup2(fd[1], 2);
+            args[vg_args++] = "--";
+            break;
+        case LACKEY:
+            // Copy stderr to the output of the pipe
+            dup2(fd[1], 2);
 
-	    args[vg_args++] = "--tool=lackey";
-	    args[vg_args++] = "--basic-counts=no";
-	    args[vg_args++] = "--trace-mem=yes";
-	    break;
-	default:
-	    args[vg_args++] = "--tool=memview";
-	    if (mySharedData)
-	    {
-		sprintf(sharedfile, "--shared-mem=/dev/shm%s",
-			mySharedName.c_str());
-		args[vg_args++] = sharedfile;
-	    }
+            args[vg_args++] = "--tool=lackey";
+            args[vg_args++] = "--basic-counts=no";
+            args[vg_args++] = "--trace-mem=yes";
+            break;
+        default:
+            args[vg_args++] = "--tool=memview";
+            if (mySharedData)
+            {
+                sprintf(sharedfile, "--shared-mem=/dev/shm%s",
+                        mySharedName.c_str());
+                args[vg_args++] = sharedfile;
+            }
 
-	    sprintf(pipearg, "--pipe=%d", fd[1]);
-	    args[vg_args++] = pipearg;
+            sprintf(pipearg, "--pipe=%d", fd[1]);
+            args[vg_args++] = pipearg;
 
-	    sprintf(outpipearg, "--inpipe=%d", outfd[0]);
-	    args[vg_args++] = outpipearg;
-	    break;
-	}
+            sprintf(outpipearg, "--inpipe=%d", outfd[0]);
+            args[vg_args++] = outpipearg;
+            break;
+        }
 
-	for (int i = 0; i < argc; i++)
-	    args[vg_args++] = argv[i];
+        for (int i = 0; i < argc; i++)
+            args[vg_args++] = argv[i];
 
-	args[vg_args] = NULL;
+        args[vg_args] = NULL;
 
-	if (mySource != PIN && myPath != "/usr/bin/")
-	{
-	    // If the executable is not executing from the install
-	    // directory, look for valgrind in the source tree.
-	    std::string valgrind_dir =
-		myPath + "valgrind/valgrind_src/.in_place";
+        if (mySource != PIN && myPath != "/usr/bin/")
+        {
+            // If the executable is not executing from the install
+            // directory, look for valgrind in the source tree.
+            std::string valgrind_dir =
+                myPath + "valgrind/valgrind_src/.in_place";
 
-	    setenv("VALGRIND_LIB", valgrind_dir.c_str(), 1);
-	}
+            setenv("VALGRIND_LIB", valgrind_dir.c_str(), 1);
+        }
 
-	if (execvp(valgrind, (char * const *)args) == -1)
-	{
-	    char    buf[256];
-	    sprintf(buf, "Could not execute %s", valgrind);
-	    perror(buf);
-	    return false;
-	}
-	// Unreachable
+        if (execvp(valgrind, (char * const *)args) == -1)
+        {
+            char    buf[256];
+            sprintf(buf, "Could not execute %s", valgrind);
+            perror(buf);
+            return false;
+        }
+        // Unreachable
     }
 
     // Close output for parent
@@ -246,7 +246,7 @@ Loader::openPipe(int argc, char *argv[])
     // Queue up some tokens
     myNextToken = 1;
     for (int i = 1; i < MV_BufCount; i++)
-	writeToken(myBlockSize);
+        writeToken(myBlockSize);
 
     return true;
 }
@@ -256,26 +256,26 @@ Loader::initSharedMemory()
 {
     // Set of shared memory before fork
     int shm_fd = shm_open(mySharedName.c_str(),
-	    O_CREAT | O_CLOEXEC | O_RDWR,
-	    S_IRUSR | S_IWUSR);
+            O_CREAT | O_CLOEXEC | O_RDWR,
+            S_IRUSR | S_IWUSR);
     if (shm_fd == -1)
     {
-	perror("shm_open");
-	return false;
+        perror("shm_open");
+        return false;
     }
 
     if (ftruncate(shm_fd, sizeof(MV_SharedData)) == -1)
     {
-	perror("ftruncate");
-	return false;
+        perror("ftruncate");
+        return false;
     }
 
     mySharedData = (MV_SharedData *)mmap(NULL, sizeof(MV_SharedData),
-	    PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+            PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (mySharedData == MAP_FAILED)
     {
-	perror("mmap");
-	return false;
+        perror("mmap");
+        return false;
     }
 
     memset(mySharedData, 0, sizeof(MV_SharedData));
@@ -287,27 +287,27 @@ incBuf(int &idx)
 {
     idx++;
     if (idx == MV_BufCount)
-	idx = 0;
+        idx = 0;
 }
 
 void
 Loader::writeToken(int token)
 {
     if (write(myOutPipeFD, &token, sizeof(int)))
-	incBuf(myNextToken);
+        incBuf(myNextToken);
 }
 
 bool
 Loader::waitForInput(int timeout_ms)
 {
-    fd_set	rfds;
-    int		max_fd = 0;
+    fd_set        rfds;
+    int           max_fd = 0;
 
     FD_ZERO(&rfds);
     if (myPipe)
     {
-	FD_SET(myPipeFD, &rfds);
-	max_fd = myPipeFD + 1;
+        FD_SET(myPipeFD, &rfds);
+        max_fd = myPipeFD + 1;
     }
 
     struct timeval tv;
@@ -320,8 +320,8 @@ Loader::waitForInput(int timeout_ms)
 
     if (retval == -1)
     {
-	perror("select failed");
-	return false;
+        perror("select failed");
+        return false;
     }
 
     // Return true when there's input available
@@ -334,63 +334,63 @@ Loader::run()
     //StopWatch timer;
     while (!myAbort)
     {
-	MemoryState	*pending = 0;
-	bool		 pendingclear = false;
+        MemoryState        *pending = 0;
+        bool                pendingclear = false;
 
-	{
-	    QMutexLocker lock(&myPendingLock);
-	    pending = myPendingState.release();
-	    pendingclear = myPendingClear;
-	    myPendingClear = false;
-	}
+        {
+            QMutexLocker lock(&myPendingLock);
+            pending = myPendingState.release();
+            pendingclear = myPendingClear;
+            myPendingClear = false;
+        }
 
-	if (pendingclear)
-	    myZoomState.reset();
+        if (pendingclear)
+            myZoomState.reset();
 
-	if (pending)
-	{
-	    // Ensure that we clean up the zoom state
-	    MemoryStateHandle zoom(myZoomState);
+        if (pending)
+        {
+            // Ensure that we clean up the zoom state
+            MemoryStateHandle zoom(myZoomState);
 
-	    myZoomState.reset(pending);
+            myZoomState.reset(pending);
 
-	    // This could take a while
-	    if (zoom && zoom->getIgnoreBits() <
-		    myZoomState->getIgnoreBits())
-		myZoomState->downsample(*zoom);
-	    else
-		myZoomState->downsample(*myState);
-	}
+            // This could take a while
+            if (zoom && zoom->getIgnoreBits() <
+                    myZoomState->getIgnoreBits())
+                myZoomState->downsample(*zoom);
+            else
+                myZoomState->downsample(*myState);
+        }
 
-	const int   timeout_ms = 50;
-	bool	    rval = true;
-	switch (mySource)
-	{
-	    case NONE:
-		waitForInput(timeout_ms);
-		break;
-	    case TEST:
-		switch (myTestType)
-		{
-		    case 0: rval = loadFromTest<false>(); break;
-		    case 1: rval = loadFromTest<true>(); break;
-		    case 2: rval = loadFromTestExtrema(); break;
-		}
-		break;
-	    case LACKEY:
-		if (waitForInput(timeout_ms))
-		    rval = loadFromLackey(MV_BlockSize);
-		break;
-	    case MEMVIEW_PIPE:
-	    case PIN:
-		if (waitForInput(timeout_ms))
-		    rval = loadFromPipe();
-		break;
-	}
+        const int   timeout_ms = 50;
+        bool        rval = true;
+        switch (mySource)
+        {
+            case NONE:
+                waitForInput(timeout_ms);
+                break;
+            case TEST:
+                switch (myTestType)
+                {
+                    case 0: rval = loadFromTest<false>(); break;
+                    case 1: rval = loadFromTest<true>(); break;
+                    case 2: rval = loadFromTestExtrema(); break;
+                }
+                break;
+            case LACKEY:
+                if (waitForInput(timeout_ms))
+                    rval = loadFromLackey(MV_BlockSize);
+                break;
+            case MEMVIEW_PIPE:
+            case PIN:
+                if (waitForInput(timeout_ms))
+                    rval = loadFromPipe();
+                break;
+        }
 
-	// Input has completed.  We'll still loop to handle zoom requests
-	if (!rval)
-	    mySource = NONE;
+        // Input has completed.  We'll still loop to handle zoom requests
+        if (!rval)
+            mySource = NONE;
     }
 }
 
@@ -405,74 +405,74 @@ bool
 Loader::loadFromLackey(int max_read)
 {
     if (!myPipe)
-	return false;
+        return false;
 
-    char	*buf = 0;
-    size_t	 n = 0;
+    char        *buf = 0;
+    size_t       n = 0;
 
     MV_TraceBlock   block;
     for (int i = 0; i < max_read; i++)
     {
-	if (getline(&buf, &n, myPipe) <= 0)
-	{
-	    pclose(myPipe);
-	    myPipe = 0;
-	    return false;
-	}
+        if (getline(&buf, &n, myPipe) <= 0)
+        {
+            pclose(myPipe);
+            myPipe = 0;
+            return false;
+        }
 
-	uint64		addr;
-	uint32		size;
-	uint32		type;
+        uint64               addr;
+        uint32               size;
+        uint32               type;
 
-	char		*saveptr = 0;
-	char		*type_str;
-	char		*addr_str;
-	char		*size_str;
-	const char	*delim = " ,\n";
+        char                *saveptr = 0;
+        char                *type_str;
+        char                *addr_str;
+        char                *size_str;
+        const char          *delim = " ,\n";
 
-	type_str = strtok_r(buf, delim, &saveptr);
-	if (!type_str)
-	    continue;
+        type_str = strtok_r(buf, delim, &saveptr);
+        if (!type_str)
+            continue;
 
-	switch (type_str[0])
-	{
-	    case 'L': type = MV_ShiftedRead; break;
-	    case 'S':
-	    case 'M': type = MV_ShiftedWrite; break;
-	    case 'I': type = MV_ShiftedInstr; break;
-	    default: continue;
-	}
+        switch (type_str[0])
+        {
+            case 'L': type = MV_ShiftedRead; break;
+            case 'S':
+            case 'M': type = MV_ShiftedWrite; break;
+            case 'I': type = MV_ShiftedInstr; break;
+            default: continue;
+        }
 
-	addr_str = strtok_r(0, delim, &saveptr);
-	if (!addr_str)
-	    continue;
-	addr = strtoull(addr_str, 0, 16); // Hex value
+        addr_str = strtok_r(0, delim, &saveptr);
+        if (!addr_str)
+            continue;
+        addr = strtoull(addr_str, 0, 16); // Hex value
 
-	size_str = strtok_r(0, delim, &saveptr);
-	if (!size_str)
-	    continue;
-	size = atoi(size_str);
+        size_str = strtok_r(0, delim, &saveptr);
+        if (!size_str)
+            continue;
+        size = atoi(size_str);
 
-	if (strtok_r(0, delim, &saveptr))
-	    continue;
+        if (strtok_r(0, delim, &saveptr))
+            continue;
 
-	// Set the data type
-	if (size < 4)
-	    type |= MV_DataChar8 << MV_DataShift;
-	else if (size > 4)
-	    type |= MV_DataInt64 << MV_DataShift;
-	else
-	    type |= MV_DataInt32 << MV_DataShift;
+        // Set the data type
+        if (size < 4)
+            type |= MV_DataChar8 << MV_DataShift;
+        else if (size > 4)
+            type |= MV_DataInt64 << MV_DataShift;
+        else
+            type |= MV_DataInt32 << MV_DataShift;
 
-	size <<= MV_SizeShift;
+        size <<= MV_SizeShift;
 
-	// Set the thread id to thread 1
-	type |= 1u << MV_ThreadShift;
-	type |= size;
+        // Set the thread id to thread 1
+        type |= 1u << MV_ThreadShift;
+        type |= size;
 
-	block.myAddr[block.myEntries].myAddr = addr;
-	block.myAddr[block.myEntries].myType = type;
-	block.myEntries++;
+        block.myAddr[block.myEntries].myAddr = addr;
+        block.myAddr[block.myEntries].myType = type;
+        block.myEntries++;
     }
 
     loadBlock(block);
@@ -480,7 +480,7 @@ Loader::loadFromLackey(int max_read)
     myTotalEvents += block.myEntries;
 
     if (buf)
-	free(buf);
+        free(buf);
 
     return block.myEntries;
 }
@@ -489,49 +489,49 @@ bool
 Loader::loadFromPipe()
 {
     if (!myPipe)
-	return false;
+        return false;
 
     MV_Header header;
     if (!read(myPipeFD, &header, sizeof(MV_Header)))
-	return false;
+        return false;
 
     if (header.myType == MV_BLOCK)
     {
-	const MV_TraceBlock	&block = mySharedData->myData[myIdx];
-	if (!block.myEntries || !loadBlock(block))
-	    return false;
+        const MV_TraceBlock        &block = mySharedData->myData[myIdx];
+        if (!block.myEntries || !loadBlock(block))
+            return false;
 
-	writeToken(myBlockSize);
+        writeToken(myBlockSize);
 
-	incBuf(myIdx);
-	return true;
+        incBuf(myIdx);
+        return true;
     }
     else if (header.myType == MV_STACKTRACE)
     {
-	char	stack[MV_STR_BUFSIZE];
-	if (read(myPipeFD, stack, header.myStack.mySize))
-	{
-	    uint64 addr = header.myStack.myAddr.myAddr;
-	    uint32 type = header.myStack.myAddr.myType;
-	    uint64 size;
-	    decodeType(size, type);
+        char        stack[MV_STR_BUFSIZE];
+        if (read(myPipeFD, stack, header.myStack.mySize))
+        {
+            uint64 addr = header.myStack.myAddr.myAddr;
+            uint32 type = header.myStack.myAddr.myType;
+            uint64 size;
+            decodeType(size, type);
 
-	    MemoryState::State	state;
-	    state.init(myState->getTime(), type);
+            MemoryState::State        state;
+            state.init(myState->getTime(), type);
 
-	    StackTraceMapWriter writer(*myStackTrace);
-	    writer.insert(addr, addr + size, StackInfo{stack, state.uval});
-	    return true;
-	}
+            StackTraceMapWriter writer(*myStackTrace);
+            writer.insert(addr, addr + size, StackInfo{stack, state.uval});
+            return true;
+        }
     }
     else if (header.myType == MV_MMAP)
     {
-	char	    buf[MV_STR_BUFSIZE];
-	if (read(myPipeFD, buf, header.myMMap.mySize))
-	{
-	    loadMMap(header, buf);
-	    return true;
-	}
+        char            buf[MV_STR_BUFSIZE];
+        if (read(myPipeFD, buf, header.myMMap.mySize))
+        {
+            loadMMap(header, buf);
+            return true;
+        }
     }
 
     return false;
@@ -542,9 +542,9 @@ appendBuf(std::string &str, const char *buf)
 {
     if (buf && buf[0])
     {
-	str += "(";
-	str += buf;
-	str += ")";
+        str += "(";
+        str += buf;
+        str += ")";
     }
 }
 
@@ -559,50 +559,50 @@ Loader::loadMMap(const MV_Header &header, const char *buf)
     MMapMapWriter writer(*myMMapMap);
     if (header.myMMap.myType != MV_UNMAP)
     {
-	std::string	info;
-	switch (header.myMMap.myType)
-	{
-	    case MV_CODE:
-		info = "Code";
-		appendBuf(info, buf);
-		break;
-	    case MV_DATA:
-		info = "Data";
-		appendBuf(info, buf);
-		break;
-	    case MV_HEAP: info = "Heap"; break;
-	    case MV_STACK:
-		info = "Thread ";
-		info += SYStoString(header.myMMap.myThread);
-		info += " stack";
-		break;
-	    case MV_SHM:
-		info = "Shared";
-		appendBuf(info, buf);
-		break;
-	    case MV_UNMAP: break;
-	}
+        std::string        info;
+        switch (header.myMMap.myType)
+        {
+            case MV_CODE:
+                info = "Code";
+                appendBuf(info, buf);
+                break;
+            case MV_DATA:
+                info = "Data";
+                appendBuf(info, buf);
+                break;
+            case MV_HEAP: info = "Heap"; break;
+            case MV_STACK:
+                info = "Thread ";
+                info += SYStoString(header.myMMap.myThread);
+                info += " stack";
+                break;
+            case MV_SHM:
+                info = "Shared";
+                appendBuf(info, buf);
+                break;
+            case MV_UNMAP: break;
+        }
 
-	// Create an integer index for each unique mmap string
-	int &idx = myMMapNames[info];
-	if (!idx)
-	    idx = (int)myMMapNames.size();
+        // Create an integer index for each unique mmap string
+        int &idx = myMMapNames[info];
+        if (!idx)
+            idx = (int)myMMapNames.size();
 
-	writer.insert(
-		header.myMMap.myStart,
-		header.myMMap.myEnd, MMapInfo{info,idx,true});
+        writer.insert(
+                header.myMMap.myStart,
+                header.myMMap.myEnd, MMapInfo{info,idx,true});
     }
     else
     {
-	writer.apply(
-		header.myMMap.myStart,
-		header.myMMap.myEnd,
+        writer.apply(
+                header.myMMap.myStart,
+                header.myMMap.myEnd,
 #if HAS_LAMBDA
-		[] (MMapInfo &val) { val.myMapped = false; }
+                [] (MMapInfo &val) { val.myMapped = false; }
 #else
-		Func()
+                Func()
 #endif
-		);
+                );
     }
 }
 
@@ -620,32 +620,32 @@ Loader::loadFromTest()
     static const uint64 theSize = 8*1024;
     static const uint64 theStackRate = 63;
     static const uint32 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
-				    | ((uint64)MV_TypeRead << MV_TypeShift)
-				    | ((uint64)4 << MV_SizeShift);
+                                    | ((uint64)MV_TypeRead << MV_TypeShift)
+                                    | ((uint64)4 << MV_SizeShift);
 
     static uint64 theCount = 0;
 
     if (theCount >= theSize)
-	return false;
+        return false;
 
     MV_TraceBlock   block;
     for (uint32 j = 0; j < MV_BlockSize; j++)
     {
-	block.myAddr[j].myAddr = (theCount*MV_BlockSize + j) << 2;
-	block.myAddr[j].myType = theTypeInfo;
+        block.myAddr[j].myAddr = (theCount*MV_BlockSize + j) << 2;
+        block.myAddr[j].myType = theTypeInfo;
 
-	// Insert a stack
-	if (with_stacks && !(j & theStackRate))
-	{
-	    uint64 addr = block.myAddr[j].myAddr;
-	    uint32 type = block.myAddr[j].myType;
-	    uint64 size;
-	    decodeType(size, type);
+        // Insert a stack
+        if (with_stacks && !(j & theStackRate))
+        {
+            uint64 addr = block.myAddr[j].myAddr;
+            uint32 type = block.myAddr[j].myType;
+            uint64 size;
+            decodeType(size, type);
 
-	    StackTraceMapWriter writer(*myStackTrace);
-	    writer.insert(addr, addr + size,
-		    StackInfo{"", myState->getTime()});
-	}
+            StackTraceMapWriter writer(*myStackTrace);
+            writer.insert(addr, addr + size,
+                    StackInfo{"", myState->getTime()});
+        }
     }
     block.myEntries = MV_BlockSize;
     loadBlock(block);
@@ -658,15 +658,15 @@ bool
 Loader::loadFromTestExtrema()
 {
     static const uint32 theTypeInfo = ((uint64)MV_DataInt32 << MV_DataShift)
-				    | ((uint64)MV_TypeRead << MV_TypeShift)
-				    | ((uint64)4 << MV_SizeShift);
+                                    | ((uint64)MV_TypeRead << MV_TypeShift)
+                                    | ((uint64)4 << MV_SizeShift);
     const int size = 2;
 
     MV_TraceBlock   block;
     for (int i = 0; i < size; i++)
     {
-	block.myAddr[i].myAddr = i ? ~0ull : 0ull;
-	block.myAddr[i].myType = theTypeInfo;
+        block.myAddr[i].myAddr = i ? ~0ull : 0ull;
+        block.myAddr[i].myType = theTypeInfo;
     }
     block.myEntries = size;
     loadBlock(block);
@@ -681,29 +681,29 @@ updateState(MemoryState &state, const MV_TraceBlock &block)
     uint32 count = block.myEntries;
     for (uint32 i = 0; i < count; i++)
     {
-	uint64 addr = block.myAddr[i].myAddr;
-	uint32 type = block.myAddr[i].myType;
-	uint64 size;
-	decodeType(size, type);
-	state.updateAddress(addr, size, type, cache);
+        uint64 addr = block.myAddr[i].myAddr;
+        uint32 type = block.myAddr[i].myType;
+        uint64 size;
+        decodeType(size, type);
+        state.updateAddress(addr, size, type, cache);
     }
 }
 
 static void
 updateState(MemoryState &state, MemoryState &zstate,
-	const MV_TraceBlock &block)
+        const MV_TraceBlock &block)
 {
     MemoryState::UpdateCache cache(state);
     MemoryState::UpdateCache zcache(zstate);
     uint32 count = block.myEntries;
     for (uint32 i = 0; i < count; i++)
     {
-	uint64 addr = block.myAddr[i].myAddr;
-	uint32 type = block.myAddr[i].myType;
-	uint64 size;
-	decodeType(size, type);
-	state.updateAddress(addr, size, type, cache);
-	zstate.updateAddress(addr, size, type, zcache);
+        uint64 addr = block.myAddr[i].myAddr;
+        uint32 type = block.myAddr[i].myType;
+        uint64 size;
+        decodeType(size, type);
+        state.updateAddress(addr, size, type, cache);
+        zstate.updateAddress(addr, size, type, zcache);
     }
 }
 
@@ -714,15 +714,15 @@ Loader::loadBlock(const MV_TraceBlock &block)
     uint32 type = (block.myAddr[0].myType & MV_TypeMask) >> MV_TypeShift;
     if (block.myEntries > MV_BlockSize || type > 7)
     {
-	fprintf(stderr, "received invalid block (size %u, type %u)\n",
-		block.myEntries, type);
-	return false;
+        fprintf(stderr, "received invalid block (size %u, type %u)\n",
+                block.myEntries, type);
+        return false;
     }
 
     if (myZoomState)
-	updateState(*myState, *myZoomState, block);
+        updateState(*myState, *myZoomState, block);
     else
-	updateState(*myState, block);
+        updateState(*myState, block);
 
     myTotalEvents += block.myEntries;
     return true;
@@ -733,7 +733,7 @@ void
 Loader::timerEvent(QTimerEvent *)
 {
     if (myZoomState)
-	myZoomState->incrementTime();
+        myZoomState->incrementTime();
 
     myState->incrementTime(myStackTrace);
 }

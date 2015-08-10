@@ -3,8 +3,8 @@
 bool
 testBasic()
 {
-    SparseArray<int, 26, 12>	arr(34);
-    unsigned long long		val = 17175675094ull;
+    SparseArray<int, 26, 12> arr(34);
+    unsigned long long       val = 17175675094ull;
 
     arr.setExists(val);
     return true;
@@ -13,7 +13,7 @@ testBasic()
 int
 main()
 {
-    bool    ok = true;
+    bool ok = true;
 
     ok &= testBasic();
 

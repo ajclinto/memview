@@ -29,38 +29,38 @@ usage()
 {
     fprintf(stderr, "Usage: memview [--ignore-bits=n] [valgrind-options] your-program [your-program-options]\n");
     fprintf(stderr, "\t--ignore-bits=n\n"
-	"\t\tDrop the n least significant bits in memory addresses.\n"
-	"\t\tThis option can be used to optimize memory use. [2]\n");
+        "\t\tDrop the n least significant bits in memory addresses.\n"
+        "\t\tThis option can be used to optimize memory use. [2]\n");
     fprintf(stderr, "\t--batch-size=n\n"
-	"\t\tTake a stack trace sample after every n events.\n"
-	"\t\tThis value must be between 1 and 32768. [32768]\n");
+        "\t\tTake a stack trace sample after every n events.\n"
+        "\t\tThis value must be between 1 and 32768. [32768]\n");
     fprintf(stderr, "\t--tool=[memview|lackey]\n"
-	"\t\tBy default, memview will use the 'memview' valgrind\n"
-	"\t\ttool.  If you have an unpatched valgrind, you can force the\n"
-	"\t\tuse of 'lackey' with this option - however performance will be\n"
-	"\t\tpoor.  Stack traces and memory allocations are unsupported\n"
-	"\t\twith lackey.\n");
+        "\t\tBy default, memview will use the 'memview' valgrind\n"
+        "\t\ttool.  If you have an unpatched valgrind, you can force the\n"
+        "\t\tuse of 'lackey' with this option - however performance will be\n"
+        "\t\tpoor.  Stack traces and memory allocations are unsupported\n"
+        "\t\twith lackey.\n");
 }
 
 int main(int argc, char *argv[])
 {
-    int		  myargc = argc;
-    char	**myargv = (char **)alloca(argc*sizeof(char *));
+    int           myargc = argc;
+    char        **myargv = (char **)alloca(argc*sizeof(char *));
 
     // Create a copy of the command-line arguments since qt may strip out
     // arguments that are also used by the guest program.
     for (int i = 0; i < argc; i++)
-	myargv[i] = argv[i];
+        myargv[i] = argv[i];
 
-    QApplication	app(argc, argv);
+    QApplication  app(argc, argv);
 
     if (myargc <= 1)
     {
-	usage();
-	return 1;
+        usage();
+        return 1;
     }
 
-    Window	window(myargc, myargv);
+    Window        window(myargc, myargv);
 
     window.show();
     return app.exec();

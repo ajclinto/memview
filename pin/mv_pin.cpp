@@ -39,17 +39,17 @@ BUFFER_ID   theBuffer;
 
 struct BufferData {
     ADDRINT     ea;
-    UINT32	type;
+    UINT32      type;
 };
 
 #define NUM_BUF_PAGES 4
 
-static MV_SharedData	*theSharedData = 0;
-static MV_TraceBlock	*theBlock = 0;
-static unsigned int	 theBlockIndex = 0;
-static unsigned int	 theMaxEntries = 1;
+static MV_SharedData        *theSharedData = 0;
+static MV_TraceBlock        *theBlock = 0;
+static unsigned int          theBlockIndex = 0;
+static unsigned int          theMaxEntries = 1;
 
-static unsigned long long   theTotalEvents = 0;
+static unsigned long long    theTotalEvents = 0;
 
 /* ===================================================================== */
 // Command line switches
@@ -89,24 +89,24 @@ static void
 flushEvents()
 {
     if (!theBlock->myEntries)
-	return;
+        return;
 
     theTotalEvents += theBlock->myEntries;
 
     // Send the block
-    MV_Header	header;
+    MV_Header        header;
     header.myType = MV_BLOCK;
 
     if (!write(KnobPipe, &header, sizeof(MV_Header)))
-	;
+        ;
 
     // Wait for max entries token
     if (!read(KnobInPipe, &theMaxEntries, sizeof(int)))
-	;
+        ;
 
     theBlockIndex++;
     if (theBlockIndex == MV_BufCount)
-	theBlockIndex = 0;
+        theBlockIndex = 0;
 
     theBlock = &theSharedData->myData[theBlockIndex];
     theBlock->myEntries = 0;
@@ -117,12 +117,12 @@ PIN_LOCK    theLock;
 /*!
  * Called when a buffer fills up, or the thread exits, so we can process it or pass it off
  * as we see fit.
- * @param[in] id		buffer handle
- * @param[in] tid		id of owning thread
- * @param[in] ctxt		application context
- * @param[in] buf		actual pointer to buffer
- * @param[in] numElements	number of records
- * @param[in] v			callback value
+ * @param[in] id                buffer handle
+ * @param[in] tid                id of owning thread
+ * @param[in] ctxt                application context
+ * @param[in] buf                actual pointer to buffer
+ * @param[in] numElements        number of records
+ * @param[in] v                        callback value
  * @return  A pointer to the buffer to resume filling.
  */
 VOID * BufferFull(BUFFER_ID id, THREADID tid, const CONTEXT *ctxt, VOID *buf,
@@ -133,13 +133,13 @@ VOID * BufferFull(BUFFER_ID id, THREADID tid, const CONTEXT *ctxt, VOID *buf,
     PIN_GetLock(&theLock, tid);
     for (UINT64 i = 0; i < n; i++)
     {
-	unsigned int type = data[i].type;
-	type |= ((unsigned int)tid << MV_ThreadShift) & MV_ThreadMask;
-	theBlock->myAddr[theBlock->myEntries].myAddr = data[i].ea;
-	theBlock->myAddr[theBlock->myEntries].myType = type;
-	theBlock->myEntries++;
-	if (theBlock->myEntries >= theMaxEntries)
-	    flushEvents();
+        unsigned int type = data[i].type;
+        type |= ((unsigned int)tid << MV_ThreadShift) & MV_ThreadMask;
+        theBlock->myAddr[theBlock->myEntries].myAddr = data[i].ea;
+        theBlock->myAddr[theBlock->myEntries].myType = type;
+        theBlock->myEntries++;
+        if (theBlock->myEntries >= theMaxEntries)
+            flushEvents();
     }
     PIN_ReleaseLock(&theLock);
 
@@ -159,40 +159,40 @@ VOID Instruction(INS ins, VOID *v)
     // Iterate over each memory operand of the instruction.
     for (UINT32 memOp = 0; memOp < memOperands; memOp++)
     {
-	bool write = INS_MemoryOperandIsWritten(ins, memOp);
-	UINT32 size = INS_MemoryOperandSize(ins, memOp);
+        bool write = INS_MemoryOperandIsWritten(ins, memOp);
+        UINT32 size = INS_MemoryOperandSize(ins, memOp);
 
-	unsigned int    type;
-	unsigned int	datatype;
+        unsigned int    type;
+        unsigned int    datatype;
 
-	if (size <= 1)
-	    datatype = MV_DataChar8;
-	else if (size <= 4)
-	    datatype = MV_DataInt32;
-	else
-	    datatype = MV_DataInt64;
+        if (size <= 1)
+            datatype = MV_DataChar8;
+        else if (size <= 4)
+            datatype = MV_DataInt32;
+        else
+            datatype = MV_DataInt64;
 
-	type = write ? MV_ShiftedWrite : MV_ShiftedRead;
-	type |= (size << MV_SizeShift) & MV_SizeMask;
-	type |= datatype << MV_DataShift;
+        type = write ? MV_ShiftedWrite : MV_ShiftedRead;
+        type |= (size << MV_SizeShift) & MV_SizeMask;
+        type |= datatype << MV_DataShift;
 
-	INS_InsertFillBuffer(ins, IPOINT_BEFORE, theBuffer,
-		     IARG_MEMORYOP_EA, memOp, offsetof(struct BufferData, ea),
-		     IARG_UINT32, type, offsetof(struct BufferData, type),
-		     IARG_END);
+        INS_InsertFillBuffer(ins, IPOINT_BEFORE, theBuffer,
+                     IARG_MEMORYOP_EA, memOp, offsetof(struct BufferData, ea),
+                     IARG_UINT32, type, offsetof(struct BufferData, type),
+                     IARG_END);
     }
 }
 
 static void
 imageEvent(IMG img, bool unload)
 {
-    THREADID	tid = PIN_ThreadId();
+    THREADID        tid = PIN_ThreadId();
 
-    MV_Header		header;
-    MV_MMapType		type = MV_DATA;
+    MV_Header       header;
+    MV_MMapType     type = MV_DATA;
 
     if (unload)
-	type = MV_UNMAP;
+        type = MV_UNMAP;
 
     header.myType = MV_MMAP;
     header.myMMap.myStart = IMG_LowAddress(img);
@@ -200,16 +200,16 @@ imageEvent(IMG img, bool unload)
     header.myMMap.myType = type;
     header.myMMap.myThread = tid;
 
-    const char	*filename = IMG_Name(img).c_str();
+    const char        *filename = IMG_Name(img).c_str();
 
     header.myMMap.mySize = strlen(filename)+1; // Include terminating '\0'
 
     PIN_GetLock(&theLock, tid);
     flushEvents();
     if (!write(KnobPipe, &header, sizeof(MV_Header)))
-	;
+        ;
     if (!write(KnobPipe, filename, header.myMMap.mySize))
-	;
+        ;
     PIN_ReleaseLock(&theLock);
 }
 
@@ -264,23 +264,23 @@ int main(int argc, char *argv[])
 
     std::string shm = KnobSharedMem.Value();
     if (shm.empty())
-	return 1;
+        return 1;
 
     int shm_fd = open(shm.c_str(),
-	    O_CLOEXEC | O_RDWR,
-	    S_IRUSR | S_IWUSR);
+            O_CLOEXEC | O_RDWR,
+            S_IRUSR | S_IWUSR);
     if (shm_fd == -1)
     {
-	perror("shm_open");
-	return 1;
+        perror("shm_open");
+        return 1;
     }
 
     theSharedData = (MV_SharedData *)mmap(NULL, sizeof(MV_SharedData),
-	    PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+            PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     if (theSharedData == MAP_FAILED)
     {
-	perror("mmap");
-	return 1;
+        perror("mmap");
+        return 1;
     }
 
     theBlockIndex = 0;
@@ -291,7 +291,7 @@ int main(int argc, char *argv[])
     // set up the callback to process the buffer.
     //
     theBuffer = PIN_DefineTraceBuffer(
-	    sizeof(BufferData), NUM_BUF_PAGES, BufferFull, 0);
+            sizeof(BufferData), NUM_BUF_PAGES, BufferFull, 0);
 
     if(theBuffer == BUFFER_ID_INVALID)
     {

@@ -38,74 +38,73 @@ public:
     ~DisplayLayout();
 
     enum Visualization {
-	LINEAR,
-	BLOCK,
-	HILBERT
+        LINEAR,
+        BLOCK,
+        HILBERT
     };
 
-    Visualization   getVisualization() const	{ return myVisualization; }
-    void	    setVisualization(Visualization vis)
-		    { myVisualization = vis; }
+    Visualization   getVisualization() const        { return myVisualization; }
+    void            setVisualization(Visualization vis)
+                    { myVisualization = vis; }
 
-    void	    setCompact(bool compact)
-		    { myCompact = compact; }
+    void            setCompact(bool compact)
+                    { myCompact = compact; }
 
     // Build the block display layout from state
-    void	    update(MemoryState &state,
-			   MMapMap &mmap,
-			   int64 winwidth,
-			   int64 width,
-			   int zoom);
+    void            update(MemoryState &state,
+                           MMapMap &mmap,
+                           int64 winwidth,
+                           int64 width,
+                           int zoom);
 
     // Get the resolution of the full layout
-    int64	    width() const { return myWidth; }
-    int64	    height() const { return myHeight; }
+    int64           width() const { return myWidth; }
+    int64           height() const { return myHeight; }
 
     // Fill an entire image, starting at the given row and column offset.
     // The Source type determines what data is put in the image.  Currently
     // there are explicit instantiations for:
-    //	- uint32, StateSource
-    //	- uint64, AddressSource
-    //	- uint32, IntervalSource<MMapInfo>
+    //        - uint32, StateSource
+    //        - uint64, AddressSource
+    //        - uint32, IntervalSource<MMapInfo>
     //  - uint32, IntervalSource<StackInfo>
     template <typename T, typename Source>
-    void	    fillImage(GLImage<T> &image,
-			  const Source &src,
-			  int64 roff, int64 coff) const;
+    void            fillImage(GLImage<T> &image,
+                          const Source &src,
+                          int64 roff, int64 coff) const;
 
     // Look up the memory address that corresponds to a given pixel
-    uint64	    queryPixelAddress(
-			  MemoryState &state,
-			  int64 roff, int64 coff) const;
+    uint64          queryPixelAddress(MemoryState &state,
+                                      int64 roff, int64 coff) const;
 
 private:
     // This method handles the compact display mode in 2D
     template <int dim>
-    void	    compactBoxes(int64 &maxval);
+    void            compactBoxes(int64 &maxval);
 
 private:
     struct DisplayBlock {
-	DisplayBlock(uint64 addr, uint64 size)
-	    : myAddr(addr)
-	    , mySize(size) {}
+        DisplayBlock(uint64 addr, uint64 size)
+            : myAddr(addr)
+            , mySize(size) {}
 
-	uint64	begin() const { return myAddr; }
-	uint64	end() const { return myAddr + mySize; }
+        uint64        begin() const { return myAddr; }
+        uint64        end() const { return myAddr + mySize; }
 
-	uint64	myAddr;
-	uint64	mySize;
+        uint64        myAddr;
+        uint64        mySize;
 
-	Box<int64>	myBox;
-	Box<int64>	myDisplayBox;
+        Box<int64>        myBox;
+        Box<int64>        myDisplayBox;
     };
 
-    Visualization		myVisualization;
-    std::vector<DisplayBlock>	myBlocks;
-    int64			myWidth;
-    int64			myHeight;
-    int				myStartLevel;
-    int				myStopLevel;
-    bool			myCompact;
+    Visualization                myVisualization;
+    std::vector<DisplayBlock>    myBlocks;
+    int64                        myWidth;
+    int64                        myHeight;
+    int                          myStartLevel;
+    int                          myStopLevel;
+    bool                         myCompact;
 };
 
 // Fill State values from the given MemoryState
@@ -120,21 +119,21 @@ public:
     { return page.exists(); }
 
     inline void setScanline(uint32 *scan,
-	    MemoryState::DisplayPage &page, uint64 off, int n) const
+            MemoryState::DisplayPage &page, uint64 off, int n) const
     {
-	memcpy(scan, page.stateArray() + off, n*sizeof(uint32));
+        memcpy(scan, page.stateArray() + off, n*sizeof(uint32));
     }
     inline void gatherScanline(uint32 *scan,
-	    MemoryState::DisplayPage &page, uint64 off,
-	    const int *lut, int n) const
+            MemoryState::DisplayPage &page, uint64 off,
+            const int *lut, int n) const
     {
-	const uint32	*state = (const uint32 *)page.stateArray() + off;
-	for (int i = 0; i < n; i++)
-	    scan[i] = state[lut[i]];
+        const uint32        *state = (const uint32 *)page.stateArray() + off;
+        for (int i = 0; i < n; i++)
+            scan[i] = state[lut[i]];
     }
 
 private:
-    MemoryState	&myState;
+    MemoryState        &myState;
 };
 
 // Fill memory addresses
@@ -149,21 +148,21 @@ public:
     { return true; }
 
     inline void setScanline(uint64 *scan,
-	    MemoryState::DisplayPage &page, uint64 off, int n) const
+            MemoryState::DisplayPage &page, uint64 off, int n) const
     {
-	for (int i = 0; i < n; i++)
-	    scan[i] = page.addr() + off + i;
+        for (int i = 0; i < n; i++)
+            scan[i] = page.addr() + off + i;
     }
     inline void gatherScanline(uint64 *scan,
-	    MemoryState::DisplayPage &page, uint64 off,
-	    const int *lut, int n) const
+            MemoryState::DisplayPage &page, uint64 off,
+            const int *lut, int n) const
     {
-	for (int i = 0; i < n; i++)
-	    scan[i] = page.addr() + off + lut[i];
+        for (int i = 0; i < n; i++)
+            scan[i] = page.addr() + off + lut[i];
     }
 
 private:
-    MemoryState	&myState;
+    MemoryState        &myState;
 };
 
 // Fill indices representing which MMap segment each mapped address
@@ -172,22 +171,22 @@ template <typename T>
 class IntervalSource {
 public:
     IntervalSource(const IntervalMap<T> &intervals,
-	    uint64 selection, int ignorebits)
-	: myIntervals(intervals)
-	, mySelection(selection)
+            uint64 selection, int ignorebits)
+        : myIntervals(intervals)
+        , mySelection(selection)
         , myIgnoreBits(ignorebits)
-	{}
+        {}
 
     struct Page {
-	Page() : mySize(0), myExists(false) {}
-	Page(uint64 size, bool exists)
-	    : mySize(size)
-	    , myExists(exists) {}
+        Page() : mySize(0), myExists(false) {}
+        Page(uint64 size, bool exists)
+            : mySize(size)
+            , myExists(exists) {}
 
-	uint64 size() const { return mySize; }
+        uint64 size() const { return mySize; }
 
-	uint64	mySize;
-	bool	myExists;
+        uint64      mySize;
+        bool        myExists;
     };
 
     // These are the values used by the fragment shader
@@ -198,69 +197,69 @@ public:
 
     Page getPage(uint64 addr, uint64 size, uint64 &off) const
     {
-	IntervalMapReader<T>	reader(myIntervals);
-	auto	it = reader.findAfter(addr << myIgnoreBits);
+        IntervalMapReader<T> reader(myIntervals);
+        auto it = reader.findAfter(addr << myIgnoreBits);
 
-	off = 0;
+        off = 0;
 
-	// addr does not overlap the range - return an empty page
-	if (it == reader.end() || (it.start()>>myIgnoreBits) >= addr + size)
-	    return Page(size, false);
+        // addr does not overlap the range - return an empty page
+        if (it == reader.end() || (it.start()>>myIgnoreBits) >= addr + size)
+            return Page(size, false);
 
-	myBuffer.assign(size, 0);
+        myBuffer.assign(size, 0);
 
-	while ((it.start()>>myIgnoreBits) < addr + size)
-	{
-	    const uint64	a = (1ull << myIgnoreBits) - 1;
-	    const bool		selected = mySelection == it.start();
-	    uint64		start = it.start() >> myIgnoreBits;
-	    uint64		end = (it.end()+a) >> myIgnoreBits;
+        while ((it.start()>>myIgnoreBits) < addr + size)
+        {
+            const uint64        a = (1ull << myIgnoreBits) - 1;
+            const bool          selected = mySelection == it.start();
+            uint64              start = it.start() >> myIgnoreBits;
+            uint64              end = (it.end()+a) >> myIgnoreBits;
 
-	    start = SYSmax(start, addr);
+            start = SYSmax(start, addr);
 
-	    for (uint64 i = start-addr; i < SYSmin(end-addr, size); i++)
-		myBuffer[i] = getIndex(it.value(), selected);
+            for (uint64 i = start-addr; i < SYSmin(end-addr, size); i++)
+                myBuffer[i] = getIndex(it.value(), selected);
 
-	    ++it;
-	    if (it == reader.end())
-		break;
+            ++it;
+            if (it == reader.end())
+                break;
 
-	    // When zoomed out there may be many intervals overlapping a
-	    // single pixel.  Check if the next interval would end at the
-	    // same address and if so perform another binary search to
-	    // advance to the next pixel.
-	    if (((it.end()+a)>>myIgnoreBits) == end)
-	    {
-		it = reader.findAfter(end << myIgnoreBits);
-		if (it == reader.end())
-		    break;
-	    }
-	}
+            // When zoomed out there may be many intervals overlapping a
+            // single pixel.  Check if the next interval would end at the
+            // same address and if so perform another binary search to
+            // advance to the next pixel.
+            if (((it.end()+a)>>myIgnoreBits) == end)
+            {
+                it = reader.findAfter(end << myIgnoreBits);
+                if (it == reader.end())
+                    break;
+            }
+        }
 
-	return Page(size, true);
+        return Page(size, true);
     }
 
     inline bool exists(const Page &page) const { return page.myExists; }
 
     inline void setScanline(uint32 *scan, Page &, uint64 off, int n) const
     {
-	memcpy(scan, &myBuffer[off], n*sizeof(uint32));
+        memcpy(scan, &myBuffer[off], n*sizeof(uint32));
     }
 
     inline void gatherScanline(uint32 *scan,
-	    Page &, uint64 off,
-	    const int *lut, int n) const
+                               Page &, uint64 off,
+                               const int *lut, int n) const
     {
-	const uint32	*state = &myBuffer[off];
-	for (int i = 0; i < n; i++)
-	    scan[i] = state[lut[i]];
+        const uint32        *state = &myBuffer[off];
+        for (int i = 0; i < n; i++)
+            scan[i] = state[lut[i]];
     }
 
 private:
-    const IntervalMap<T>	  &myIntervals;
-    mutable std::vector<uint32>	   myBuffer;
-    uint64			   mySelection;
-    int	    			   myIgnoreBits;
+    const IntervalMap<T>          &myIntervals;
+    mutable std::vector<uint32>    myBuffer;
+    uint64                         mySelection;
+    int                            myIgnoreBits;
 };
 
 #endif

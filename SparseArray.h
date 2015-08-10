@@ -42,162 +42,162 @@
 template <typename T, const int bottom_bits, int page_bits>
 class SparseArray {
 private:
-    static const int	theBottomBits = bottom_bits;
-    static const uint64	theBottomSize = 1ull << theBottomBits;
-    static const uint64	theBottomMask = theBottomSize-1;
+    static const int        theBottomBits = bottom_bits;
+    static const uint64     theBottomSize = 1ull << theBottomBits;
+    static const uint64     theBottomMask = theBottomSize-1;
 
-    static const int	thePageBits = page_bits;
-    static const uint64	thePageSize = 1ull<<thePageBits;
-    static const uint64	thePageMask = thePageSize-1;
+    static const int        thePageBits = page_bits;
+    static const uint64     thePageSize = 1ull<<thePageBits;
+    static const uint64     thePageMask = thePageSize-1;
 
 public:
      // Create an array of size 1<<all_bits
      SparseArray(int all_bits)
      {
-	 // If all_bits is too small, the reported page size from Page
-	 // will be incorrect.
-	 assert(all_bits >= page_bits);
+         // If all_bits is too small, the reported page size from Page
+         // will be incorrect.
+         assert(all_bits >= page_bits);
 
-	 // This needs to be at least bottom_bits
-	 all_bits = SYSmax(all_bits, bottom_bits);
+         // This needs to be at least bottom_bits
+         all_bits = SYSmax(all_bits, bottom_bits);
 
-	 uint64 entries = 1ull << all_bits;
+         uint64 entries = 1ull << all_bits;
 
-	 myTopSize = 1ull << (all_bits - bottom_bits);
+         myTopSize = 1ull << (all_bits - bottom_bits);
 
-	 // Map a massive memory buffer to store the state.  This will only
-	 // translate into physical memory use as we write values to the buffer.
-	 size_t ssize = entries*sizeof(T);
-	 size_t dsize = (myTopSize << (bottom_bits-page_bits))*sizeof(bool);
-	 size_t tsize = myTopSize*sizeof(bool);
+         // Map a massive memory buffer to store the state.  This will only
+         // translate into physical memory use as we write values to the buffer.
+         size_t ssize = entries*sizeof(T);
+         size_t dsize = (myTopSize << (bottom_bits-page_bits))*sizeof(bool);
+         size_t tsize = myTopSize*sizeof(bool);
 
-	 mySize = ssize + tsize + dsize;
+         mySize = ssize + tsize + dsize;
 
-	 void *addr = mmap(0, mySize,
-		 PROT_WRITE | PROT_READ,
-		 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
-		 -1, 0);
-	 if (addr == MAP_FAILED)
-	 {
-	     perror("mmap");
-	     exit(EXIT_FAILURE);
-	 }
+         void *addr = mmap(0, mySize,
+                 PROT_WRITE | PROT_READ,
+                 MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE,
+                 -1, 0);
+         if (addr == MAP_FAILED)
+         {
+             perror("mmap");
+             exit(EXIT_FAILURE);
+         }
 
-	 myState = (T *)addr;
-	 myExists = (bool *)((char *)addr + ssize);
-	 myTopExists = (bool *)((char *)addr + ssize + dsize);
+         myState = (T *)addr;
+         myExists = (bool *)((char *)addr + ssize);
+         myTopExists = (bool *)((char *)addr + ssize + dsize);
      }
     ~SparseArray()
      {
-	 munmap(myState, mySize);
+         munmap(myState, mySize);
      }
 
     void setExists(uint64 addr)
     {
-	myExists[addr >> thePageBits] = true;
-	myTopExists[addr >> theBottomBits] = true;
+        myExists[addr >> thePageBits] = true;
+        myTopExists[addr >> theBottomBits] = true;
     }
 
-    T	    	&operator[](uint64 idx) { return myState[idx]; }
-    const T	&operator[](uint64 idx) const { return myState[idx]; }
+    T              &operator[](uint64 idx) { return myState[idx]; }
+    const T        &operator[](uint64 idx) const { return myState[idx]; }
 
     // Abstract access to a single page
     class Page {
     public:
-	Page() : myArr(0), myAddr(0) {}
-	Page(T *arr, uint64 addr)
-	    : myArr(arr)
-	    , myAddr(addr) {}
+        Page() : myArr(0), myAddr(0) {}
+        Page(T *arr, uint64 addr)
+            : myArr(arr)
+            , myAddr(addr) {}
 
-	uint64	addr() const	{ return myAddr; }
-	uint64	size() const	{ return thePageSize; }
+        uint64        addr() const        { return myAddr; }
+        uint64        size() const        { return thePageSize; }
 
-	T	state(uint64 i) const { return myArr[i]; }
-	T	&state(uint64 i) { return myArr[i]; }
-	bool	exists() const { return myArr; }
+        T        state(uint64 i) const { return myArr[i]; }
+        T        &state(uint64 i) { return myArr[i]; }
+        bool      exists() const { return myArr; }
 
-	T	*stateArray()		{ return myArr; }
-	const T	*stateArray() const	{ return myArr; }
+        T        *stateArray()                { return myArr; }
+        const T  *stateArray() const        { return myArr; }
 
     private:
-	T	    *myArr;
-	uint64	     myAddr;
+        T            *myArr;
+        uint64        myAddr;
     };
 
-    Page	getPage(uint64 addr, uint64 &off) const
+    Page        getPage(uint64 addr, uint64 &off) const
     {
-	off = addr;
-	addr &= ~thePageMask;
-	off -= addr;
-	return Page(myExists[addr >> thePageBits] ?
-		&myState[addr] : 0, addr);
+        off = addr;
+        addr &= ~thePageMask;
+        off -= addr;
+        return Page(myExists[addr >> thePageBits] ?
+                &myState[addr] : 0, addr);
     }
 
     // A class to iterate over existing pages.
     class Iterator {
     public:
-	Iterator(SparseArray<T, bottom_bits, page_bits> &state)
-	    : myState(state)
-	    , myTop(0)
-	    , myBottom(0)
-	{
-	    rewind();
-	}
+        Iterator(SparseArray<T, bottom_bits, page_bits> &state)
+            : myState(state)
+            , myTop(0)
+            , myBottom(0)
+        {
+            rewind();
+        }
 
-	void	rewind()
-		{
-		    myTop = 0;
-		    myBottom = 0;
-		    skipEmpty();
-		}
-	bool	atEnd() const
-		{
-		    return myTop >= myState.myTopSize;
-		}
-	void	advance()
-		{
-		    myBottom += thePageSize;
-		    skipEmpty();
-		}
+        void    rewind()
+                {
+                    myTop = 0;
+                    myBottom = 0;
+                    skipEmpty();
+                }
+        bool    atEnd() const
+                {
+                    return myTop >= myState.myTopSize;
+                }
+        void    advance()
+                {
+                    myBottom += thePageSize;
+                    skipEmpty();
+                }
 
-	Page page() const
-	{
-	    uint64 addr = (myTop << theBottomBits) + myBottom;
-	    return Page(&myState.myState[addr], addr);
-	}
-
-    private:
-	void	skipEmpty()
-		{
-		    for (; myTop < myState.myTopSize; myTop++)
-		    {
-			if (myState.myTopExists[myTop])
-			{
-			    for (; myBottom < theBottomSize;
-				    myBottom += thePageSize)
-			    {
-				uint64 didx = ((myTop << theBottomBits) +
-				    myBottom) >> thePageBits;
-				if (myState.myExists[didx])
-				    return;
-			    }
-			}
-			myBottom = 0;
-		    }
-		}
+        Page page() const
+        {
+            uint64 addr = (myTop << theBottomBits) + myBottom;
+            return Page(&myState.myState[addr], addr);
+        }
 
     private:
-	SparseArray<T, bottom_bits, page_bits>	&myState;
-	uint64		 myTop;
-	uint64		 myBottom;
+        void    skipEmpty()
+                {
+                    for (; myTop < myState.myTopSize; myTop++)
+                    {
+                        if (myState.myTopExists[myTop])
+                        {
+                            for (; myBottom < theBottomSize;
+                                    myBottom += thePageSize)
+                            {
+                                uint64 didx = ((myTop << theBottomBits) +
+                                    myBottom) >> thePageBits;
+                                if (myState.myExists[didx])
+                                    return;
+                            }
+                        }
+                        myBottom = 0;
+                    }
+                }
+
+    private:
+        SparseArray<T, bottom_bits, page_bits>        &myState;
+        uint64                 myTop;
+        uint64                 myBottom;
     };
 
 private:
-    T		*myState;
-    bool	*myTopExists;
-    bool	*myExists;
-    size_t	 mySize;
-    uint64	 myTopSize;
+    T           *myState;
+    bool        *myTopExists;
+    bool        *myExists;
+    size_t       mySize;
+    uint64       myTopSize;
 };
 
 #endif

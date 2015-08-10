@@ -32,11 +32,11 @@
 
 #define HAS_LAMBDA (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
 
-typedef unsigned char		uint8;
-typedef unsigned short		uint16;
-typedef unsigned		uint32;
-typedef unsigned long long	uint64;
-typedef signed long long	int64;
+typedef unsigned char           uint8;
+typedef unsigned short          uint16;
+typedef unsigned                uint32;
+typedef unsigned long long      uint64;
+typedef signed long long        int64;
 
 template <typename T>
 inline T SYSmax(T a, T b)
@@ -56,8 +56,8 @@ inline T SYSclamp(T v, T a, T b)
 inline int SYSclamp32(int64 val)
 {
     return (int)SYSclamp(val,
-	    (int64)std::numeric_limits<int>::min(),
-	    (int64)std::numeric_limits<int>::max());
+            (int64)std::numeric_limits<int>::min(),
+            (int64)std::numeric_limits<int>::max());
 }
 inline int SYSclamp32(uint64 val)
 {
@@ -71,7 +71,7 @@ inline T SYSlerp(T v1, T v2, T bias)
 template <typename T>
 inline void SYSswap(T &v1, T &v2)
 {
-    T	tmp(v1);
+    T tmp(v1);
     v1 = v2;
     v2 = tmp;
 }
@@ -85,37 +85,37 @@ template <typename T>
 struct Box {
     void initBounds()
     {
-	T minv = std::numeric_limits<T>::min();
-	T maxv = std::numeric_limits<T>::max();
-	l[0] = maxv; h[0] = minv;
-	l[1] = maxv; h[1] = minv;
+        T minv = std::numeric_limits<T>::min();
+        T maxv = std::numeric_limits<T>::max();
+        l[0] = maxv; h[0] = minv;
+        l[1] = maxv; h[1] = minv;
     }
     void initBounds(T xl, T yl, T xh, T yh)
     {
-	l[0] = xl; h[0] = xh;
-	l[1] = yl; h[1] = yh;
+        l[0] = xl; h[0] = xh;
+        l[1] = yl; h[1] = yh;
     }
     void enlargeBounds(T xl, T yl, T xh, T yh)
     {
-	l[0] = SYSmin(l[0], xl); h[0] = SYSmax(h[0], xh);
-	l[1] = SYSmin(l[1], yl); h[1] = SYSmax(h[1], yh);
+        l[0] = SYSmin(l[0], xl); h[0] = SYSmax(h[0], xh);
+        l[1] = SYSmin(l[1], yl); h[1] = SYSmax(h[1], yh);
     }
 
     bool intersect(const Box &other)
     {
-	for (T i = 0; i < 2; i++)
-	{
-	    l[i] = SYSmax(l[i], other.l[i]);
-	    h[i] = SYSmin(h[i], other.h[i]);
-	}
-	return isValid();
+        for (T i = 0; i < 2; i++)
+        {
+            l[i] = SYSmax(l[i], other.l[i]);
+            h[i] = SYSmin(h[i], other.h[i]);
+        }
+        return isValid();
     }
     bool isValid() const { return h[0] > l[0] && h[1] > l[1]; }
 
     void dump() const
     {
-	fprintf(stderr, "box: %lld %lld - %lld %lld\n",
-		(int64)l[0], (int64)l[1], (int64)h[0], (int64)h[1]);
+        fprintf(stderr, "box: %lld %lld - %lld %lld\n",
+                (int64)l[0], (int64)l[1], (int64)h[0], (int64)h[1]);
     }
 
     T xmin() const { return l[0]; }
@@ -127,8 +127,8 @@ struct Box {
     T width() const { return h[0] - l[0]; }
     T height() const { return h[1] - l[1]; }
 
-    T	l[2];
-    T	h[2];
+    T        l[2];
+    T        h[2];
 };
 
 #if HAS_LAMBDA

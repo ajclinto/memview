@@ -2,12 +2,12 @@
 
 #define FIND(METHOD, IDX, STR) \
     { \
-	auto it = writer.METHOD(IDX); \
-	if ((it != writer.end() ? it.value() : "") != STR) \
-	{ \
-	    fprintf(stderr, #METHOD ": %d %s\n", IDX, STR); \
-	    return false; \
-	} \
+        auto it = writer.METHOD(IDX); \
+        if ((it != writer.end() ? it.value() : "") != STR) \
+        { \
+            fprintf(stderr, #METHOD ": %d %s\n", IDX, STR); \
+            return false; \
+        } \
     }
 
 typedef IntervalMap<std::string> StringMap;
@@ -18,7 +18,7 @@ bool
 testBasic()
 {
     StringMap   map;
-    StringMapWriter	writer(map);
+    StringMapWriter writer(map);
 
     writer.insert(1, 2, "test1");
     writer.insert(10, 20, "test2");
@@ -43,8 +43,8 @@ testBasic()
 
     if (writer.size())
     {
-	fprintf(stderr, "map should be empty\n");
-	return false;
+        fprintf(stderr, "map should be empty\n");
+        return false;
     }
 
     FIND(find, 15, "")
@@ -57,7 +57,7 @@ bool
 testOverlap()
 {
     StringMap   map;
-    StringMapWriter	writer(map);
+    StringMapWriter writer(map);
 
     writer.insert(0, 10, "test1");
     writer.insert(5, 15, "test2");
@@ -77,7 +77,7 @@ testOverlap()
 int
 main()
 {
-    bool    ok = true;
+    bool ok = true;
 
     ok &= testBasic();
     ok &= testOverlap();

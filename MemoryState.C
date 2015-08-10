@@ -50,7 +50,7 @@ MemoryState::~MemoryState()
 void
 MemoryState::incrementTime(StackTraceMap *stacks)
 {
-    QMutexLocker	lock(&myWriteLock);
+    QMutexLocker        lock(&myWriteLock);
 
     myTime++;
 
@@ -58,112 +58,112 @@ MemoryState::incrementTime(StackTraceMap *stacks)
     bool full = myTime == theFullLife;
     if (half || full)
     {
-	// The time wrapped
-	for (DisplayIterator it(begin()); !it.atEnd(); it.advance())
-	{
-	    DisplayPage page(it.page());
-	    for (uint64 i = 0; i < page.size(); i++)
-	    {
-		uint32	state = page.state(i).time();
-		if (state && ((state >= theHalfLife) ^ full))
-		    page.state(i).setTime(theStale);
-	    }
-	}
+        // The time wrapped
+        for (DisplayIterator it(begin()); !it.atEnd(); it.advance())
+        {
+            DisplayPage page(it.page());
+            for (uint64 i = 0; i < page.size(); i++)
+            {
+                uint32        state = page.state(i).time();
+                if (state && ((state >= theHalfLife) ^ full))
+                    page.state(i).setTime(theStale);
+            }
+        }
 
-	if (stacks)
-	{
-	    StackTraceMapWriter writer(*stacks);
-	    uint64		start, end;
+        if (stacks)
+        {
+            StackTraceMapWriter writer(*stacks);
+            uint64              start, end;
 
-	    writer.getTotalInterval(start, end);
-	    writer.apply(start, end, StackInfoUpdater(full));
-	}
+            writer.getTotalInterval(start, end);
+            writer.apply(start, end, StackInfoUpdater(full));
+        }
 
-	if (full)
-	    myTime = 2;
+        if (full)
+            myTime = 2;
     }
 }
 
 void
 MemoryState::appendAddressInfo(
-	QString &message, uint64 addr,
-	const MMapMap &map)
+        QString &message, uint64 addr,
+        const MMapMap &map)
 {
     if (!addr)
-	return;
+        return;
 
-    QString	tmp;
-    uint64	paddr = addr << myIgnoreBits;
+    QString       tmp;
+    uint64        paddr = addr << myIgnoreBits;
 
     MMapMapReader reader(map);
-    auto	it = reader.find(paddr);
-    MMapInfo	mmapinfo{"Address", 0, false};
+    auto          it = reader.find(paddr);
+    MMapInfo      mmapinfo{"Address", 0, false};
 
     if (it != reader.end())
-	mmapinfo = it.value();
+        mmapinfo = it.value();
 
     tmp.sprintf("\t\t%s: 0x%.12llx", mmapinfo.myStr.c_str(), paddr);
 
     message.append(tmp);
 
-    uint64	off;
-    auto	page = getPage(addr, off);
+    uint64      off;
+    auto        page = getPage(addr, off);
     if (!page.exists())
-	return;
+        return;
 
-    State	entry = page.state(off);
+    State        entry = page.state(off);
 
     if (!entry.uval)
-	return;
+        return;
 
-    const char	*typestr = 0;
+    const char  *typestr = 0;
 
     int type = entry.type();
     switch (type & ~MV_TypeFree)
     {
-	case MV_TypeRead: typestr = "Read"; break;
-	case MV_TypeWrite: typestr = "Written"; break;
-	case MV_TypeInstr: typestr = "Instruction"; break;
-	case MV_TypeAlloc: typestr = "Allocated"; break;
+        case MV_TypeRead: typestr = "Read"; break;
+        case MV_TypeWrite: typestr = "Written"; break;
+        case MV_TypeInstr: typestr = "Instruction"; break;
+        case MV_TypeAlloc: typestr = "Allocated"; break;
     }
 
     if (typestr)
     {
-	if (!mmapinfo.myMapped)
-	    typestr = "Unmapped";
-	else if (type & MV_TypeFree)
-	    typestr = "Deallocated";
+        if (!mmapinfo.myMapped)
+            typestr = "Unmapped";
+        else if (type & MV_TypeFree)
+            typestr = "Deallocated";
 
-	tmp.sprintf("\t(Thread %d %s)", entry.thread(), typestr);
-	message.append(tmp);
+        tmp.sprintf("\t(Thread %d %s)", entry.thread(), typestr);
+        message.append(tmp);
     }
 }
 
 class Downsample : public QRunnable {
 public:
     Downsample(MemoryState &dst, int shift, bool fast)
-	: myDst(dst)
-	, myShift(shift)
-	, myFast(fast)
+        : myDst(dst)
+        , myShift(shift)
+        , myFast(fast)
     {
     }
 
     void push(const MemoryState::DisplayPage src)
     {
-	mySrc.push_back(src);
+        mySrc.push_back(src);
     }
     size_t size() const { return mySrc.size(); }
 
     virtual void run()
     {
-	for (auto it = mySrc.begin(); it != mySrc.end(); ++it)
-	    myDst.downsamplePage(*it, myShift, myFast);
+        for (auto it = mySrc.begin(); it != mySrc.end(); ++it)
+            myDst.downsamplePage(*it, myShift, myFast);
     }
 
 private:
-    MemoryState			&myDst;
-    std::vector<MemoryState::DisplayPage>	 mySrc;
-    int	    myShift;
+    MemoryState &myDst;
+    std::vector<MemoryState::DisplayPage> mySrc;
+    int     myShift;
     bool    myFast;
 };
 
@@ -176,24 +176,24 @@ MemoryState::downsample(const MemoryState &state)
     myTime = state.myTime;
 
     Downsample *task = 0;
-    uint64	bunch_size = 16;
+    uint64      bunch_size = 16;
     for (DisplayIterator it(const_cast<MemoryState &>(state).begin());
-	    !it.atEnd(); it.advance())
+            !it.atEnd(); it.advance())
     {
-	// Split up source pages into tasks.  This isn't strictly
-	// thread-safe when 1 << shift is greater than bunch_size, but the
-	// errors aren't usually visible.
-	if (!task)
-	    task = new Downsample(*this, shift, false);
-	task->push(it.page());
-	if (task->size() >= bunch_size)
-	{
-	    QThreadPool::globalInstance()->start(task);
-	    task = 0;
-	}
+        // Split up source pages into tasks.  This isn't strictly
+        // thread-safe when 1 << shift is greater than bunch_size, but the
+        // errors aren't usually visible.
+        if (!task)
+            task = new Downsample(*this, shift, false);
+        task->push(it.page());
+        if (task->size() >= bunch_size)
+        {
+            QThreadPool::globalInstance()->start(task);
+            task = 0;
+        }
     }
     if (task)
-	QThreadPool::globalInstance()->start(task);
+        QThreadPool::globalInstance()->start(task);
 
     QThreadPool::globalInstance()->waitForDone();
 }
@@ -208,18 +208,18 @@ MemoryState::downsamplePage(const DisplayPage &page, int shift, bool fast)
     uint64  mytop;
     splitAddr(myaddr, mytop);
 
-    StateArray	&state = findOrCreateState(mytop);
+    StateArray        &state = findOrCreateState(mytop);
     state.setExists(myaddr);
 
     for (uint64 i = 0; i < page.size(); i += scale)
     {
-	uint    &mystate = state[myaddr].uval;
-	const State   *arr = page.stateArray();
-	uint64   n = SYSmin(i + stride, page.size());
-	for (uint64 j = i; j < n; j++)
-	{
-	    mystate = SYSmax(mystate, arr[j].uval);
-	}
-	myaddr++;
+        uint    &mystate = state[myaddr].uval;
+        const State   *arr = page.stateArray();
+        uint64   n = SYSmin(i + stride, page.size());
+        for (uint64 j = i; j < n; j++)
+        {
+            mystate = SYSmax(mystate, arr[j].uval);
+        }
+        myaddr++;
     }
 }

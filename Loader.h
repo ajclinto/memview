@@ -41,116 +41,116 @@ typedef std::shared_ptr<MemoryState> MemoryStateHandle;
 class Loader : public QThread {
 public:
      Loader(MemoryState *state,
-	    StackTraceMap *stack,
-	    MMapMap *mmapmap,
-	    const std::string &path);
+            StackTraceMap *stack,
+            MMapMap *mmapmap,
+            const std::string &path);
     ~Loader();
 
-    bool	openPipe(int argc, char *argv[]);
+    bool        openPipe(int argc, char *argv[]);
 
-    void	setZoomState(MemoryState *state)
-		{
-		    QMutexLocker lock(&myPendingLock);
-		    myPendingState.reset(state);
-		}
-    void	clearZoomState()
-		{
-		    QMutexLocker lock(&myPendingLock);
-		    myPendingClear = true;
-		}
+    void        setZoomState(MemoryState *state)
+                {
+                    QMutexLocker lock(&myPendingLock);
+                    myPendingState.reset(state);
+                }
+    void        clearZoomState()
+                {
+                    QMutexLocker lock(&myPendingLock);
+                    myPendingClear = true;
+                }
 
     // Regulates the interval between stack traces
-    void	setBlockSize(int size)
-		{
-		    myBlockSize = SYSclamp(size, 1, MV_BlockSize);
-		}
+    void        setBlockSize(int size)
+                {
+                    myBlockSize = SYSclamp(size, 1, MV_BlockSize);
+                }
 
-    MemoryState	*getBaseState() const { return myState; }
+    MemoryState *getBaseState() const { return myState; }
 
-    uint64	getTotalEvents() const { return myTotalEvents; }
-    bool	isComplete() const { return myAbort; }
+    uint64      getTotalEvents() const { return myTotalEvents; }
+    bool        isComplete() const { return myAbort; }
 
-    pid_t	getChild() const { return myChild; }
+    pid_t       getChild() const { return myChild; }
 
 protected:
-    void	run();
+    void        run();
 
 private:
-    bool	initSharedMemory();
-    void	writeToken(int token);
-    bool	waitForInput(int timeout_ms);
-    bool	loadFromLackey(int max_read);
-    bool	loadFromPipe();
-    bool	loadFromSharedMemory();
+    bool        initSharedMemory();
+    void        writeToken(int token);
+    bool        waitForInput(int timeout_ms);
+    bool        loadFromLackey(int max_read);
+    bool        loadFromPipe();
+    bool        loadFromSharedMemory();
 
     template <bool with_stacks>
-    bool	loadFromTest();
-    bool	loadFromTestExtrema();
+    bool        loadFromTest();
+    bool        loadFromTestExtrema();
 
-    bool	loadBlock(const MV_TraceBlock &block);
-    void	loadMMap(const MV_Header &header, const char *buf);
+    bool        loadBlock(const MV_TraceBlock &block);
+    void        loadMMap(const MV_Header &header, const char *buf);
 
-    void	timerEvent(QTimerEvent *event);
+    void        timerEvent(QTimerEvent *event);
 
 private:
     typedef std::unordered_map<std::string, int> MMapNameMap;
 
-    MemoryState		*myState;
-    MemoryStateHandle	 myZoomState;
-    StackTraceMap	*myStackTrace;
-    MMapMap		*myMMapMap;
-    MMapNameMap		 myMMapNames;
-    uint64		 myTotalEvents;
-    std::string		 myPath;
+    MemoryState          *myState;
+    MemoryStateHandle     myZoomState;
+    StackTraceMap        *myStackTrace;
+    MMapMap              *myMMapMap;
+    MMapNameMap           myMMapNames;
+    uint64                myTotalEvents;
+    std::string           myPath;
 
-    QMutex		 myPendingLock;
+    QMutex                myPendingLock;
     std::unique_ptr<MemoryState> myPendingState;
-    bool		 myPendingClear;
+    bool                  myPendingClear;
 
-    int			 myBlockSize;
+    int                   myBlockSize;
 
     // Child process
-    pid_t	 myChild;
-    int		 myPipeFD;
-    FILE	*myPipe;
-    int		 myOutPipeFD;
-    FILE	*myOutPipe;
+    pid_t        myChild;
+    int          myPipeFD;
+    FILE        *myPipe;
+    int          myOutPipeFD;
+    FILE        *myOutPipe;
 
-    std::string		 mySharedName;
-    MV_SharedData	*mySharedData;
-    int			 myIdx;
-    int			 myNextToken;
+    std::string           mySharedName;
+    MV_SharedData        *mySharedData;
+    int                   myIdx;
+    int                   myNextToken;
 
     // What are we loading from?
     enum LoadSource {
-	NONE,
-	LACKEY,
-	MEMVIEW_PIPE,
-	PIN,
-	TEST
+        NONE,
+        LACKEY,
+        MEMVIEW_PIPE,
+        PIN,
+        TEST
     };
 
-    LoadSource	 mySource;
-    int		 myTestType;
-    bool	 myAbort;
+    LoadSource   mySource;
+    int          myTestType;
+    bool         myAbort;
 };
 
 // Extract the option with the given prefix, removing it from argc/argv.
 static const char *
 extractOption(int &argc, char *argv[], const char *prefix)
 {
-    const int	len = strlen(prefix);
+    const int        len = strlen(prefix);
     for (int i = 0; i < argc; i++)
     {
-	if (!strncmp(argv[i], prefix, len))
-	{
-	    const char	*opt = argv[i] + len;
-	    // Shorten the argument list
-	    argc--;
-	    for (; i < argc; i++)
-		argv[i] = argv[i+1];
-	    return opt;
-	}
+        if (!strncmp(argv[i], prefix, len))
+        {
+            const char        *opt = argv[i] + len;
+            // Shorten the argument list
+            argc--;
+            for (; i < argc; i++)
+                argv[i] = argv[i+1];
+            return opt;
+        }
     }
     return 0;
 }

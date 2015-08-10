@@ -32,7 +32,7 @@
 
 #define USE_PBUFFER
 
-static const QSize	theDefaultSize(800, 600);
+static const QSize        theDefaultSize(800, 600);
 
 LogSlider::LogSlider(const char *name, int maxlogval, int deflogval)
 {
@@ -51,7 +51,7 @@ LogSlider::LogSlider(const char *name, int maxlogval, int deflogval)
     myNumber->setFixedWidth(50);
     myNumber->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
-    QHBoxLayout	*layout = new QHBoxLayout;
+    QHBoxLayout        *layout = new QHBoxLayout;
 
     layout->addWidget(myLabel);
     layout->addWidget(mySlider);
@@ -81,17 +81,17 @@ void LogSlider::fromLog(int value)
 
 Window::Window(int argc, char *argv[])
 {
-    const char	*batchsize = extractOption(argc, argv, "--batch-size=");
+    const char        *batchsize = extractOption(argc, argv, "--batch-size=");
 
     myScrollArea = new MemViewScroll(this);
 
     setStatusBar(statusBar());
 
     myMemView = new MemViewWidget(argc, argv,
-	    myScrollArea,
-	    myScrollArea->verticalScrollBar(),
-	    myScrollArea->horizontalScrollBar(),
-	    statusBar());
+            myScrollArea,
+            myScrollArea->verticalScrollBar(),
+            myScrollArea->horizontalScrollBar(),
+            statusBar());
 
     myQuit = new QAction(tr("&Quit"), this);
 
@@ -103,24 +103,24 @@ Window::Window(int argc, char *argv[])
 
     myLayoutMenu = menuBar()->addMenu(tr("&Layout"));
 
-    static const char	*theVisNames[theVisCount] = {
-	"&Hilbert Curve",
-	"&Recursive Block",
-	"&Linear",
+    static const char        *theVisNames[theVisCount] = {
+        "&Hilbert Curve",
+        "&Recursive Block",
+        "&Linear",
     };
 
     myVisGroup = createActionGroup(
-	    myLayoutMenu, theVisNames, myVis, theVisCount, 0);
+            myLayoutMenu, theVisNames, myVis, theVisCount, 0);
 
     myLayoutMenu->addSeparator();
 
-    static const char	*theLayoutNames[theLayoutCount] = {
-	"&Compact",
-	"&Full Size",
+    static const char        *theLayoutNames[theLayoutCount] = {
+        "&Compact",
+        "&Full Size",
     };
 
     myLayoutGroup = createActionGroup(
-	    myLayoutMenu, theLayoutNames, myLayout, theLayoutCount, 0);
+            myLayoutMenu, theLayoutNames, myLayout, theLayoutCount, 0);
 
     connect(myVis[0], SIGNAL(triggered()), myMemView, SLOT(hilbert()));
     connect(myVis[1], SIGNAL(triggered()), myMemView, SLOT(block()));
@@ -129,17 +129,17 @@ Window::Window(int argc, char *argv[])
     connect(myLayout[0], SIGNAL(triggered()), myMemView, SLOT(compact()));
     connect(myLayout[1], SIGNAL(triggered()), myMemView, SLOT(full()));
 
-    static const char	*theDisplayNames[theDisplayCount] = {
-	"&Read/Write",
-	"&Thread Id",
-	"&Data Type",
-	"&Mapped Regions",
-	"&Stack Traces",
+    static const char        *theDisplayNames[theDisplayCount] = {
+        "&Read/Write",
+        "&Thread Id",
+        "&Data Type",
+        "&Mapped Regions",
+        "&Stack Traces",
     };
 
     myDisplayMenu = menuBar()->addMenu(tr("&Display"));
     myDisplayGroup = createActionGroup(
-	    myDisplayMenu, theDisplayNames, myDisplay, theDisplayCount, 0);
+            myDisplayMenu, theDisplayNames, myDisplay, theDisplayCount, 0);
 
     myDisplayMenu->addSeparator();
 
@@ -152,31 +152,31 @@ Window::Window(int argc, char *argv[])
     myDisplayMenu->addAction(myDisplayShowToolBar);
 
     connect(myDisplayGroup, SIGNAL(triggered(QAction *)),
-	    myMemView, SLOT(display(QAction *)));
+            myMemView, SLOT(display(QAction *)));
 
     connect(myDisplayDimmer, SIGNAL(triggered()),
-	    myMemView, SLOT(dimmer()));
+            myMemView, SLOT(dimmer()));
 
     connect(myDisplayShowToolBar, SIGNAL(toggled(bool)),
-	    this, SLOT(toolbar(bool)));
+            this, SLOT(toolbar(bool)));
 
     // This menu should be ordered the same as the MV_Data* defines in
     // mv_ipc.h
-    static const char	*theDataTypeNames[theDataTypeCount] = {
-	"&Auto-Detect Types",
-	"&32-bit Integer",
-	"&64-bit Integer",
-	"&32-bit Float",
-	"&64-bit Float",
-	"&Ascii String",
+    static const char        *theDataTypeNames[theDataTypeCount] = {
+        "&Auto-Detect Types",
+        "&32-bit Integer",
+        "&64-bit Integer",
+        "&32-bit Float",
+        "&64-bit Float",
+        "&Ascii String",
     };
 
     myDataTypeMenu = menuBar()->addMenu(tr("&Data Type"));
     myDataTypeGroup = createActionGroup(
-	    myDataTypeMenu, theDataTypeNames, myDataType, theDataTypeCount, 0);
+            myDataTypeMenu, theDataTypeNames, myDataType, theDataTypeCount, 0);
 
     connect(myDataTypeGroup, SIGNAL(triggered(QAction *)),
-	    myMemView, SLOT(datatype(QAction *)));
+            myMemView, SLOT(datatype(QAction *)));
 
 
     setWindowTitle("Memview");
@@ -195,8 +195,8 @@ Window::Window(int argc, char *argv[])
 
     if (batchsize)
     {
-	int value = (int)(log((double)atoi(batchsize))/log(2.0));
-	slider->setLogValue(value);
+        int value = (int)(log((double)atoi(batchsize))/log(2.0));
+        slider->setLogValue(value);
     }
 }
 
@@ -215,27 +215,27 @@ Window::toolbar(bool value)
 {
     if (value)
     {
-	addToolBar(Qt::TopToolBarArea, myToolBar);
-	myToolBar->show();
+        addToolBar(Qt::TopToolBarArea, myToolBar);
+        myToolBar->show();
     }
     else
-	removeToolBar(myToolBar);
+        removeToolBar(myToolBar);
 }
 
 QActionGroup *
 Window::createActionGroup(
-	QMenu *menu,
-	const char *names[],
-	QAction *actions[],
-	int count,
-	int def_action)
+        QMenu *menu,
+        const char *names[],
+        QAction *actions[],
+        int count,
+        int def_action)
 {
     QActionGroup *group = new QActionGroup(this);
     for (int i = 0; i < count; i++)
     {
-	actions[i] = new QAction(tr(names[i]), group);
-	actions[i]->setCheckable(true);
-	menu->addAction(actions[i]);
+        actions[i] = new QAction(tr(names[i]), group);
+        actions[i]->setCheckable(true);
+        menu->addAction(actions[i]);
     }
     actions[def_action]->setChecked(true);
     return group;
@@ -246,10 +246,10 @@ Window::createActionGroup(
 //
 
 MemViewWidget::MemViewWidget(int argc, char *argv[],
-	QWidget *parent,
-	QScrollBar *vscrollbar,
-	QScrollBar *hscrollbar,
-	QStatusBar *status)
+        QWidget *parent,
+        QScrollBar *vscrollbar,
+        QScrollBar *hscrollbar,
+        QStatusBar *status)
     : QGLWidget(QGLFormat(QGL::NoDepthBuffer), parent)
     , myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
@@ -271,9 +271,9 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     myPath = argv[0];
     size_t pos = myPath.rfind('/');
     if (pos != std::string::npos)
-	myPath.resize(pos+1);
+        myPath.resize(pos+1);
     else
-	myPath = "";
+        myPath = "";
 
     // Skip the program name
     argc -= 1;
@@ -284,12 +284,12 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     setMouseTracking(true);
 
     // Use a fixed-width font for the status bar
-    QFont	font("Monospace");
+    QFont        font("Monospace");
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
 
-    const char	*ignore = extractOption(argc, argv, "--ignore-bits=");
-    int		 ignorebits = ignore ? atoi(ignore) : 2;
+    const char        *ignore = extractOption(argc, argv, "--ignore-bits=");
+    int                ignorebits = ignore ? atoi(ignore) : 2;
 
     myState = new MemoryState(ignorebits);
     myZoomState = myState;
@@ -300,8 +300,8 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 
     if (myLoader->openPipe(argc, argv))
     {
-	// Start loading data in a new thread
-	myLoader->start();
+        // Start loading data in a new thread
+        myLoader->start();
     }
 
     myFastTimer = startTimer(30);
@@ -384,21 +384,21 @@ loadTextFile(const char *filename, const std::vector<std::string> &paths)
     std::ifstream   is;
     for (auto it = paths.begin(); it != paths.end(); ++it)
     {
-	std::string path = *it + filename;
+        std::string path = *it + filename;
 
-	is.open(path.c_str());
-	if (is.good())
-	    break;
+        is.open(path.c_str());
+        if (is.good())
+            break;
     }
     if (!is.good())
-	return 0;
+        return 0;
 
     is.seekg(0, std::ios::end);
     long length = is.tellg();
     is.seekg(0, std::ios::beg);
 
     if (!length)
-	return 0;
+        return 0;
 
     char *buffer = new char[length+1];
 
@@ -410,16 +410,16 @@ loadTextFile(const char *filename, const std::vector<std::string> &paths)
 
 void
 loadShaderProgram(QGLShader *shader,
-	const char *filename,
-	const std::vector<std::string> &paths,
-	const unsigned char *def, int deflen)
+        const char *filename,
+        const std::vector<std::string> &paths,
+        const unsigned char *def, int deflen)
 {
     char *vsrc = loadTextFile(filename, paths);
     if (!vsrc)
     {
-	vsrc = new char[deflen+1];
-	memcpy(vsrc, def, deflen);
-	vsrc[deflen] = '\0';
+        vsrc = new char[deflen+1];
+        memcpy(vsrc, def, deflen);
+        vsrc[deflen] = '\0';
     }
 
     shader->compileSourceCode(vsrc);
@@ -454,11 +454,11 @@ fillThreadColors(GLImage<uint32> &colors)
     colors.resize(width, 1);
     for (int i = 0; i < width; i++)
     {
-	int idx = rinverse(i);
-	float h = idx / (float)(width-1);
+        int idx = rinverse(i);
+        float h = idx / (float)(width-1);
 
-	clr.fromHSV(h, s, v);
-	colors.setPixel(i, 0, clr.toInt32());
+        clr.fromHSV(h, s, v);
+        colors.setPixel(i, 0, clr.toInt32());
     }
 }
 
@@ -482,8 +482,8 @@ MemViewWidget::initializeGL()
     GLImage<uint32> colors;
     fillThreadColors(colors);
     glTexImage1D(GL_TEXTURE_1D, 0, GL_RGBA,
-	    colors.width(), 0, GL_RGBA,
-	    GL_UNSIGNED_BYTE, colors.data());
+            colors.width(), 0, GL_RGBA,
+            GL_UNSIGNED_BYTE, colors.data());
 
     // Create the memory state texture
     glGenBuffers(1, &myPixelBuffer);
@@ -534,8 +534,8 @@ MemViewWidget::resizeImage(int zoom)
 
     if (zoom < 0)
     {
-	w >>= (-zoom) >> 1; w = SYSmax(w, 1);
-	h >>= (-zoom) >> 1; h = SYSmax(h, 1);
+        w >>= (-zoom) >> 1; w = SYSmax(w, 1);
+        h >>= (-zoom) >> 1; h = SYSmax(h, 1);
     }
 
     myVScrollBar->setPageStep(h);
@@ -559,8 +559,8 @@ setScrollMax(QScrollBar *scroll, int64 size, bool with_margin = true)
 
     // Allow up to half the state to be hidden outside the window
     if (with_margin)
-	margin = scroll->pageStep() -
-	    (SYSmin(size, (int64)scroll->pageStep()) >> 1);
+        margin = scroll->pageStep() -
+            (SYSmin(size, (int64)scroll->pageStep()) >> 1);
 
     int64 nmax = SYSmax(size - scroll->pageStep() + margin, 0ll);
 
@@ -574,9 +574,9 @@ clampResToInteger(int &off, int &res, int64 off64, uint64 res64)
     uint64  maxres = 1ull << 30;
     if (res64 > maxres)
     {
-	if (off64 > int64(res64>>1))
-	    off64 -= int64(res64 - maxres);
-	res64 = maxres;
+        if (off64 > int64(res64>>1))
+            off64 -= int64(res64 - maxres);
+        res64 = maxres;
     }
     off = SYSclamp32(off64);
     res = SYSclamp32(res64);
@@ -586,7 +586,7 @@ void
 MemViewWidget::paintGL()
 {
 #if 0
-    StopWatch	timer;
+    StopWatch        timer;
     fprintf(stderr, "interval %f time ", myPaintInterval.lap());
 #endif
 
@@ -594,30 +594,30 @@ MemViewWidget::paintGL()
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
 
     myImage.setData((uint32 *)
-	    glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
+            glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
     myDisplay.update(*myState, *myMMapMap, width(), myImage.width(), myZoom);
     switch (myDisplayMode)
     {
     case 3:
-	myDisplay.fillImage(myImage, IntervalSource<MMapInfo>(
-		    *myMMapMap, 0, myZoomState->getIgnoreBits()),
-		myHScrollBar->value(),
-		myVScrollBar->value());
-	break;
+        myDisplay.fillImage(myImage, IntervalSource<MMapInfo>(
+                    *myMMapMap, 0, myZoomState->getIgnoreBits()),
+                myHScrollBar->value(),
+                myVScrollBar->value());
+        break;
     case 4:
-	myDisplay.fillImage(myImage, IntervalSource<StackInfo>(
-		    *myStackTrace, myStackSelection,
-		    myZoomState->getIgnoreBits()),
-		myHScrollBar->value(),
-		myVScrollBar->value());
-	break;
+        myDisplay.fillImage(myImage, IntervalSource<StackInfo>(
+                    *myStackTrace, myStackSelection,
+                    myZoomState->getIgnoreBits()),
+                myHScrollBar->value(),
+                myVScrollBar->value());
+        break;
     default:
-	myDisplay.fillImage(myImage, StateSource(*myZoomState),
-		myHScrollBar->value(),
-		myVScrollBar->value());
-	break;
+        myDisplay.fillImage(myImage, StateSource(*myZoomState),
+                myHScrollBar->value(),
+                myVScrollBar->value());
+        break;
     }
 
 #ifdef USE_PBUFFER
@@ -629,12 +629,12 @@ MemViewWidget::paintGL()
 
 #ifdef USE_PBUFFER
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
-	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
-	    GL_UNSIGNED_INT, 0 /* offset in PBO */);
+            myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
+            GL_UNSIGNED_INT, 0 /* offset in PBO */);
 #else
     glTexImage2D(GL_TEXTURE_RECTANGLE, 0, GL_R32UI,
-	    myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
-	    GL_UNSIGNED_INT, myImage.data());
+            myImage.width(), myImage.height(), 0, GL_RED_INTEGER,
+            GL_UNSIGNED_INT, myImage.data());
 #endif
 
     // Unbind the buffer - this is required for text rendering to work
@@ -659,8 +659,8 @@ MemViewWidget::paintGL()
     // Since the shader program only uses single precision integers, adjust
     // the offset and display size so that they are still relatively
     // correct but fit within the integer precision limit.
-    int	offx, offy;
-    int	resx, resy;
+    int        offx, offy;
+    int        resx, resy;
     clampResToInteger(offx, resx, myHScrollBar->value(), myDisplay.width());
     clampResToInteger(offy, resy, myVScrollBar->value(), myDisplay.height());
 
@@ -671,7 +671,7 @@ MemViewWidget::paintGL()
 
     setScrollMax(myVScrollBar, myDisplay.height());
     setScrollMax(myHScrollBar, myDisplay.width(),
-	    myDisplay.getVisualization() != DisplayLayout::LINEAR);
+            myDisplay.getVisualization() != DisplayLayout::LINEAR);
 
     glBegin(GL_QUADS);
     glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
@@ -693,9 +693,9 @@ isFloatType(int datatype)
 {
     switch (datatype)
     {
-	case MV_DataFlt32:
-	case MV_DataFlt64:
-	    return true;
+        case MV_DataFlt32:
+        case MV_DataFlt64:
+            return true;
     }
     return false;
 }
@@ -705,9 +705,9 @@ getAlignBits(int datatype)
 {
     switch (datatype)
     {
-	case MV_DataInt64:
-	case MV_DataFlt64:
-	    return 3;
+        case MV_DataInt64:
+        case MV_DataFlt64:
+            return 3;
     }
     return 2;
 }
@@ -717,8 +717,8 @@ static inline FT
 intToFloat(IT val)
 {
     union {
-	FT  fval;
-	IT  ival;
+        FT  fval;
+        IT  ival;
     } uval;
     uval.ival = val;
     return uval.fval;
@@ -729,20 +729,20 @@ static bool
 peekData(pid_t pid, uint64 qaddr, uint64 &buf64)
 {
     long peekval = ptrace(PTRACE_PEEKDATA,
-	    pid, (void *)qaddr, NULL);
+            pid, (void *)qaddr, NULL);
     if (peekval == -1)
-	return false;
+        return false;
 
     buf64 = (uint64)peekval;
     if (sizeof(long) == 4)
     {
-	// long is a different size on 32-bit platforms...
-	peekval = ptrace(PTRACE_PEEKDATA,
-		pid, (void *)(qaddr + 4), NULL);
-	if (peekval == -1)
-	    return false;
+        // long is a different size on 32-bit platforms...
+        peekval = ptrace(PTRACE_PEEKDATA,
+                pid, (void *)(qaddr + 4), NULL);
+        if (peekval == -1)
+            return false;
 
-	buf64 |= (uint64)peekval << 32;
+        buf64 |= (uint64)peekval << 32;
     }
 
     return true;
@@ -762,16 +762,16 @@ MemViewWidget::paintText()
     int pwidth = width() / myImage.width();
     int pheight = height() / myImage.height();
 
-    QFont	    font;
+    QFont           font;
     QFontMetrics    metrics(font);
 
     if (pheight < 2*metrics.height())
-	return;
+        return;
 
     // Use ptrace to stop the process and inspect data
     pid_t pid = myLoader->getChild();
     if (ptrace(PTRACE_ATTACH, pid, NULL, NULL))
-	return;
+        return;
 
     // Wait for the process to stop on a signal
     waitpid(pid, 0, 0);
@@ -780,94 +780,94 @@ MemViewWidget::paintText()
 
     for (int i = 0; i < myImage.height(); i++)
     {
-	for (int j = 0; j < myImage.width(); j++)
-	{
-	    uint64 qaddr = myDisplay.queryPixelAddress(*myState,
-		    myHScrollBar->value() + j,
-		    myVScrollBar->value() + i);
-	    if (!qaddr)
-		continue;
+        for (int j = 0; j < myImage.width(); j++)
+        {
+            uint64 qaddr = myDisplay.queryPixelAddress(*myState,
+                    myHScrollBar->value() + j,
+                    myVScrollBar->value() + i);
+            if (!qaddr)
+                continue;
 
-	    // Either use the specified data type or if it's -1, get the
-	    // type from the value
-	    int	datatype = myDataType;
-	    if (datatype < 0)
-	    {
-		uint64 off;
-		auto page = myState->getPage(qaddr, off);
+            // Either use the specified data type or if it's -1, get the
+            // type from the value
+            int        datatype = myDataType;
+            if (datatype < 0)
+            {
+                uint64 off;
+                auto page = myState->getPage(qaddr, off);
 
-		if (page.exists())
-		    datatype = page.state(off).dtype();
-		else
-		    datatype = MV_DataInt32;
-	    }
+                if (page.exists())
+                    datatype = page.state(off).dtype();
+                else
+                    datatype = MV_DataInt32;
+            }
 
-	    const uint64 min_align_bits = getAlignBits(datatype);
-	    const uint64 min_align = 1 << min_align_bits;
+            const uint64 min_align_bits = getAlignBits(datatype);
+            const uint64 min_align = 1 << min_align_bits;
 
-	    qaddr <<= myState->getIgnoreBits();
+            qaddr <<= myState->getIgnoreBits();
 
-	    if (qaddr & (min_align-1))
-		continue;
+            if (qaddr & (min_align-1))
+                continue;
 
-	    // Get the value.  If the address wasn't mapped, peekData()
-	    // will return false.
-	    uint64 val;
-	    if (!peekData(pid, qaddr, val))
-		continue;
+            // Get the value.  If the address wasn't mapped, peekData()
+            // will return false.
+            uint64 val;
+            if (!peekData(pid, qaddr, val))
+                continue;
 
-	    int x = (j*width())/myImage.width() + xmargin;
-	    int y = (i*height())/myImage.height() +
-		(pheight + metrics.height())/2;
+            int x = (j*width())/myImage.width() + xmargin;
+            int y = (i*height())/myImage.height() +
+                (pheight + metrics.height())/2;
 
-	    QString str;
-	    if (min_align_bits == 2)
-	    {
-		val &= 0xFFFFFFFF;
+            QString str;
+            if (min_align_bits == 2)
+            {
+                val &= 0xFFFFFFFF;
 
-		if (datatype == MV_DataChar8)
-		{
-		    char	cstr[4];
+                if (datatype == MV_DataChar8)
+                {
+                    char        cstr[4];
 
-		    bool valid = true;
-		    for (int i = 0; i < 4; i++)
-		    {
-			cstr[i] = (char)((val >> (i*8)) & 0xFF);
-			valid &= isascii(cstr[i]);
-		    }
+                    bool valid = true;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        cstr[i] = (char)((val >> (i*8)) & 0xFF);
+                        valid &= isascii(cstr[i]);
+                    }
 
-		    if (valid)
-			str.sprintf("\"%c%c%c%c\"",
-				cstr[0],
-				cstr[1],
-				cstr[2],
-				cstr[3]);
-		    else
-			str.sprintf("%x", (uint32)val);
-		}
-		else
-		{
-		    if (isFloatType(datatype))
-			str.sprintf("%f", intToFloat<float>((uint32)val));
-		    else
-			str.sprintf("%x", (uint32)val);
-		}
-	    }
-	    else
-	    {
-		if (isFloatType(datatype))
-		    str.sprintf("%g", intToFloat<double>(val));
-		else
-		    str.sprintf("%llx", val);
-	    }
+                    if (valid)
+                        str.sprintf("\"%c%c%c%c\"",
+                                cstr[0],
+                                cstr[1],
+                                cstr[2],
+                                cstr[3]);
+                    else
+                        str.sprintf("%x", (uint32)val);
+                }
+                else
+                {
+                    if (isFloatType(datatype))
+                        str.sprintf("%f", intToFloat<float>((uint32)val));
+                    else
+                        str.sprintf("%x", (uint32)val);
+                }
+            }
+            else
+            {
+                if (isFloatType(datatype))
+                    str.sprintf("%g", intToFloat<double>(val));
+                else
+                    str.sprintf("%llx", val);
+            }
 
-	    // Shorten the text so that it fits within the desired width.
-	    // This will add the "..." if it's too long.
-	    str = metrics.elidedText(
-		    str, Qt::ElideRight, pwidth - 2*xmargin);
+            // Shorten the text so that it fits within the desired width.
+            // This will add the "..." if it's too long.
+            str = metrics.elidedText(
+                    str, Qt::ElideRight, pwidth - 2*xmargin);
 
-	    text_list.push_back(Text{x, y, str});
-	}
+            text_list.push_back(Text{x, y, str});
+        }
     }
 
     // Detach - this will restart the process
@@ -876,7 +876,7 @@ MemViewWidget::paintText()
     // Render text after restarting the process so that we're only slowing
     // down draw time (not execution)
     for (auto it = text_list.begin(); it != text_list.end(); ++it)
-	renderText(it->x, it->y, it->str, font);
+        renderText(it->x, it->y, it->str, font);
 }
 
 bool
@@ -886,10 +886,10 @@ MemViewWidget::event(QEvent *event)
     {
         QHelpEvent *helpEvent = static_cast<QHelpEvent *>(event);
 
-	if (myStackSelection)
-	    QToolTip::showText(helpEvent->globalPos(), myStackString.c_str());
-	else
-	    QToolTip::hideText();
+        if (myStackSelection)
+            QToolTip::showText(helpEvent->globalPos(), myStackString.c_str());
+        else
+            QToolTip::hideText();
 
         return true;
     }
@@ -908,10 +908,10 @@ MemViewWidget::zoomPos(QPoint pos, int zoom) const
 {
     if (zoom < 0)
     {
-	pos.rx() *= myImage.width();
-	pos.rx() /= width();
-	pos.ry() *= myImage.height();
-	pos.ry() /= height();
+        pos.rx() *= myImage.width();
+        pos.rx() /= width();
+        pos.ry() *= myImage.height();
+        pos.ry() /= height();
     }
     return pos;
 }
@@ -921,10 +921,10 @@ MemViewWidget::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
-	myStopWatch.start();
-	myDragging = true;
-	myDragRemainder = QPoint(0, 0);
-	myVelocity = std::queue<Velocity>();
+        myStopWatch.start();
+        myDragging = true;
+        myDragRemainder = QPoint(0, 0);
+        myVelocity = std::queue<Velocity>();
     }
 
     myMousePos = event->pos();
@@ -935,14 +935,14 @@ MemViewWidget::mouseMoveEvent(QMouseEvent *event)
 {
     if (event->buttons() & Qt::LeftButton)
     {
-	double  time = myStopWatch.elapsed();
-	QPoint  dir = myMousePos - event->pos();
+        double  time = myStopWatch.elapsed();
+        QPoint  dir = myMousePos - event->pos();
 
-	panBy(dir);
+        panBy(dir);
 
-	if (myVelocity.size() >= 5)
-	    myVelocity.pop();
-	myVelocity.push(Velocity(dir.x(), dir.y(), time));
+        if (myVelocity.size() >= 5)
+            myVelocity.pop();
+        myVelocity.push(Velocity(dir.x(), dir.y(), time));
     }
 
     myMousePos = event->pos();
@@ -957,54 +957,54 @@ MemViewWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton)
     {
-	myDragging = false;
+        myDragging = false;
 
-	// Compute the average velocity.  We'll require at least 2 samples
-	// to avoid spikes.  Only consider samples within a specified time
-	// interval.
-	int	  size = myVelocity.size();
-	double    time = myStopWatch.elapsed() - theDragDelay;
-	Velocity  vel(0, 0, 0);
-	while (myVelocity.size())
-	{
-	    if (myVelocity.front().time > time)
-		vel += myVelocity.front();
-	    else
-		size--;
-	    myVelocity.pop();
-	}
+        // Compute the average velocity.  We'll require at least 2 samples
+        // to avoid spikes.  Only consider samples within a specified time
+        // interval.
+        int       size = myVelocity.size();
+        double    time = myStopWatch.elapsed() - theDragDelay;
+        Velocity  vel(0, 0, 0);
+        while (myVelocity.size())
+        {
+            if (myVelocity.front().time > time)
+                vel += myVelocity.front();
+            else
+                size--;
+            myVelocity.pop();
+        }
 
-	if (size > 1)
-	{
-	    vel *= 1.0 / theDragDelay;
-	    myVelocity.push(vel);
-	}
+        if (size > 1)
+        {
+            vel *= 1.0 / theDragDelay;
+            myVelocity.push(vel);
+        }
 
-	myStopWatch.start();
+        myStopWatch.start();
     }
 }
 
 void
 MemViewWidget::wheelEvent(QWheelEvent *event)
 {
-    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
-    const int	inc = linear ? 1 : 2;
+    const bool linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
+    const int  inc = linear ? 1 : 2;
 
-    int	zoom = myZoom;
+    int        zoom = myZoom;
 
     if (event->delta() < 0)
     {
-	if (zoom < 0)
-	    zoom += 2;
-	else
-	    zoom += inc;
+        if (zoom < 0)
+            zoom += 2;
+        else
+            zoom += inc;
     }
     else if (event->delta() > 0)
     {
-	if (zoom <= 0)
-	    zoom -= 2;
-	else
-	    zoom -= inc;
+        if (zoom <= 0)
+            zoom -= 2;
+        else
+            zoom -= inc;
     }
 
     changeZoom(zoom);
@@ -1018,13 +1018,13 @@ minScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout)
 
     if (zoomout)
     {
-	x += 1;
-	x >>= 1;
+        x += 1;
+        x >>= 1;
     }
     else
     {
-	x <<= 1;
-	size <<= 1;
+        x <<= 1;
+        size <<= 1;
     }
 
     x -= ox;
@@ -1035,17 +1035,17 @@ minScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout)
 
 static void
 magScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout,
-	int64 winsize, int64 psize, int64 nsize)
+        int64 winsize, int64 psize, int64 nsize)
 {
     if (zoomout)
     {
-	x = (x*(psize+1)) / winsize;
-	x = scroll->value() - x;
+        x = (x*(psize+1)) / winsize;
+        x = scroll->value() - x;
     }
     else
     {
-	x = (x*(nsize+1)) / winsize;
-	x += scroll->value();
+        x = (x*(nsize+1)) / winsize;
+        x += scroll->value();
     }
 
     setScrollMax(scroll, size);
@@ -1054,12 +1054,12 @@ magScroll(QScrollBar *scroll, int64 x, int64 size, bool zoomout,
 
 static void
 magScrollLinear(QScrollBar *scroll, int64 x,
-	int64 winheight, int64 size,
-	int64 pwidth, int64 pheight,
-	int64 nwidth, int64 nheight)
+        int64 winheight, int64 size,
+        int64 pwidth, int64 pheight,
+        int64 nwidth, int64 nheight)
 {
     x = (((x*pheight)/winheight + scroll->value())*pwidth)/nwidth -
-	(x*nheight)/winheight;
+        (x*nheight)/winheight;
     size = (size * pwidth) / nwidth;
 
     setScrollMax(scroll, size);
@@ -1069,64 +1069,64 @@ magScrollLinear(QScrollBar *scroll, int64 x,
 void
 MemViewWidget::changeZoom(int zoom)
 {
-    const bool	linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
+    const bool linear = myDisplay.getVisualization() == DisplayLayout::LINEAR;
 
     // Zoom in increments of 2 for block display
     if (!linear)
-	zoom &= ~1;
+        zoom &= ~1;
 
     // Zoom in increments of 2 for magnification
     if (zoom < 0)
-	zoom = -((-zoom) & ~1);
+        zoom = -((-zoom) & ~1);
 
     zoom = SYSclamp(zoom, -16, 63-myState->getIgnoreBits());
 
     if (zoom != myZoom)
     {
-	if (zoom > 0)
-	{
-	    myZoomState = new MemoryState(myState->getIgnoreBits()+zoom);
-	    myLoader->setZoomState(myZoomState);
-	}
-	else
-	{
-	    myLoader->clearZoomState();
-	    myZoomState = myState;
-	}
+        if (zoom > 0)
+        {
+            myZoomState = new MemoryState(myState->getIgnoreBits()+zoom);
+            myLoader->setZoomState(myZoomState);
+        }
+        else
+        {
+            myLoader->clearZoomState();
+            myZoomState = myState;
+        }
 
-	const bool zoomout = zoom > myZoom;
-	QPoint zpos = myMousePos;
+        const bool zoomout = zoom > myZoom;
+        QPoint zpos = myMousePos;
 
-	if (zoom < 0 || myZoom < 0)
-	{
-	    int64 pwidth = myImage.width();
-	    int64 pheight = myImage.height();
+        if (zoom < 0 || myZoom < 0)
+        {
+            int64 pwidth = myImage.width();
+            int64 pheight = myImage.height();
 
-	    // This makes a GL call
-	    resizeImage(zoom);
+            // This makes a GL call
+            resizeImage(zoom);
 
-	    if (!linear)
-	    {
-		magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout,
-			width(), pwidth, myImage.width());
-		magScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout,
-			height(), pheight, myImage.height());
-	    }
-	    else
-	    {
-		magScrollLinear(myVScrollBar,
-			zpos.y(), height(), myDisplay.height(),
-			pwidth, pheight, myImage.width(), myImage.height());
-	    }
-	}
-	else
-	{
-	    if (!linear)
-		minScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
-	    minScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
-	}
+            if (!linear)
+            {
+                magScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout,
+                        width(), pwidth, myImage.width());
+                magScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout,
+                        height(), pheight, myImage.height());
+            }
+            else
+            {
+                magScrollLinear(myVScrollBar,
+                        zpos.y(), height(), myDisplay.height(),
+                        pwidth, pheight, myImage.width(), myImage.height());
+            }
+        }
+        else
+        {
+            if (!linear)
+                minScroll(myHScrollBar, zpos.x(), myDisplay.width(), zoomout);
+            minScroll(myVScrollBar, zpos.y(), myDisplay.height(), zoomout);
+        }
 
-	myZoom = zoom;
+        myZoom = zoom;
     }
 }
 
@@ -1136,13 +1136,13 @@ shortenDrag(double &val, double delta)
     delta *= 2.0;
     if (val > 0)
     {
-	val -= delta*val;
-	val = SYSmax(val, 0.0);
+        val -= delta*val;
+        val = SYSmax(val, 0.0);
     }
     else if (val < 0)
     {
-	val -= delta*val;
-	val = SYSmin(val, 0.0);
+        val -= delta*val;
+        val = SYSmin(val, 0.0);
     }
 }
 
@@ -1152,70 +1152,70 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     // Fast timer
     if (event->timerId() == myFastTimer)
     {
-	if (!myDragging && myVelocity.size())
-	{
-	    Velocity   &vel = myVelocity.front();
-	    double	time = myStopWatch.lap();
-	    QPoint	dir((int)(vel.x * time + 0.5F),
-			    (int)(vel.y * time + 0.5F));
+        if (!myDragging && myVelocity.size())
+        {
+            Velocity   &vel = myVelocity.front();
+            double        time = myStopWatch.lap();
+            QPoint        dir((int)(vel.x * time + 0.5F),
+                            (int)(vel.y * time + 0.5F));
 
-	    if (panBy(dir))
-	    {
-		update();
-	    }
+            if (panBy(dir))
+            {
+                update();
+            }
 
-	    shortenDrag(vel.x, time);
-	    shortenDrag(vel.y, time);
-	}
+            shortenDrag(vel.x, time);
+            shortenDrag(vel.y, time);
+        }
     }
     else if (event->timerId() == mySlowTimer)
     {
-	uint64	total_events = myLoader->getTotalEvents();
+        uint64        total_events = myLoader->getTotalEvents();
 
-	myEventInfo.sprintf("%lld events", total_events);
+        myEventInfo.sprintf("%lld events", total_events);
 
-	if (!myLoader->isComplete())
-	{
-	    double	time = myEventTimer.lap();
-	    double	rate = (total_events - myPrevEvents) / time;
-	    QString	str;
+        if (!myLoader->isComplete())
+        {
+            double        time = myEventTimer.lap();
+            double        rate = (total_events - myPrevEvents) / time;
+            QString        str;
 
-	    if (rate > 5e8)
-		str.sprintf(" (%.1fGev/s)", rate / 1e9);
-	    else if (rate > 5e5)
-		str.sprintf(" (%.1fMev/s)", rate / 1e6);
-	    else if (rate > 5e2)
-		str.sprintf(" (%.1fKev/s)", rate / 1e3);
-	    else
-		str.sprintf(" (%.1fev/s)", rate);
+            if (rate > 5e8)
+                str.sprintf(" (%.1fGev/s)", rate / 1e9);
+            else if (rate > 5e5)
+                str.sprintf(" (%.1fMev/s)", rate / 1e6);
+            else if (rate > 5e2)
+                str.sprintf(" (%.1fKev/s)", rate / 1e3);
+            else
+                str.sprintf(" (%.1fev/s)", rate);
 
-	    myEventInfo.append(str);
+            myEventInfo.append(str);
 
-	    myPrevEvents = total_events;
-	}
+            myPrevEvents = total_events;
+        }
 
     }
 
     // This frequent status update seems to be fairly costly
     QPoint  pos = zoomPos(myMousePos, myZoom);
     uint64 qaddr = myDisplay.queryPixelAddress(*myZoomState,
-	    myHScrollBar->value() + pos.x(),
-	    myVScrollBar->value() + pos.y());
+            myHScrollBar->value() + pos.x(),
+            myVScrollBar->value() + pos.y());
 
-    QString	message(myEventInfo);
+    QString        message(myEventInfo);
 
     myZoomState->appendAddressInfo(message, qaddr, *myMMapMap);
 
     // Append the zoom level.  Add spaces to right-justify it.
-    int		width = myStatusBar->width() - myStatusBar->height();
-    QString	zoominfo;
+    int            width = myStatusBar->width() - myStatusBar->height();
+    QString        zoominfo;
 
     if (myZoom > 0)
-	zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1ull << myZoom)));
+        zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1ull << myZoom)));
     else
-	zoominfo.sprintf("\t\t%dx", 1 << (-myZoom >> 1));
+        zoominfo.sprintf("\t\t%dx", 1 << (-myZoom >> 1));
 
-    int	nspaces = width / myStatusBar->fontMetrics().width(' ');
+    int        nspaces = width / myStatusBar->fontMetrics().width(' ');
     nspaces -= message.size();
 
     zoominfo = zoominfo.rightJustified(nspaces);
@@ -1223,9 +1223,9 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     message.append(zoominfo);
 
     if (message.isEmpty())
-	myStatusBar->clearMessage();
+        myStatusBar->clearMessage();
     else
-	myStatusBar->showMessage(message);
+        myStatusBar->showMessage(message);
 
     // Find and stash the closest stack trace
     uint64 off;
@@ -1233,24 +1233,24 @@ MemViewWidget::timerEvent(QTimerEvent *event)
 
     if (qaddr && page.exists() && page.state(off).time())
     {
-	qaddr <<= myZoomState->getIgnoreBits();
+        qaddr <<= myZoomState->getIgnoreBits();
 
-	StackTraceMapReader reader(*myStackTrace);
-	auto it = reader.findClosest(qaddr);
-	if (it == reader.end())
-	{
-	    myStackSelection = 0;
-	}
-	else
-	{
-	    myStackSelection = it.start();
-	    myStackString = it.value().myStr;
-	}
+        StackTraceMapReader reader(*myStackTrace);
+        auto it = reader.findClosest(qaddr);
+        if (it == reader.end())
+        {
+            myStackSelection = 0;
+        }
+        else
+        {
+            myStackSelection = it.start();
+            myStackString = it.value().myStr;
+        }
     }
     else
     {
-	myStackString = "";
-	myStackSelection = 0;
+        myStackString = "";
+        myStackSelection = 0;
     }
 }
 
