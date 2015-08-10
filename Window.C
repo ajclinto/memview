@@ -288,6 +288,14 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
     font.setStyleHint(QFont::TypeWriter);
     myStatusBar->setFont(font);
 
+    myStatusMessage = new QLabel;
+    myStatusMessage->setAlignment(Qt::AlignLeft);
+    myStatusBar->addWidget(myStatusMessage, 1);
+
+    myStatusZoom = new QLabel;
+    myStatusZoom->setAlignment(Qt::AlignRight);
+    myStatusBar->addWidget(myStatusZoom, 1);
+
     const char        *ignore = extractOption(argc, argv, "--ignore-bits=");
     int                ignorebits = ignore ? atoi(ignore) : 2;
 
@@ -1205,27 +1213,17 @@ MemViewWidget::timerEvent(QTimerEvent *event)
     QString        message(myEventInfo);
 
     myZoomState->appendAddressInfo(message, qaddr, *myMMapMap);
+    myStatusMessage->setText(message);
 
-    // Append the zoom level.  Add spaces to right-justify it.
-    int            width = myStatusBar->width() - myStatusBar->height();
+    // Show the zoom level
     QString        zoominfo;
 
     if (myZoom > 0)
-        zoominfo.sprintf("\t\t%.2gx", sqrt(1.0 / (1ull << myZoom)));
+        zoominfo.sprintf("%.2gx", sqrt(1.0 / (1ull << myZoom)));
     else
-        zoominfo.sprintf("\t\t%dx", 1 << (-myZoom >> 1));
+        zoominfo.sprintf("%dx", 1 << (-myZoom >> 1));
 
-    int        nspaces = width / myStatusBar->fontMetrics().width(' ');
-    nspaces -= message.size();
-
-    zoominfo = zoominfo.rightJustified(nspaces);
-
-    message.append(zoominfo);
-
-    if (message.isEmpty())
-        myStatusBar->clearMessage();
-    else
-        myStatusBar->showMessage(message);
+    myStatusZoom->setText(zoominfo);
 
     // Find and stash the closest stack trace
     uint64 off;

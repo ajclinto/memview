@@ -102,7 +102,7 @@ MemoryState::appendAddressInfo(
     if (it != reader.end())
         mmapinfo = it.value();
 
-    tmp.sprintf("\t\t%s: 0x%.12llx", mmapinfo.myStr.c_str(), paddr);
+    tmp.sprintf("\t%s: 0x%.12llx", mmapinfo.myStr.c_str(), paddr);
 
     message.append(tmp);
 

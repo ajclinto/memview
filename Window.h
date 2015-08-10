@@ -181,6 +181,8 @@ private:
     QScrollBar             *myVScrollBar;
     QScrollBar             *myHScrollBar;
     QStatusBar             *myStatusBar;
+    QLabel                 *myStatusMessage;
+    QLabel                 *myStatusZoom;
     std::string             myPath;
 
     QGLShaderProgram       *myProgram;
