@@ -29,6 +29,7 @@
 #include <fstream>
 #include <sys/ptrace.h>
 #include <sys/wait.h>
+#include <exception>
 
 #define USE_PBUFFER
 
@@ -416,7 +417,7 @@ loadTextFile(const char *filename, const std::vector<std::string> &paths)
     return buffer;
 }
 
-void
+bool
 loadShaderProgram(QGLShader *shader,
         const char *filename,
         const std::vector<std::string> &paths,
@@ -430,8 +431,9 @@ loadShaderProgram(QGLShader *shader,
         vsrc[deflen] = '\0';
     }
 
-    shader->compileSourceCode(vsrc);
+    bool ret = shader->compileSourceCode(vsrc);
     delete [] vsrc;
+    return ret;
 }
 
 // 512 size texture to accomodate the 500 possible threads supported by
@@ -511,8 +513,13 @@ MemViewWidget::initializeGL()
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
 
-    loadShaderProgram(vshader, "memview.vert", paths, 0, 0);
-    loadShaderProgram(fshader, "memview.frag", paths, 0, 0);
+    bool vertLoaded = loadShaderProgram(vshader, "memview.vert", paths, 0, 0);
+    bool fragLoaded = loadShaderProgram(fshader, "memview.frag", paths, 0, 0);
+    if (!vertLoaded || !fragLoaded) {
+        delete myLoader; // terminate children
+        myLoader = 0;
+        throw std::runtime_error("error loading shader");
+    }
 
     myProgram = new QGLShaderProgram(this);
     myProgram->addShader(vshader);
