@@ -1,10 +1,18 @@
 #version 130
-#extension GL_EXT_gpu_shader4 : enable
+//#extension GL_EXT_gpu_shader4 : enable
 
 in mediump vec2 texc;
 out vec4 frag_color;
 
-uniform usampler2DRect theState;
+/*
+ * usampler2DRect requires GL_EXT_gpu_shader4
+ * https://www.opengl.org/wiki/GL_EXT_texture_integer
+ * However, it is not available on cheap Linux/Intel cards/drivers.
+ * When using sampler2DRect, the shader loads, but the window is completely dark.
+ */
+
+// uniform usampler2DRect theState;
+uniform sampler2DRect theState;
 uniform sampler1D theColors;
 
 uniform int theTime;
@@ -144,7 +152,7 @@ void main(void)
     }
 
     // Check for zero texels
-    uint    val = texture(theState, texsize*texc).r;
+    uint    val = uint(texture(theState, texsize*texc).r);
 
     if (val == 0u)
     {
