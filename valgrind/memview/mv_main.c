@@ -809,6 +809,7 @@ IRTypeToMVType(IRType type)
         case Ity_I32: return MV_DataInt32;
         case Ity_I64:
         case Ity_I128: return MV_DataInt64;
+        case Ity_F16:
         case Ity_F32: return MV_DataFlt32;
         case Ity_F64: return MV_DataFlt64;
         case Ity_D32: return MV_DataInt32;
@@ -825,9 +826,9 @@ IRTypeToMVType(IRType type)
 static IRSB*
 mv_instrument ( VgCallbackClosure* closure,
         IRSB* sbIn, 
-        VexGuestLayout* layout, 
-        VexGuestExtents* vge,
-        VexArchInfo* archinfo_host,
+        const VexGuestLayout* layout, 
+        const VexGuestExtents* vge,
+        const VexArchInfo* archinfo_host,
         IRType gWordTy, IRType hWordTy )
 {
     Int        i;
@@ -1031,7 +1032,7 @@ static void mv_new_mem_mmap(Addr a, SizeT len,
         ULong di_handle)
 {
     const NSegment  *info = VG_(am_find_nsegment)(a);
-    HChar           *filename = 0;
+    const HChar     *filename = 0;
     MV_MMapType      type = MV_HEAP;
 
     switch (info->kind)
