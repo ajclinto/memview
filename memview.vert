@@ -1,7 +1,6 @@
-varying mediump vec2 texc;
+in vec2 pos;
 
 void main(void)
 {
-    gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
-    texc = vec2(gl_MultiTexCoord0);
+    gl_Position = vec4(pos, -1, 1);
 }

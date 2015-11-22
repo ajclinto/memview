@@ -1,7 +1,3 @@
-#version 130
-#extension GL_EXT_gpu_shader4 : enable
-
-in mediump vec2 texc;
 out vec4 frag_color;
 
 uniform usampler2DRect theState;
@@ -25,17 +21,17 @@ uniform int theDisplayResY;
 
 float rand(vec2 co)
 {
-    return fract(sin(dot(co.xy, vec2(12.9898,78.233))) * 43758.5453);
+    return fract(sin(dot(co, vec2(12.9898,78.233))) * 43758.5453);
 }
 
-vec4 dither(vec4 clr)
+vec3 dither(vec3 clr)
 {
     // Poor man's dithering
-    vec3 rval = vec3(rand(texc)-0.5,
-                     rand(texc+vec2(0.1, 0.1))-0.5,
-                     rand(texc+vec2(0.2, 0.2))-0.5);
+    vec3 rval = vec3(rand(gl_FragCoord.xy)-0.5,
+                     rand(gl_FragCoord.xy+vec2(0.1, 0.1))-0.5,
+                     rand(gl_FragCoord.xy+vec2(0.2, 0.2))-0.5);
     rval *= 1.0/255.0;
-    return clr + vec4(rval.r, rval.g, rval.b, 0);
+    return clr + rval;
 }
 
 float luminance(vec3 val)
@@ -69,7 +65,7 @@ vec3 ramp_color(vec3 hi, vec3 lo, float interp)
 // This routine overlays a grid pattern on the pixels when the texture is
 // zoomed.  It analytically antialiases the pattern when the grid cells are
 // small to avoid over-scaling.
-vec4 round_block(vec4 clr, ivec2 texsize)
+vec3 round_block(vec3 clr, ivec2 texsize)
 {
     ivec2        winsize = ivec2(theWindowResX, theWindowResY);
     if (winsize.x > texsize.x)
@@ -79,7 +75,7 @@ vec4 round_block(vec4 clr, ivec2 texsize)
                 (winsize.y / float(texsize.y)));
 
         ivec2 boff;
-        boff = ivec2(vec2(texsize*winsize)*texc);
+        boff = ivec2(vec2(texsize)*vec2(gl_FragCoord));
         boff %= winsize;
         boff /= texsize;
 
@@ -123,6 +119,7 @@ void main(void)
     // Render a border for pixels that are outside the display box
     ivec2   texsize = textureSize(theState);
     ivec2   winsize = ivec2(theWindowResX, theWindowResY);
+    vec2    texc = gl_FragCoord.xy / vec2(winsize);
     ivec2   dispoff = ivec2(theDisplayOffX, theDisplayOffY);
     ivec2   dispsize = ivec2(theDisplayResX, theDisplayResY);
     ivec2   winc = ivec2(vec2(texsize)*vec2(texc.x, 1-texc.y)) + dispoff;
@@ -138,8 +135,7 @@ void main(void)
         else
             val = 0.1*exp(-0.01*sqrt(xdist*xdist + ydist*ydist));
 
-        frag_color = vec4(val, val, val, 1);
-        frag_color = dither(frag_color);
+        frag_color = vec4(dither(vec3(val, val, val)), 1);
         return;
     }
 
@@ -180,25 +176,26 @@ void main(void)
 
     interp = 1-log2(interp)/32;
 
+    vec3 clr;
     if (theDisplayMode == 1)
     {
         int size = textureSize(theColors, 0);
 
-        vec3 clr = lum1(vec3(texture(theColors, (float(tid)+0.5)/size)));
-        frag_color = vec4(ramp_color(clr, clr, interp), 1);
+        clr = lum1(vec3(texture(theColors, (float(tid)+0.5)/size)));
+        clr = ramp_color(clr, clr, interp);
     }
     else if (theDisplayMode == 2)
     {
         int size = textureSize(theColors, 0);
 
-        vec3 clr = lum1(vec3(texture(theColors, (float(dtype)+0.5)/size)));
-        frag_color = vec4(ramp_color(clr, clr, interp), 1);
+        clr = lum1(vec3(texture(theColors, (float(dtype)+0.5)/size)));
+        clr = ramp_color(clr, clr, interp);
     }
     else if (theDisplayMode == 3)
     {
         int size = textureSize(theColors, 0);
 
-        frag_color = 0.5*texture(theColors, (float(val)+0.5)/size);
+        clr = 0.5*vec3(texture(theColors, (float(val)+0.5)/size));
     }
     else
     {
@@ -214,21 +211,23 @@ void main(void)
         lo[2] = lum1(vec3(0.3, 0.1, 0.1));
         lo[3] = lum1(vec3(0.1, 0.1, 0.5));
 
-        frag_color = vec4(ramp_color(hi[type], lo[type], interp), 1);
+        clr = ramp_color(hi[type], lo[type], interp);
 
         if (theDisplayMode == 4 && val == 1u)
-            frag_color = vec4(1, 1, 0, 1);
+            clr = vec3(1, 1, 0);
     }
 
     if (theDisplayMode != 3 && freed)
-        frag_color *= 0.5;
+        clr *= 0.5;
 
     if (theDisplayDimmer > 0)
     {
         // Limit to 0.25 luminance
-        frag_color /= 4*max(luminance(vec3(frag_color)), 0.25);
+        clr /= 4*max(luminance(clr), 0.25);
     }
 
-    frag_color = round_block(frag_color, texsize);
-    frag_color = dither(frag_color);
+    clr = round_block(clr, texsize);
+    clr = dither(clr);
+
+    frag_color = vec4(clr, 1);
 }

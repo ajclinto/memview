@@ -87,11 +87,20 @@ Window::Window(int argc, char *argv[])
 
     setStatusBar(statusBar());
 
-    myMemView = new MemViewWidget(argc, argv,
-            myScrollArea,
-            myScrollArea->verticalScrollBar(),
-            myScrollArea->horizontalScrollBar(),
-            statusBar());
+    // The constructor for MemViewWidget will handle falling back to OpenGL 3.0
+    // if it finds that 3.3 isn't supported
+    QGLFormat format(QGL::NoDepthBuffer);
+    format.setVersion(3,3);
+
+    //format.setProfile(QGLFormat::CompatibilityProfile);
+    //format.setProfile(QGLFormat::CoreProfile); // Requires >=Qt-4.8.0
+    //format.setSampleBuffers(true);
+
+    myMemView = new MemViewWidget(format, argc, argv,
+                                  myScrollArea,
+                                  myScrollArea->verticalScrollBar(),
+                                  myScrollArea->horizontalScrollBar(),
+                                  statusBar());
 
     myQuit = new QAction(tr("&Quit"), this);
 
@@ -245,15 +254,17 @@ Window::createActionGroup(
 // MemViewWidget
 //
 
-MemViewWidget::MemViewWidget(int argc, char *argv[],
-        QWidget *parent,
-        QScrollBar *vscrollbar,
-        QScrollBar *hscrollbar,
-        QStatusBar *status)
-    : QGLWidget(QGLFormat(QGL::NoDepthBuffer), parent)
+MemViewWidget::MemViewWidget(QGLFormat fmt,
+                             int argc, char *argv[],
+                             QWidget *parent,
+                             QScrollBar *vscrollbar,
+                             QScrollBar *hscrollbar,
+                             QStatusBar *status)
+    : QGLWidget(fmt, parent)
     , myVScrollBar(vscrollbar)
     , myHScrollBar(hscrollbar)
     , myStatusBar(status)
+    , myProgram(0)
     , myTexture(0)
     , myColorTexture(0)
     , myPixelBuffer(0)
@@ -317,6 +328,16 @@ MemViewWidget::MemViewWidget(int argc, char *argv[],
 
     myPaintInterval.start();
     myEventTimer.start();
+
+    makeCurrent();
+
+    QGLFormat::OpenGLVersionFlags flags = QGLFormat::openGLVersionFlags();
+    if (!(flags & QGLFormat::OpenGL_Version_3_3))
+    {
+        // Trying 3.0
+        fmt.setVersion(3,0);
+        setFormat(fmt);
+    }
 }
 
 MemViewWidget::~MemViewWidget()
@@ -416,22 +437,27 @@ loadTextFile(const char *filename, const std::vector<std::string> &paths)
     return buffer;
 }
 
-void
+bool
 loadShaderProgram(QGLShader *shader,
         const char *filename,
+        const char *version,
         const std::vector<std::string> &paths,
         const unsigned char *def, int deflen)
 {
-    char *vsrc = loadTextFile(filename, paths);
-    if (!vsrc)
+    char *src = loadTextFile(filename, paths);
+    if (!src)
     {
-        vsrc = new char[deflen+1];
-        memcpy(vsrc, def, deflen);
-        vsrc[deflen] = '\0';
+        src = new char[deflen+1];
+        memcpy(src, def, deflen);
+        src[deflen] = '\0';
     }
 
-    shader->compileSourceCode(vsrc);
-    delete [] vsrc;
+    // Insert the version string into the shader source
+    std::string src_with_version = version;
+    src_with_version += src;
+    delete [] src;
+
+    return shader->compileSourceCode(src_with_version.c_str());
 }
 
 // 512 size texture to accomodate the 500 possible threads supported by
@@ -508,16 +534,74 @@ MemViewWidget::initializeGL()
     paths.push_back(myPath);
     paths.push_back("/usr/share/memview/");
 
+    // Create vertex buffers for a full-screen quad (as a triangle strip of 2
+    // triangles)
+    const GLfloat pos[4][2] = {
+        {-1, -1},
+        { 1, -1},
+        {-1, 1 },
+        { 1, 1 }
+    };
+ 
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint vbo[1];
+    glGenBuffers(1, vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+    glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat), pos, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
 
-    loadShaderProgram(vshader, "memview.vert", paths, 0, 0);
-    loadShaderProgram(fshader, "memview.frag", paths, 0, 0);
+    const char *version;
+    const QGLFormat &fmt = format();
+    std::pair<int,int> version_pair(fmt.majorVersion(), fmt.minorVersion());
+    if (version_pair >= std::pair<int,int>(3,3))
+    {
+        // OpenGL 3.3 or newer, use it
+        version = "#version 330\n\n";
+    }
+    else
+    {
+        if (version_pair < std::pair<int,int>(3,0))
+        {
+            fprintf(stderr, "Detected old OpenGL version %d.%d, shader program may not compile!\n", version_pair.first, version_pair.second);
+        }
 
-    myProgram = new QGLShaderProgram(this);
-    myProgram->addShader(vshader);
-    myProgram->addShader(fshader);
-    myProgram->link();
+        // Try compiling shader for OpenGL 3.0 (GLSL 1.30) with
+        // GL_EXT_gpu_shader4 for integer textures
+        version = "#version 130\n"
+                  "#extension GL_EXT_gpu_shader4 : enable\n\n";
+    }
+
+    bool success = true;
+    success &= loadShaderProgram(vshader, "memview.vert", version, paths, 0, 0);
+    success &= loadShaderProgram(fshader, "memview.frag", version, paths, 0, 0);
+
+    if (success)
+    {
+        myProgram = new QGLShaderProgram(this);
+        myProgram->addShader(vshader);
+        myProgram->addShader(fshader);
+
+        myProgram->bindAttributeLocation("pos", 0);
+
+        if (!myProgram->link())
+        {
+            delete myProgram;
+            myProgram = 0;
+        }
+    }
+    else
+    {
+        delete vshader;
+        delete fshader;
+    }
 }
 
 void
@@ -649,46 +733,52 @@ MemViewWidget::paintGL()
     // correctly.
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-    myProgram->bind();
+    if (myProgram)
+    {
+        myProgram->bind();
 
-    myProgram->setUniformValue("theState", 0);
-    myProgram->setUniformValue("theColors", 1);
+        myProgram->setUniformValue("theState", 0);
+        myProgram->setUniformValue("theColors", 1);
 
-    myProgram->setUniformValue("theStale", MemoryState::theStale);
-    myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
-    myProgram->setUniformValue("theDisplayMode", myDisplayMode);
-    myProgram->setUniformValue("theDisplayDimmer", myDisplayDimmer);
+        myProgram->setUniformValue("theStale", MemoryState::theStale);
+        myProgram->setUniformValue("theHalfLife", MemoryState::theHalfLife);
+        myProgram->setUniformValue("theDisplayMode", myDisplayMode);
+        myProgram->setUniformValue("theDisplayDimmer", myDisplayDimmer);
 
-    myProgram->setUniformValue("theTime", myState->getTime());
+        myProgram->setUniformValue("theTime", myState->getTime());
 
-    myProgram->setUniformValue("theWindowResX", width());
-    myProgram->setUniformValue("theWindowResY", height());
+        myProgram->setUniformValue("theWindowResX", width());
+        myProgram->setUniformValue("theWindowResY", height());
 
-    // Since the shader program only uses single precision integers, adjust
-    // the offset and display size so that they are still relatively
-    // correct but fit within the integer precision limit.
-    int        offx, offy;
-    int        resx, resy;
-    clampResToInteger(offx, resx, myHScrollBar->value(), myDisplay.width());
-    clampResToInteger(offy, resy, myVScrollBar->value(), myDisplay.height());
+        // Since the shader program only uses single precision integers, adjust
+        // the offset and display size so that they are still relatively
+        // correct but fit within the integer precision limit.
+        int        offx, offy;
+        int        resx, resy;
+        clampResToInteger(offx, resx, myHScrollBar->value(), myDisplay.width());
+        clampResToInteger(offy, resy, myVScrollBar->value(), myDisplay.height());
 
-    myProgram->setUniformValue("theDisplayOffX", offx);
-    myProgram->setUniformValue("theDisplayOffY", offy);
-    myProgram->setUniformValue("theDisplayResX", resx);
-    myProgram->setUniformValue("theDisplayResY", resy);
+        myProgram->setUniformValue("theDisplayOffX", offx);
+        myProgram->setUniformValue("theDisplayOffY", offy);
+        myProgram->setUniformValue("theDisplayResX", resx);
+        myProgram->setUniformValue("theDisplayResY", resy);
+    }
+    else
+    {
+        glClearColor(0, 0, 0, 1);
+        glClear(GL_COLOR_BUFFER_BIT);
+    }
 
     setScrollMax(myVScrollBar, myDisplay.height());
     setScrollMax(myHScrollBar, myDisplay.width(),
             myDisplay.getVisualization() != DisplayLayout::LINEAR);
 
-    glBegin(GL_QUADS);
-    glTexCoord2f(0.0, 0.0); glVertex3i(-1, -1, -1);
-    glTexCoord2f(1.0, 0.0); glVertex3i(1, -1, -1);
-    glTexCoord2f(1.0, 1.0); glVertex3i(1, 1, -1);
-    glTexCoord2f(0.0, 1.0); glVertex3i(-1, 1, -1);
-    glEnd();
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-    myProgram->release();
+    if (myProgram)
+    {
+        myProgram->release();
+    }
 
     // Render memory contents as text if we're at a sufficient zoom level
     paintText();

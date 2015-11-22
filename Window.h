@@ -124,11 +124,12 @@ public:
 // A widget to render the memory visualization.
 class MemViewWidget : public QGLWidget { Q_OBJECT
 public:
-             MemViewWidget(int argc, char *argv[],
-                            QWidget *parent,
-                            QScrollBar *vscrollbar,
-                            QScrollBar *hscrollbar,
-                            QStatusBar *status);
+             MemViewWidget(QGLFormat format,
+                           int argc, char *argv[],
+                           QWidget *parent,
+                           QScrollBar *vscrollbar,
+                           QScrollBar *hscrollbar,
+                           QStatusBar *status);
     virtual ~MemViewWidget();
 
     virtual void        paint(QPaintEvent *event)
