@@ -118,12 +118,12 @@ static uint32                theThread = 0;
 
 static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
 {
-    HChar tmp[MV_STR_BUFSIZE];
+    const HChar *ip_desc;
 
     InlIPCursor *iipc = VG_(new_IIPC)(ip);
 
     do {
-        VG_(describe_IP)(ip, tmp, MV_STR_BUFSIZE, iipc);
+        ip_desc = VG_(describe_IP)(ip, iipc);
 
         int available = MV_STR_BUFSIZE - theStackInfo.mySize;
         int len =
@@ -132,7 +132,7 @@ static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
                 available,
                 "%s%s %s",
                 ( theStackInfo.mySize ? "\n" : ""),
-                ( n == 0 ? "at" : "by" ), tmp);
+                ( n == 0 ? "at" : "by" ), ip_desc);
 
         if (len >= available)
             theStackInfo.mySize += available-1;
@@ -699,7 +699,7 @@ typedef struct _HP_Chunk {
     SizeT                size;
 } HP_Chunk;
 
-static VgHashTable malloc_list  = NULL;   // HP_Chunks
+static VgHashTable *malloc_list  = NULL;   // HP_Chunks
 
 
 static void mv_malloc ( ThreadId tid, void* p, SizeT szB )
