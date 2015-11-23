@@ -90,7 +90,16 @@ Window::Window(int argc, char *argv[])
     // The constructor for MemViewWidget will handle falling back to OpenGL 3.0
     // if it finds that 3.3 isn't supported
     QGLFormat format(QGL::NoDepthBuffer);
-    format.setVersion(3,3);
+
+    QGLFormat::OpenGLVersionFlags flags = QGLFormat::openGLVersionFlags();
+    if (!(flags & QGLFormat::OpenGL_Version_3_3))
+    {
+        fprintf(stderr, "Detected old OpenGL version, trying to force it to 3.3\n");
+
+        // Try to force the version to 3.3. This seems to correct problems with
+        // mesa, where GL 3.3 is only supported in core profile.
+        format.setVersion(3,3);
+    }
 
     //format.setProfile(QGLFormat::CompatibilityProfile);
     //format.setProfile(QGLFormat::CoreProfile); // Requires >=Qt-4.8.0
@@ -534,27 +543,6 @@ MemViewWidget::initializeGL()
     paths.push_back(myPath);
     paths.push_back("/usr/share/memview/");
 
-    // Create vertex buffers for a full-screen quad (as a triangle strip of 2
-    // triangles)
-    const GLfloat pos[4][2] = {
-        {-1, -1},
-        { 1, -1},
-        {-1, 1 },
-        { 1, 1 }
-    };
- 
-    GLuint vao;
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
-
-    GLuint vbo[1];
-    glGenBuffers(1, vbo);
-
-    glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-    glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat), pos, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(0);
-
     QGLShader *vshader = new QGLShader(QGLShader::Vertex, this);
     QGLShader *fshader = new QGLShader(QGLShader::Fragment, this);
 
@@ -568,11 +556,6 @@ MemViewWidget::initializeGL()
     }
     else
     {
-        if (version_pair < std::pair<int,int>(3,0))
-        {
-            fprintf(stderr, "Detected old OpenGL version %d.%d, shader program may not compile!\n", version_pair.first, version_pair.second);
-        }
-
         // Try compiling shader for OpenGL 3.0 (GLSL 1.30) with
         // GL_EXT_gpu_shader4 for integer textures
         version = "#version 130\n"
@@ -773,7 +756,34 @@ MemViewWidget::paintGL()
     setScrollMax(myHScrollBar, myDisplay.width(),
             myDisplay.getVisualization() != DisplayLayout::LINEAR);
 
+    // Create vertex buffers for a full-screen quad (as a triangle strip of 2
+    // triangles)
+    const GLfloat pos[4][2] = {
+        {-1, -1},
+        { 1, -1},
+        {-1, 1 },
+        { 1, 1 }
+    };
+ 
+    GLuint vao;
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint vbo;
+    glGenBuffers(1, &vbo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(GLfloat), pos, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glEnableVertexAttribArray(0);
+
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Delete the vertex array for each render call. This seems to be required
+    // to mix vertex arrays with calls to renderText() (in paintText() below).
+    glDisableVertexAttribArray(0);
+    glDeleteBuffers(1, &vbo);
+    glDeleteVertexArrays(1, &vao);
 
     if (myProgram)
     {
