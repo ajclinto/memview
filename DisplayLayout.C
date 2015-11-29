@@ -169,7 +169,7 @@ adjustZoom(T &val, int zoom)
     val = (val + a) >> zoom;
 }
 
-void
+bool
 DisplayLayout::update(
         MemoryState &state,
         MMapMap &mmap,
@@ -185,7 +185,7 @@ DisplayLayout::update(
         myPrevWidth == width &&
         myPrevZoom == zoom)
     {
-        return;
+        return false;
     }
 
     myPrevPageCount = state.getPageCount();
@@ -347,6 +347,7 @@ DisplayLayout::update(
         myHeight = myBlocks.size() ? myBlocks.back().myDisplayBox.h[1] : 0;
     }
 
+    return true;
 }
 
 struct Edge {

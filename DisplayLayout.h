@@ -45,13 +45,20 @@ public:
 
     Visualization   getVisualization() const        { return myVisualization; }
     void            setVisualization(Visualization vis)
-                    { myVisualization = vis; }
+                    {
+                        myVisualization = vis;
+                        myPrevPageCount = 0; // Force layout update
+                    }
 
     void            setCompact(bool compact)
-                    { myCompact = compact; }
+                    {
+                        myCompact = compact;
+                        myPrevPageCount = 0; // Force layout update
+                    }
 
-    // Build the block display layout from state
-    void            update(MemoryState &state,
+    // Update the block display layout from state. Return true when the layout
+    // changed.
+    bool            update(MemoryState &state,
                            MMapMap &mmap,
                            int64 winwidth,
                            int64 width,
