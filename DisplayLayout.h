@@ -105,6 +105,12 @@ private:
     int                          myStartLevel;
     int                          myStopLevel;
     bool                         myCompact;
+
+    // Key used to determine if an update to myBlocks is needed
+    uint64    myPrevPageCount;
+    int64     myPrevWinWidth;
+    int64     myPrevWidth;
+    int       myPrevZoom;
 };
 
 // Fill State values from the given MemoryState

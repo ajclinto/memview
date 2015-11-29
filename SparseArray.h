@@ -86,6 +86,7 @@ public:
          myState = (T *)addr;
          myExists = (bool *)((char *)addr + ssize);
          myTopExists = (bool *)((char *)addr + ssize + dsize);
+         myPageCount = 0;
      }
     ~SparseArray()
      {
@@ -94,9 +95,17 @@ public:
 
     void setExists(uint64 addr)
     {
-        myExists[addr >> thePageBits] = true;
-        myTopExists[addr >> theBottomBits] = true;
+        if (!myExists[addr >> thePageBits])
+        {
+            myExists[addr >> thePageBits] = true;
+            myTopExists[addr >> theBottomBits] = true;
+            myPageCount++;
+        }
     }
+
+    // Return the number of pages that have been marked as existing with
+    // setExists()
+    uint64 getPageCount() const { return myPageCount; }
 
     T              &operator[](uint64 idx) { return myState[idx]; }
     const T        &operator[](uint64 idx) const { return myState[idx]; }
@@ -196,6 +205,7 @@ private:
     T           *myState;
     bool        *myTopExists;
     bool        *myExists;
+    uint64       myPageCount;
     size_t       mySize;
     uint64       myTopSize;
 };

@@ -207,6 +207,16 @@ public:
     uint32      getTime() const { return myTime; }
     int         getIgnoreBits() const { return myIgnoreBits; }
 
+    uint64      getPageCount() const
+    {
+        uint64 pagecount = 0;
+        for (const LinkItem *it = &myHead; it; it = it->myNext)
+        {
+            pagecount += it->myState.getPageCount();
+        }
+        return pagecount;
+    }
+
     // Print status information for a memory address
     void        appendAddressInfo(QString &message, uint64 addr,
                                   const MMapMap &map);

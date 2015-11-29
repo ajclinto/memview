@@ -41,6 +41,10 @@ DisplayLayout::DisplayLayout()
     , myStartLevel(0)
     , myStopLevel(0)
     , myCompact(true)
+    , myPrevPageCount(0)
+    , myPrevWinWidth(0)
+    , myPrevWidth(0)
+    , myPrevZoom(0)
 {
 }
 
@@ -174,6 +178,21 @@ DisplayLayout::update(
         int zoom)
 {
     //StopWatch timer;
+
+    // Bypass update if nothing has changed
+    if (myPrevPageCount == state.getPageCount() &&
+        myPrevWinWidth == winwidth &&
+        myPrevWidth == width &&
+        myPrevZoom == zoom)
+    {
+        return;
+    }
+
+    myPrevPageCount = state.getPageCount();
+    myPrevWinWidth = winwidth;
+    myPrevWidth = width;
+    myPrevZoom = zoom;
+
     myBlocks.clear();
 
     if (myCompact)
