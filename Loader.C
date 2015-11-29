@@ -390,7 +390,16 @@ Loader::run()
 
         // Input has completed.  We'll still loop to handle zoom requests
         if (!rval)
+        {
+            if (myPipe)
+            {
+                pclose(myPipe);
+                myPipe = 0;
+                myPipeFD = 0;
+            }
+
             mySource = NONE;
+        }
     }
 }
 
@@ -414,11 +423,7 @@ Loader::loadFromLackey(int max_read)
     for (int i = 0; i < max_read; i++)
     {
         if (getline(&buf, &n, myPipe) <= 0)
-        {
-            pclose(myPipe);
-            myPipe = 0;
             return false;
-        }
 
         uint64               addr;
         uint32               size;
