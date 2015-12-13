@@ -149,6 +149,56 @@ private:
     MemoryState        &myState;
 };
 
+// Fill State values from the given MemoryState, sampling based on the given
+// zoom level
+class SampledStateSource {
+public:
+    SampledStateSource(MemoryState &state, int zoom)
+        : myState(state)
+        , myZoom(zoom) {}
+
+    struct Page {
+        Page(MemoryState::DisplayPage page, int zoom)
+            : myPage(page)
+            , myZoom(zoom) {}
+
+        uint64 size() const { return SYSmax(myPage.size() >> myZoom, 1ull); }
+
+        MemoryState::DisplayPage myPage;
+        int myZoom;
+    };
+
+    Page getPage(uint64 addr, uint64, uint64 &off) const
+    {
+        auto page = myState.getPage(addr << myZoom, off);
+        off >>= myZoom;
+        return Page(page, myZoom);
+    }
+
+    inline bool exists(const Page &page) const
+    { return page.myPage.exists(); }
+
+    inline void setScanline(uint32 *scan,
+            Page &page, uint64 off, int n) const
+    {
+        const uint32        *state = (const uint32 *)page.myPage.stateArray() + (off << myZoom);
+        for (int i = 0; i < n; i++)
+            scan[i] = state[i << myZoom];
+    }
+    inline void gatherScanline(uint32 *scan,
+            Page &page, uint64 off,
+            const int *lut, int n) const
+    {
+        const uint32        *state = (const uint32 *)page.myPage.stateArray() + (off << myZoom);
+        for (int i = 0; i < n; i++)
+            scan[i] = state[lut[i] << myZoom];
+    }
+
+private:
+    MemoryState        &myState;
+    int                 myZoom;
+};
+
 // Fill memory addresses
 class AddressSource {
 public:

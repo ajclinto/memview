@@ -306,6 +306,10 @@ public:
     void        downsample(const MemoryState &state);
     void        downsamplePage(const DisplayPage &page, int shift, bool fast);
 
+    // Set a flag that is reset to false when downsample is complete
+    void        setSamplingInProgress() { mySampling = true; }
+    bool        isSamplingInProgress() const { return mySampling; }
+
 private:
     class StackInfoUpdater {
         bool myFull;
@@ -369,6 +373,7 @@ private:
 private:
     QMutex         myWriteLock;
     uint32         myTime;        // Rolling counter
+    bool           mySampling;
 
     // The number of low-order bits to ignore.  This value determines the
     // resolution and memory use for the profile.

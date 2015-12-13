@@ -665,6 +665,12 @@ MemViewWidget::paintGL()
     fprintf(stderr, "interval %f time ", myPaintInterval.lap());
 #endif
 
+    myDisplay.update(
+        *myState, *myMMapMap, width(), myImage.width(), myZoom);
+
+    int64 roff = myHScrollBar->value();
+    int64 coff = myVScrollBar->value();
+
 #ifdef USE_PBUFFER
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, myPixelBuffer);
 
@@ -672,26 +678,30 @@ MemViewWidget::paintGL()
             glMapBufferARB(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY));
 #endif
 
-    myDisplay.update(*myState, *myMMapMap, width(), myImage.width(), myZoom);
     switch (myDisplayMode)
     {
     case 3:
         myDisplay.fillImage(myImage, IntervalSource<MMapInfo>(
                     *myMMapMap, 0, myZoomState->getIgnoreBits()),
-                myHScrollBar->value(),
-                myVScrollBar->value());
+            roff, coff);
         break;
     case 4:
         myDisplay.fillImage(myImage, IntervalSource<StackInfo>(
                     *myStackTrace, myStackSelection,
                     myZoomState->getIgnoreBits()),
-                myHScrollBar->value(),
-                myVScrollBar->value());
+            roff, coff);
         break;
     default:
-        myDisplay.fillImage(myImage, StateSource(*myZoomState),
-                myHScrollBar->value(),
-                myVScrollBar->value());
+        if (myZoom <= 0 || !myZoomState->isSamplingInProgress())
+        {
+            myDisplay.fillImage(myImage, StateSource(*myZoomState),
+                                roff, coff);
+        }
+        else
+        {
+            myDisplay.fillImage(myImage, SampledStateSource(*myState, myZoom),
+                                roff, coff);
+        }
         break;
     }
 
@@ -1194,6 +1204,7 @@ MemViewWidget::changeZoom(int zoom)
         if (zoom > 0)
         {
             myZoomState = new MemoryState(myState->getIgnoreBits()+zoom);
+            myZoomState->setSamplingInProgress();
             myLoader->setZoomState(myZoomState);
         }
         else

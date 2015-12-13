@@ -35,6 +35,7 @@
 
 MemoryState::MemoryState(int ignorebits)
     : myTime(2)
+    , mySampling(false)
     , myIgnoreBits(ignorebits)
     , myBottomBits(SYSmax(theAllBits-ignorebits, thePageBits))
     , myHead(myBottomBits, 0, 0)
@@ -196,6 +197,8 @@ MemoryState::downsample(const MemoryState &state)
         QThreadPool::globalInstance()->start(task);
 
     QThreadPool::globalInstance()->waitForDone();
+
+    mySampling = false;
 }
 
 void

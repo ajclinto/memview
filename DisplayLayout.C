@@ -656,6 +656,7 @@ DisplayLayout::fillImage(
         GLImage<TYPE> &image, const SOURCE &src, int64 coff, int64 roff) const;
 
 INST_FUNC(uint32, StateSource)
+INST_FUNC(uint32, SampledStateSource)
 INST_FUNC(uint64, AddressSource)
 INST_FUNC(uint32, IntervalSource<MMapInfo>)
 INST_FUNC(uint32, IntervalSource<StackInfo>)
