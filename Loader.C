@@ -631,7 +631,7 @@ Loader::loadFromTest()
     static uint64 theCount = 0;
 
     if (theCount >= theSize)
-        return false;
+        theCount = 0;
 
     MV_TraceBlock   block;
     for (uint32 j = 0; j < MV_BlockSize; j++)
