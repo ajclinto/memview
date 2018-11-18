@@ -116,14 +116,14 @@ static char                  theStackTrace[MV_STR_BUFSIZE];
 
 static uint32                theThread = 0;
 
-static void appendIpDesc(UInt n, Addr ip, void* uu_opaque)
+static void appendIpDesc(UInt n, DiEpoch ep, Addr ip, void* uu_opaque)
 {
     const HChar *ip_desc;
 
-    InlIPCursor *iipc = VG_(new_IIPC)(ip);
+    InlIPCursor *iipc = VG_(new_IIPC)(ep, ip);
 
     do {
-        ip_desc = VG_(describe_IP)(ip, iipc);
+        ip_desc = VG_(describe_IP)(ep, ip, iipc);
 
         int available = MV_STR_BUFSIZE - theStackInfo.mySize;
         int len =
@@ -180,7 +180,8 @@ static void flush_data(void)
                 0/*first_ip_delta*/);
 
         theStackInfo.mySize = 0;
-        VG_(apply_StackTrace)(appendIpDesc, 0, ips, n_ips);
+        DiEpoch ep = VG_(current_DiEpoch)();
+        VG_(apply_StackTrace)(appendIpDesc, 0, ep, ips, n_ips);
 
         // Send the block
         header.myType = MV_BLOCK;
@@ -896,6 +897,30 @@ mv_instrument ( VgCallbackClosure* closure,
                     addEvent_Dw( sbOut, st->Ist.Store.addr,
                             sizeofIRType(typeOfIRExpr(tyenv, data)),
                            IRTypeToMVType(typeOfIRExpr(tyenv, data)) );
+                }
+                addStmtToIRSB( sbOut, st );
+                break;
+
+            case Ist_StoreG:
+                {
+                    IRStoreG* sg = st->Ist.StoreG.details;
+                    IRExpr* data  = sg->data;
+                    addEvent_Dw( sbOut, sg->addr,
+                            sizeofIRType(typeOfIRExpr(tyenv, data)),
+                           IRTypeToMVType(typeOfIRExpr(tyenv, data)) );
+                }
+                addStmtToIRSB( sbOut, st );
+                break;
+		
+            case Ist_LoadG:
+                {
+                    IRLoadG* lg = st->Ist.LoadG.details;
+                    IRType type = Ity_INVALID;
+                    IRType typeWide = Ity_INVALID;
+                    typeOfIRLoadGOp(lg->cvt, &typeWide, &type);
+                    addEvent_Dw( sbOut, lg->addr,
+                            sizeofIRType(type),
+                           IRTypeToMVType(type) );
                 }
                 addStmtToIRSB( sbOut, st );
                 break;
