@@ -14,9 +14,9 @@ plain fun to watch the memory of a complex algorithm!
 ## Building
 
 Before you start, you'll need:
-* Qt4: libqt4-dev libqt4-opengl-dev
+* Qt5: qtbase5-dev
 * A GPU with OpenGL 3.0 support
-* Tested compilers are gcc 4.4 and 4.7
+* Tested compilers are gcc 9.3
 
 Build the visualizer front end:
 

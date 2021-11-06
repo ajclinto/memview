@@ -5,7 +5,6 @@
 QT += opengl
 
 TEMPLATE = app
-TARGET = 
 DEPENDPATH += .
 INCLUDEPATH += .
 

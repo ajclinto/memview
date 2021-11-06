@@ -1011,7 +1011,7 @@ static void mv_fini(Int exitcode)
 {
     flush_data();
 
-    VG_(printf)("Total events: %lld\n", theTotalEvents);
+    VG_(printf)("Total events: %llu\n", theTotalEvents);
 }
 
 static void mv_atfork_child(ThreadId tid)

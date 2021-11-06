@@ -3,11 +3,11 @@ VALGRIND_SRC = valgrind_src
 top: $(VALGRIND_SRC)
 	$(MAKE) -C $(VALGRIND_SRC)
 
-VALGRIND_VERSION = valgrind-3.14.0
+VALGRIND_VERSION = valgrind-3.18.1
 VALGRIND_TARBALL = $(VALGRIND_VERSION).tar.bz2
 
 $(VALGRIND_TARBALL):
-	wget http://valgrind.org/downloads/$(VALGRIND_TARBALL)
+	wget https://sourceware.org/pub/valgrind/$(VALGRIND_TARBALL)
 
 $(VALGRIND_SRC): $(VALGRIND_TARBALL)
 	#svn co svn://svn.valgrind.org/valgrind/trunk $(VALGRIND_SRC)

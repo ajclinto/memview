@@ -2,26 +2,18 @@ Index: Makefile.am
 ===================================================================
 --- Makefile.am	(revision 13221)
 +++ Makefile.am	(working copy)
-@@ -10,7 +10,8 @@
- 		lackey \
- 		none \
- 		helgrind \
--		drd
-+		drd \
-+		memview
- 
- EXP_TOOLS = 	exp-sgcheck \
- 		exp-bbv \
+@@ -7,2 +7,3 @@
+		memcheck \
++		memview \
+		cachegrind \
 Index: configure.ac
 ===================================================================
 --- configure.ac	(revision 13715)
 +++ configure.ac	(working copy)
-@@ -2839,6 +2839,8 @@
-    massif/Makefile
+@@ -5173,4 +5173,6 @@
     massif/tests/Makefile
     massif/ms_print
 +   memview/Makefile
 +   memview/tests/Makefile
-    lackey/Makefile
-    lackey/tests/Makefile
-    none/Makefile
+    dhat/Makefile
+    dhat/tests/Makefile
