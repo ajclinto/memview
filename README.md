@@ -31,7 +31,7 @@ source code prior to patching and building it:
 
 ## Execution
 
-If you built the front and tool successfully, the following command should
+If you built the front end tool successfully, the following command should
 work:
 
     ./memview ls
